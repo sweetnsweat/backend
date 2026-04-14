@@ -34,7 +34,7 @@ GitHub sweetnsweat/backend main
 The Jenkins job is created by `ci/jenkins/init.groovy.d/backend-pipeline.groovy`.
 
 - Job name: `sweetnsweat-backend-main`
-- Repository: `git@github.com:sweetnsweat/backend.git`
+- Repository: `https://github.com/sweetnsweat/backend.git`
 - Branch: `main`
 - Jenkinsfile path: `Jenkinsfile`
 - Git credential ID: `github-token`
@@ -105,9 +105,13 @@ http://100.89.171.113:3000/webhooks/github
 Expose it through Tailscale Funnel:
 
 ```bash
-tailscale funnel --bg 3000
+tailscale funnel --bg --yes 3000
 tailscale funnel status
 ```
+
+If Funnel is not enabled on the tailnet, the command returns an activation URL.
+Open that URL while logged in to the tailnet owner/admin account, enable Funnel
+for the node, then run the command again.
 
 Register the public Funnel URL as a GitHub webhook:
 

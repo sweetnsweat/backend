@@ -61,8 +61,20 @@ pipeline {
                       /v3/api-docs.yaml \
                       /openapi.yaml
                     do
-                      code="$(curl -s -o /tmp/jenkins-verify.out -w '%{http_code}' "${VERIFY_BASE_URL}${endpoint}")"
-                      test "$code" = "200"
+                      ok=0
+                      for attempt in $(seq 1 30); do
+                        code="$(curl -s -o /tmp/jenkins-verify.out -w '%{http_code}' "${VERIFY_BASE_URL}${endpoint}" || true)"
+                        if [ "$code" = "200" ]; then
+                          ok=1
+                          break
+                        fi
+                        sleep 2
+                      done
+                      if [ "$ok" != "1" ]; then
+                        echo "Verification failed for ${endpoint}; last HTTP status was ${code}"
+                        cat /tmp/jenkins-verify.out || true
+                        exit 1
+                      fi
                     done
                 '''
             }
