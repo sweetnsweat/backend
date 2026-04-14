@@ -1,0 +1,23 @@
+# Capstone backend development environment
+# This is not a Python dependency file. It records the backend runtime/tooling
+# requirements so the local Mac and Tailscale development server stay aligned.
+
+java=21.0.6-temurin
+gradle-wrapper=9.4.1
+spring-boot-gradle-plugin=4.0.5
+
+docker-client-local=28.5.1
+docker-server-local=27.4.0
+docker-client-dev-server=29.4.0
+
+postgres-image=postgres:16
+postgres-version=16.13
+postgres-container=postgres-db
+postgres-host-port=5432
+postgres-container-port=5432
+postgres-database=postgres
+postgres-username=postgres
+
+tailscale-dev-server=dy-minipc
+tailscale-dev-server-ip=100.89.171.113
+tailscale-dev-server-os=Ubuntu-24.04
