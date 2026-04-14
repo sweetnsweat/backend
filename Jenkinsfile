@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     triggers {
+        githubPush()
         pollSCM('H/2 * * * *')
     }
 
@@ -12,6 +13,7 @@ pipeline {
         DOCKER_NETWORK = 'postgres-stack_default'
         DB_URL = 'jdbc:postgresql://postgres-db:5432/postgres'
         DB_USERNAME = 'postgres'
+        VERIFY_BASE_URL = 'http://host.docker.internal:8080'
     }
 
     stages {
@@ -59,7 +61,7 @@ pipeline {
                       /v3/api-docs.yaml \
                       /openapi.yaml
                     do
-                      code="$(curl -s -o /tmp/jenkins-verify.out -w '%{http_code}' "http://localhost:${APP_PORT}${endpoint}")"
+                      code="$(curl -s -o /tmp/jenkins-verify.out -w '%{http_code}' "${VERIFY_BASE_URL}${endpoint}")"
                       test "$code" = "200"
                     done
                 '''

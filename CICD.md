@@ -25,7 +25,9 @@ GitHub sweetnsweat/backend main
 - PostgreSQL container: `postgres-db`
 - PostgreSQL Docker network: `postgres-stack_default`
 - Jenkins container: `sweetnsweat-jenkins`
+- GitHub webhook relay container: `sweetnsweat-github-webhook-relay`
 - Jenkins URL: `http://100.89.171.113:8081`
+- GitHub webhook relay local URL: `http://100.89.171.113:3000/webhooks/github`
 
 ## Backend Jenkins Job
 
@@ -38,7 +40,10 @@ The Jenkins job is created by `ci/jenkins/init.groovy.d/backend-pipeline.groovy`
 - Git credential ID: `github-token`
 - DB password credential ID: `backend-db-password`
 
-The pipeline currently uses `pollSCM('H/2 * * * *')` because GitHub cannot call a private Tailscale IP directly. If Jenkins later gets a public webhook URL through a domain, reverse proxy, or Tailscale Funnel, replace polling with a GitHub webhook trigger.
+The pipeline uses both:
+
+- `githubPush()` for GitHub webhook events
+- `pollSCM('H/2 * * * *')` as a fallback if the Funnel endpoint is down
 
 ## Backend Deploy Steps
 
@@ -54,6 +59,8 @@ The pipeline currently uses `pollSCM('H/2 * * * *')` because GitHub cannot call 
    - `/swagger-ui/index.html`
    - `/v3/api-docs.yaml`
    - `/openapi.yaml`
+
+Jenkins runs inside a container, so verification calls the backend through `host.docker.internal:8080` rather than `localhost:8080`.
 
 ## Jenkins Server Bootstrap
 
@@ -85,23 +92,38 @@ docker compose up -d --build
 
 The Jenkins container mounts the host Docker socket and Docker CLI. This is acceptable only for the development server because it gives Jenkins deployment-level access to Docker on that host.
 
-## GitHub Webhook Option
+## GitHub Webhook With Tailscale Funnel
 
-Polling is active now. For webhook-based triggering, Jenkins must be reachable from GitHub.
+GitHub cannot call the private Tailscale IP directly. The development server therefore runs a small nginx relay on port `3000` that only forwards `/webhooks/github` to Jenkins' `/github-webhook/`.
 
-When a public Jenkins URL is available:
-
-1. Set Jenkins URL in Jenkins system settings.
-2. Add a GitHub webhook to `sweetnsweat/backend`.
-3. Payload URL:
+Local relay target:
 
 ```text
-https://<public-jenkins-host>/github-webhook/
+http://100.89.171.113:3000/webhooks/github
 ```
 
-4. Content type: `application/json`
-5. Event: `push`
-6. Replace or supplement `pollSCM` in `Jenkinsfile` with GitHub hook trigger behavior.
+Expose it through Tailscale Funnel:
+
+```bash
+tailscale funnel --bg 3000
+tailscale funnel status
+```
+
+Register the public Funnel URL as a GitHub webhook:
+
+```text
+https://<your-node>.<tailnet>.ts.net/webhooks/github
+```
+
+Webhook settings:
+
+- Repository: `sweetnsweat/backend`
+- Payload URL: Funnel URL ending in `/webhooks/github`
+- Content type: `application/json`
+- Event: `push`
+- Active: yes
+
+Do not expose Jenkins port `8081` directly through Funnel unless there is a specific reason. The relay keeps the public surface limited to the webhook path.
 
 ## Frontend and AI Server Extension Plan
 
