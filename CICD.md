@@ -116,7 +116,7 @@ for the node, then run the command again.
 Register the public Funnel URL as a GitHub webhook:
 
 ```text
-https://<your-node>.<tailnet>.ts.net/webhooks/github
+https://dy-minipc.tail518072.ts.net/webhooks/github
 ```
 
 Webhook settings:
@@ -126,6 +126,12 @@ Webhook settings:
 - Content type: `application/json`
 - Event: `push`
 - Active: yes
+
+Current backend webhook:
+
+- GitHub hook ID: `606177293`
+- Payload URL: `https://dy-minipc.tail518072.ts.net/webhooks/github`
+- Latest ping verification: GitHub delivery returned `200 OK`, and Jenkins logged `PING webhook received from repo <https://github.com/sweetnsweat/backend>`.
 
 Do not expose Jenkins port `8081` directly through Funnel unless there is a specific reason. The relay keeps the public surface limited to the webhook path.
 
