@@ -46,3 +46,16 @@ This starts:
 
 - `capstone-backend` from `capstone-backend:dev`
 - `postgres-db` from `postgres:16`
+
+## API Documentation
+
+Swagger UI exposes both the generated Springdoc document and the shared static contract YAML.
+
+- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+- Springdoc generated YAML: `http://localhost:8080/v3/api-docs.yaml`
+- Shared contract YAML: `http://localhost:8080/openapi.yaml`
+- Development server Swagger UI: `http://100.89.171.113:8080/swagger-ui/index.html`
+- Development server Springdoc generated YAML: `http://100.89.171.113:8080/v3/api-docs.yaml`
+- Development server shared contract YAML: `http://100.89.171.113:8080/openapi.yaml`
+
+Swagger UI defaults to `midterm-contract-yaml` so the frontend can consume the planned midterm API contract before every controller is implemented.
