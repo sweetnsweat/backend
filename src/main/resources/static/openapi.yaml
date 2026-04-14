@@ -30,7 +30,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HealthResponse"
+                $ref: "#/components/schemas/ApiResponseHealthResponse"
 
   /api/auth/signup:
     post:
@@ -49,7 +49,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserProfileResponse"
+                $ref: "#/components/schemas/ApiResponseUserProfileResponse"
 
   /api/auth/login:
     post:
@@ -68,7 +68,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LoginResponse"
+                $ref: "#/components/schemas/ApiResponseLoginResponse"
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout and revoke active refresh tokens
+      responses:
+        "200":
+          description: Logout completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
 
   /api/users/me:
     get:
@@ -318,6 +330,55 @@ components:
         type: integer
         format: int64
   schemas:
+    ApiResponseMeta:
+      type: object
+      required: [success, code, message, timestamp]
+      properties:
+        success:
+          type: boolean
+          example: true
+        code:
+          type: string
+          example: OK
+        message:
+          type: string
+          example: Request succeeded
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponseHealthResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseMeta"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/HealthResponse"
+
+    ApiResponseUserProfileResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseMeta"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/UserProfileResponse"
+
+    ApiResponseLoginResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseMeta"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/LoginResponse"
+
+    ApiResponseVoid:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseMeta"
+        - type: object
+          properties:
+            data:
+              nullable: true
+
     HealthResponse:
       type: object
       required: [status, timestamp]

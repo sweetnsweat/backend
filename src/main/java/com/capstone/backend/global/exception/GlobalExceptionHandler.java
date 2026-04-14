@@ -1,0 +1,113 @@
+package com.capstone.backend.global.exception;
+
+import jakarta.servlet.http.HttpServletRequest;
+import java.net.URI;
+import java.time.Instant;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ProblemDetail> handleApiException(ApiException exception, HttpServletRequest request) {
+        return toProblemDetail(
+                exception.getStatus(),
+                exception.getCode(),
+                exception.getMessage(),
+                exception.getStatus().getReasonPhrase(),
+                "about:blank",
+                request
+        );
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ProblemDetail> handleValidationException(MethodArgumentNotValidException exception,
+                                                                   HttpServletRequest request) {
+        String message = exception.getBindingResult().getFieldErrors().stream()
+                .map(this::formatFieldError)
+                .collect(Collectors.joining(", "));
+
+        if (message.isBlank()) {
+            message = "Validation failed";
+        }
+
+        List<String> fieldErrors = exception.getBindingResult().getFieldErrors().stream()
+                .map(this::formatFieldError)
+                .toList();
+
+        ProblemDetail problemDetail = buildProblemDetail(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                message,
+                "Validation Failed",
+                "urn:problem:validation-error",
+                request
+        );
+        problemDetail.setProperty("errors", fieldErrors);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ProblemDetail> handleUnhandledException(Exception exception, HttpServletRequest request) {
+        ProblemDetailSpec spec = AnnotationUtils.findAnnotation(exception.getClass(), ProblemDetailSpec.class);
+        if (spec != null) {
+            return toProblemDetail(
+                    spec.status(),
+                    spec.code(),
+                    exception.getMessage(),
+                    spec.title(),
+                    spec.type(),
+                    request
+            );
+        }
+
+        return toProblemDetail(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "INTERNAL_SERVER_ERROR",
+                "Unexpected server error",
+                "Internal Server Error",
+                "about:blank",
+                request
+        );
+    }
+
+    private String formatFieldError(FieldError fieldError) {
+        return fieldError.getField() + ": " + fieldError.getDefaultMessage();
+    }
+
+    private ResponseEntity<ProblemDetail> toProblemDetail(HttpStatusCode statusCode,
+                                                          String code,
+                                                          String detail,
+                                                          String title,
+                                                          String type,
+                                                          HttpServletRequest request) {
+        ProblemDetail problemDetail = buildProblemDetail(statusCode, code, detail, title, type, request);
+        return ResponseEntity.status(statusCode).body(problemDetail);
+    }
+
+    private ProblemDetail buildProblemDetail(HttpStatusCode statusCode,
+                                             String code,
+                                             String detail,
+                                             String title,
+                                             String type,
+                                             HttpServletRequest request) {
+        String safeDetail = (detail == null || detail.isBlank()) ? "Request failed" : detail;
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(statusCode, safeDetail);
+        problemDetail.setTitle((title == null || title.isBlank()) ? "Error" : title);
+        problemDetail.setType(URI.create((type == null || type.isBlank()) ? "about:blank" : type));
+        problemDetail.setProperty("code", code);
+        problemDetail.setProperty("timestamp", Instant.now());
+        problemDetail.setProperty("path", request.getRequestURI());
+        return problemDetail;
+    }
+}

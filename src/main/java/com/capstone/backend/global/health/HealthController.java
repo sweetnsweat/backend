@@ -1,5 +1,6 @@
 package com.capstone.backend.global.health;
 
+import com.capstone.backend.global.api.ApiResponse;
 import java.time.Instant;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,8 +16,8 @@ public class HealthController {
 
     @Operation(summary = "Check backend API health")
     @GetMapping("/health")
-    public HealthResponse health() {
-        return new HealthResponse("UP", Instant.now());
+    public ApiResponse<HealthResponse> health() {
+        return ApiResponse.ok(new HealthResponse("UP", Instant.now()));
     }
 
     public record HealthResponse(String status, Instant timestamp) {
