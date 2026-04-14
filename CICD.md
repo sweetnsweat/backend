@@ -83,6 +83,8 @@ cd ~/jenkins-backend-cicd
 docker compose up -d --build
 ```
 
+The Jenkins container mounts the host Docker socket and Docker CLI. This is acceptable only for the development server because it gives Jenkins deployment-level access to Docker on that host.
+
 ## GitHub Webhook Option
 
 Polling is active now. For webhook-based triggering, Jenkins must be reachable from GitHub.
