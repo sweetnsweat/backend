@@ -10,6 +10,10 @@ pipeline {
         APP_CONTAINER = 'capstone-backend'
         APP_IMAGE = 'capstone-backend:dev'
         APP_PORT = '8080'
+        REDIS_CONTAINER = 'redis-cache'
+        REDIS_IMAGE = 'redis:7'
+        REDIS_HOST = 'redis-cache'
+        REDIS_PORT = '6379'
         DOCKER_NETWORK = 'postgres-stack_default'
         DB_URL = 'jdbc:postgresql://postgres-db:5432/postgres'
         DB_USERNAME = 'postgres'
@@ -35,15 +39,28 @@ pipeline {
                 withCredentials([string(credentialsId: 'backend-db-password', variable: 'DB_PASSWORD')]) {
                     sh '''
                         set -eu
+                        docker pull "${REDIS_IMAGE}"
+                        docker rm -f "${REDIS_CONTAINER}" >/dev/null 2>&1 || true
                         docker rm -f "${APP_CONTAINER}" >/dev/null 2>&1 || true
+
+                        docker run -d \
+                          --name "${REDIS_CONTAINER}" \
+                          --network "${DOCKER_NETWORK}" \
+                          --restart unless-stopped \
+                          "${REDIS_IMAGE}" \
+                          redis-server --appendonly yes
+
                         docker run -d \
                           --name "${APP_CONTAINER}" \
                           --network "${DOCKER_NETWORK}" \
+                          --restart unless-stopped \
                           -p "${APP_PORT}:8080" \
                           -e SERVER_PORT=8080 \
                           -e DB_URL="${DB_URL}" \
                           -e DB_USERNAME="${DB_USERNAME}" \
                           -e DB_PASSWORD="${DB_PASSWORD}" \
+                          -e REDIS_HOST="${REDIS_HOST}" \
+                          -e REDIS_PORT="${REDIS_PORT}" \
                           "${APP_IMAGE}"
                     '''
                 }
@@ -76,6 +93,59 @@ pipeline {
                         exit 1
                       fi
                     done
+                '''
+            }
+        }
+
+        stage('Verify Auth Flow') {
+            steps {
+                sh '''
+                    set -eu
+
+                    probe_login_id="jenkins_probe_${BUILD_NUMBER}_$(date +%s)"
+                    probe_nickname="JenkinsProbe${BUILD_NUMBER}"
+                    password='password123'
+
+                    signup_payload=$(printf '{"loginId":"%s","password":"%s","nickname":"%s"}' "$probe_login_id" "$password" "$probe_nickname")
+                    signup_code="$(curl -s -o /tmp/jenkins-signup.out -w '%{http_code}' \
+                      -X POST "${VERIFY_BASE_URL}/api/auth/signup" \
+                      -H 'Content-Type: application/json' \
+                      -d "$signup_payload" || true)"
+
+                    if [ "$signup_code" != "201" ]; then
+                      echo "Auth verify failed at signup; status=${signup_code}"
+                      cat /tmp/jenkins-signup.out || true
+                      exit 1
+                    fi
+
+                    login_payload=$(printf '{"loginId":"%s","password":"%s"}' "$probe_login_id" "$password")
+                    login_code="$(curl -s -o /tmp/jenkins-login.out -w '%{http_code}' \
+                      -X POST "${VERIFY_BASE_URL}/api/auth/login" \
+                      -H 'Content-Type: application/json' \
+                      -d "$login_payload" || true)"
+
+                    if [ "$login_code" != "200" ]; then
+                      echo "Auth verify failed at login; status=${login_code}"
+                      cat /tmp/jenkins-login.out || true
+                      exit 1
+                    fi
+
+                    access_token="$(sed -n 's/.*"accessToken":"\\([^"]*\\)".*/\\1/p' /tmp/jenkins-login.out | head -n 1)"
+                    if [ -z "$access_token" ]; then
+                      echo "Auth verify failed: accessToken missing in login response"
+                      cat /tmp/jenkins-login.out || true
+                      exit 1
+                    fi
+
+                    logout_code="$(curl -s -o /tmp/jenkins-logout.out -w '%{http_code}' \
+                      -X POST "${VERIFY_BASE_URL}/api/auth/logout" \
+                      -H "Authorization: Bearer ${access_token}" || true)"
+
+                    if [ "$logout_code" != "200" ]; then
+                      echo "Auth verify failed at logout; status=${logout_code}"
+                      cat /tmp/jenkins-logout.out || true
+                      exit 1
+                    fi
                 '''
             }
         }

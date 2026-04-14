@@ -22,6 +22,8 @@ GitHub sweetnsweat/backend main
 - Backend container: `capstone-backend`
 - Backend image: `capstone-backend:dev`
 - Backend port: `8080`
+- Redis container: `redis-cache`
+- Redis image: `redis:7`
 - PostgreSQL container: `postgres-db`
 - PostgreSQL Docker network: `postgres-stack_default`
 - Jenkins container: `sweetnsweat-jenkins`
@@ -51,14 +53,19 @@ The pipeline uses both:
 
 1. `./gradlew clean test bootJar`
 2. `docker build -t capstone-backend:dev .`
-3. Remove the old `capstone-backend` container if it exists
-4. Start the new container on `postgres-stack_default`
-5. Verify:
+3. Pull and recreate `redis-cache` container on `postgres-stack_default`
+4. Remove the old `capstone-backend` container if it exists
+5. Start the new backend container on `postgres-stack_default` with `REDIS_HOST=redis-cache`
+6. Verify infrastructure endpoints:
    - `/actuator/health`
    - `/api/health`
    - `/swagger-ui/index.html`
    - `/v3/api-docs.yaml`
    - `/openapi.yaml`
+7. Verify auth flow end-to-end:
+   - `POST /api/auth/signup`
+   - `POST /api/auth/login`
+   - `POST /api/auth/logout`
 
 Jenkins runs inside a container, so verification calls the backend through `host.docker.internal:8080` rather than `localhost:8080`.
 
