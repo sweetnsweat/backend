@@ -59,3 +59,29 @@ Swagger UI exposes both the generated Springdoc document and the shared static c
 - Development server shared contract YAML: `http://100.89.171.113:8080/openapi.yaml`
 
 Swagger UI defaults to `midterm-contract-yaml` so the frontend can consume the planned midterm API contract before every controller is implemented.
+
+## Development Logs
+
+The backend writes application logs to `logs/backend.log` by default and exposes
+them through a development-only tail endpoint and Spring Boot Actuator.
+
+- Browser-friendly development log tail: `http://100.89.171.113:8080/dev/logs`
+- Last N lines: `http://100.89.171.113:8080/dev/logs?lines=300`
+
+- Local logs endpoint: `http://localhost:8080/actuator/logfile`
+- Development server logs endpoint: `http://100.89.171.113:8080/actuator/logfile`
+
+The `/dev/logs` endpoint is intended only for the Tailscale development server.
+The Actuator logfile endpoint requires a JWT access token. For development, login with
+the demo account and pass the returned access token as a Bearer token.
+
+```bash
+curl -s -X POST http://100.89.171.113:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"loginId":"demoUser","password":"password123"}'
+```
+
+```bash
+curl http://100.89.171.113:8080/actuator/logfile \
+  -H "Authorization: Bearer <accessToken>"
+```

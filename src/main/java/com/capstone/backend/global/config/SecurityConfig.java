@@ -35,6 +35,7 @@ public class SecurityConfig {
                                 "/api/health",
                                 "/api/auth/signup",
                                 "/api/auth/login",
+                                "/dev/logs",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/v3/api-docs.yaml",
