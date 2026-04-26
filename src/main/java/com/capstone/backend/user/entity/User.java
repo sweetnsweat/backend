@@ -1,10 +1,14 @@
 package com.capstone.backend.user.entity;
 
+import com.capstone.backend.routine.entity.Routine;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -53,6 +57,10 @@ public class User {
 
     @Column(name = "weight_kg", precision = 5, scale = 2)
     private BigDecimal weightKg;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "active_routine_id")
+    private Routine activeRoutine;
 
     @Column(name = "experience_level", length = 20)
     private String experienceLevel;
@@ -117,6 +125,10 @@ public class User {
         this.heightCm = heightCm;
         this.weightKg = weightKg;
         updateExerciseProfile(experienceLevel, preferredExerciseTypes);
+    }
+
+    public void updateActiveRoutine(Routine activeRoutine) {
+        this.activeRoutine = activeRoutine;
     }
 
     @PrePersist
@@ -196,6 +208,10 @@ public class User {
 
     public BigDecimal getWeightKg() {
         return weightKg;
+    }
+
+    public Routine getActiveRoutine() {
+        return activeRoutine;
     }
 
     public String getExperienceLevel() {
