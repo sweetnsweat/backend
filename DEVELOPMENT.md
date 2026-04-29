@@ -75,6 +75,13 @@ The `/dev/logs` endpoint is intended only for the Tailscale development server.
 The Actuator logfile endpoint requires a JWT access token. For development, login with
 the demo account and pass the returned access token as a Bearer token.
 
+API requests under `/api/**` are written to the same log file when each request
+finishes. Sensitive query parameters such as tokens and passwords are masked.
+
+```text
+API_REQUEST method=GET path=/api/users/me status=200 durationMs=34 client=127.0.0.1 user=demoUser(1)
+```
+
 ```bash
 curl -s -X POST http://100.89.171.113:8080/api/auth/login \
   -H 'Content-Type: application/json' \

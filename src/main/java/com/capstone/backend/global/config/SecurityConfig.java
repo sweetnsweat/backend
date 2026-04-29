@@ -1,7 +1,9 @@
 package com.capstone.backend.global.config;
 
 import com.capstone.backend.auth.security.JwtAuthenticationFilter;
+import com.capstone.backend.global.log.ApiRequestLoggingFilter;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
@@ -22,7 +24,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+                                                   JwtAuthenticationFilter jwtAuthenticationFilter,
+                                                   @Value("${app.api-request-logging.enabled:true}") boolean apiRequestLoggingEnabled) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
@@ -54,6 +57,7 @@ public class SecurityConfig {
                     ));
                 }))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new ApiRequestLoggingFilter(apiRequestLoggingEnabled), JwtAuthenticationFilter.class)
                 .build();
     }
 
