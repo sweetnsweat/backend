@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Configuration;
         info = @Info(
                 title = "Sweet & Sweat Backend API",
                 version = "v0.1.0",
-                description = "API contract for the midterm demo flow."
+                description = "중간 발표 데모 흐름 기준 백엔드 API 문서입니다."
         )
 )
 @SecurityScheme(

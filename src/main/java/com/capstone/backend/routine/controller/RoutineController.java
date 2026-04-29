@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "Routines", description = "Workout routine APIs")
+@Tag(name = "운동 루틴", description = "기본 운동 루틴 조회 API")
 @RestController
 @RequestMapping("/api/routines")
 public class RoutineController {
@@ -23,13 +23,13 @@ public class RoutineController {
         this.routineService = routineService;
     }
 
-    @Operation(summary = "Get default workout routines")
+    @Operation(summary = "기본 운동 루틴 목록 조회", description = "사용자가 선택할 수 있는 기본 운동 루틴 목록을 조회합니다.")
     @GetMapping("/default")
     public ApiResponse<List<RoutineSummaryResponse>> defaultRoutines() {
         return ApiResponse.ok(routineService.getDefaultRoutines());
     }
 
-    @Operation(summary = "Get workout routine detail")
+    @Operation(summary = "운동 루틴 상세 조회", description = "루틴에 포함된 운동 목록, 세트, 반복 횟수 등 상세 정보를 조회합니다.")
     @GetMapping("/{routineId}")
     public ApiResponse<RoutineDetailResponse> routine(@PathVariable Long routineId) {
         return ApiResponse.ok(routineService.getRoutine(routineId));

@@ -72,6 +72,8 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.loginId").value("demoUser"))
                 .andExpect(jsonPath("$.data.nickname").value("Demo User"))
                 .andExpect(jsonPath("$.data.status").value("active"))
+                .andExpect(jsonPath("$.data.onboardingCompleted").value(false))
+                .andExpect(jsonPath("$.data.requiresOnboarding").value(true))
                 .andExpect(jsonPath("$.data.preferredExerciseTypes", empty()))
                 .andExpect(jsonPath("$.data.pushEnabled").value(true))
                 .andExpect(jsonPath("$.data.pushQuestEnabled").value(true))
@@ -108,13 +110,15 @@ class UserControllerTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Onboarding profile updated"))
+                .andExpect(jsonPath("$.message").value("온보딩 프로필이 저장되었습니다."))
                 .andExpect(jsonPath("$.data.id").value(user.getId()))
                 .andExpect(jsonPath("$.data.gender").value("female"))
                 .andExpect(jsonPath("$.data.birthDate").value("2002-05-20"))
                 .andExpect(jsonPath("$.data.heightCm").value(164.5))
                 .andExpect(jsonPath("$.data.weightKg").value(58.2))
                 .andExpect(jsonPath("$.data.experienceLevel").value("beginner"))
+                .andExpect(jsonPath("$.data.onboardingCompleted").value(true))
+                .andExpect(jsonPath("$.data.requiresOnboarding").value(false))
                 .andExpect(jsonPath("$.data.preferredExerciseTypes[0]").value("strength"))
                 .andExpect(jsonPath("$.data.preferredExerciseTypes[1]").value("walking"));
 
@@ -126,6 +130,8 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.heightCm").value(164.50))
                 .andExpect(jsonPath("$.data.weightKg").value(58.20))
                 .andExpect(jsonPath("$.data.experienceLevel").value("beginner"))
+                .andExpect(jsonPath("$.data.onboardingCompleted").value(true))
+                .andExpect(jsonPath("$.data.requiresOnboarding").value(false))
                 .andExpect(jsonPath("$.data.preferredExerciseTypes[0]").value("strength"))
                 .andExpect(jsonPath("$.data.preferredExerciseTypes[1]").value("walking"));
     }
@@ -173,7 +179,7 @@ class UserControllerTest {
                                 }
                                 """.formatted(routineId)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Active routine updated"))
+                .andExpect(jsonPath("$.message").value("활성 운동 루틴이 설정되었습니다."))
                 .andExpect(jsonPath("$.data.id").value(routineId))
                 .andExpect(jsonPath("$.data.name").value("테스트 기본 루틴"))
                 .andExpect(jsonPath("$.data.items[0].exercise.name").value("Test Squat"));

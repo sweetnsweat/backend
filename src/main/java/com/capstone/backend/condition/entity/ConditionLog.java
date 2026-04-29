@@ -35,6 +35,9 @@ public class ConditionLog {
     @Column(name = "log_date", nullable = false)
     private LocalDate logDate;
 
+    @Column(name = "condition_level")
+    private Integer conditionLevel;
+
     @Column(name = "sleep_score", nullable = false)
     private Integer sleepScore;
 
@@ -44,14 +47,14 @@ public class ConditionLog {
     @Column(name = "fatigue_score", nullable = false)
     private Integer fatigueScore;
 
+    @Column(name = "energy_level")
+    private Integer energyLevel;
+
     @Column(name = "condition_score", nullable = false, precision = 5, scale = 2)
     private BigDecimal conditionScore;
 
     @Column(name = "exercise_multiplier", nullable = false, precision = 4, scale = 2)
     private BigDecimal exerciseMultiplier;
-
-    @Column(name = "memo", columnDefinition = "text")
-    private String memo;
 
     @Column(name = "fatigue", nullable = false)
     private Integer legacyFatigue;
@@ -67,31 +70,34 @@ public class ConditionLog {
 
     public static ConditionLog create(User user,
                                       LocalDate logDate,
+                                      Integer conditionLevel,
                                       Integer sleepScore,
                                       Integer stressScore,
                                       Integer fatigueScore,
+                                      Integer energyLevel,
                                       BigDecimal conditionScore,
-                                      BigDecimal exerciseMultiplier,
-                                      String memo) {
+                                      BigDecimal exerciseMultiplier) {
         ConditionLog conditionLog = new ConditionLog();
         conditionLog.user = user;
         conditionLog.logDate = logDate;
-        conditionLog.updateScores(sleepScore, stressScore, fatigueScore, conditionScore, exerciseMultiplier, memo);
+        conditionLog.updateScores(conditionLevel, sleepScore, stressScore, fatigueScore, energyLevel, conditionScore, exerciseMultiplier);
         return conditionLog;
     }
 
-    public void updateScores(Integer sleepScore,
+    public void updateScores(Integer conditionLevel,
+                             Integer sleepScore,
                              Integer stressScore,
                              Integer fatigueScore,
+                             Integer energyLevel,
                              BigDecimal conditionScore,
-                             BigDecimal exerciseMultiplier,
-                             String memo) {
+                             BigDecimal exerciseMultiplier) {
+        this.conditionLevel = conditionLevel;
         this.sleepScore = sleepScore;
         this.stressScore = stressScore;
         this.fatigueScore = fatigueScore;
+        this.energyLevel = energyLevel;
         this.conditionScore = conditionScore;
         this.exerciseMultiplier = exerciseMultiplier;
-        this.memo = memo;
         this.legacyFatigue = fatigueScore;
     }
 
@@ -115,6 +121,10 @@ public class ConditionLog {
         return logDate;
     }
 
+    public Integer getConditionLevel() {
+        return conditionLevel;
+    }
+
     public Integer getSleepScore() {
         return sleepScore;
     }
@@ -127,15 +137,15 @@ public class ConditionLog {
         return fatigueScore;
     }
 
+    public Integer getEnergyLevel() {
+        return energyLevel;
+    }
+
     public BigDecimal getConditionScore() {
         return conditionScore;
     }
 
     public BigDecimal getExerciseMultiplier() {
         return exerciseMultiplier;
-    }
-
-    public String getMemo() {
-        return memo;
     }
 }

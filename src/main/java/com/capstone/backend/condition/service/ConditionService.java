@@ -50,21 +50,23 @@ public class ConditionService {
                 .orElseGet(() -> ConditionLog.create(
                         user,
                         today,
+                        request.conditionLevel(),
                         request.sleepScore(),
                         request.stressScore(),
-                        request.fatigueScore(),
+                        fatigueScore(request),
+                        request.energyLevel(),
                         conditionScore,
-                        exerciseMultiplier,
-                        request.memo()
+                        exerciseMultiplier
                 ));
 
         conditionLog.updateScores(
+                request.conditionLevel(),
                 request.sleepScore(),
                 request.stressScore(),
-                request.fatigueScore(),
+                fatigueScore(request),
+                request.energyLevel(),
                 conditionScore,
-                exerciseMultiplier,
-                request.memo()
+                exerciseMultiplier
         );
 
         ConditionLog savedConditionLog = conditionLogRepository.save(conditionLog);
@@ -72,13 +74,22 @@ public class ConditionService {
     }
 
     private BigDecimal calculateConditionScore(ConditionTodayRequest request) {
+        BigDecimal sleepScore = BigDecimal.valueOf(request.sleepScore())
+                .multiply(BigDecimal.valueOf(1.25));
         int stressRecoveryScore = 6 - request.stressScore();
-        int fatigueRecoveryScore = 6 - request.fatigueScore();
 
-        BigDecimal average = BigDecimal.valueOf(request.sleepScore() + stressRecoveryScore + fatigueRecoveryScore)
-                .divide(BigDecimal.valueOf(3), 4, RoundingMode.HALF_UP);
+        BigDecimal total = BigDecimal.valueOf(request.conditionLevel())
+                .add(sleepScore)
+                .add(BigDecimal.valueOf(stressRecoveryScore))
+                .add(BigDecimal.valueOf(request.energyLevel()));
+
+        BigDecimal average = total.divide(BigDecimal.valueOf(4), 4, RoundingMode.HALF_UP);
 
         return average.multiply(BigDecimal.valueOf(20)).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private Integer fatigueScore(ConditionTodayRequest request) {
+        return 6 - request.energyLevel();
     }
 
     private BigDecimal calculateExerciseMultiplier(BigDecimal conditionScore) {

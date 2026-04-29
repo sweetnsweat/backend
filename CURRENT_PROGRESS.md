@@ -88,8 +88,9 @@ BUILD SUCCESSFUL
 
 - `PUT /api/conditions/today`
   - 오늘 날짜 기준으로 컨디션을 생성하거나 수정한다.
-  - 입력 항목은 수면 점수, 스트레스 점수, 피로도 점수, 메모다.
-  - 수면 점수는 높을수록 좋고, 스트레스/피로도 점수는 낮을수록 좋게 계산한다.
+  - 입력 항목은 오늘 컨디션, 수면, 스트레스, 에너지 레벨이다.
+  - 메모 입력은 현재 화면에 없으므로 API 요청/응답에서 제외했다.
+  - 오늘 컨디션/수면/에너지는 높을수록 좋고, 스트레스는 낮을수록 좋게 계산한다.
 
 - `GET /api/conditions/today`
   - 오늘 날짜의 컨디션 로그를 조회한다.
@@ -98,7 +99,7 @@ BUILD SUCCESSFUL
 - 컨디션 점수 계산 규칙:
 
 ```text
-conditionScore = average(sleepScore, 6 - stressScore, 6 - fatigueScore) * 20
+conditionScore = average(conditionLevel, sleepScore * 1.25, 6 - stressScore, energyLevel) * 20
 ```
 
 - 운동 배율 계산 규칙:

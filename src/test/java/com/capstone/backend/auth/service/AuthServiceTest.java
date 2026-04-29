@@ -115,6 +115,8 @@ class AuthServiceTest {
         assertEquals("refresh-token", response.refreshToken());
         assertEquals("Bearer", response.tokenType());
         assertEquals(1L, response.user().id());
+        assertEquals(false, response.user().onboardingCompleted());
+        assertEquals(true, response.user().requiresOnboarding());
 
         verify(jwtTokenService).storeRefreshTokenHash("refresh-hash", 1L, refreshExpiresAt);
         verify(refreshTokenRepository).save(any(RefreshToken.class));

@@ -222,6 +222,16 @@ public class User {
         return preferredExerciseTypes == null ? List.of() : List.copyOf(preferredExerciseTypes);
     }
 
+    public boolean isOnboardingCompleted() {
+        return gender != null
+                && birthDate != null
+                && heightCm != null
+                && weightKg != null
+                && experienceLevel != null
+                && preferredExerciseTypes != null
+                && !preferredExerciseTypes.isEmpty();
+    }
+
     public Boolean getPushEnabled() {
         return pushEnabled;
     }

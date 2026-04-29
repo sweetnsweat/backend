@@ -56,20 +56,20 @@ class ConditionControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {
-                                  "sleepScore": 4,
+                                  "conditionLevel": 4,
+                                  "sleepScore": 3,
                                   "stressScore": 2,
-                                  "fatigueScore": 3,
-                                  "memo": "컨디션 보통"
+                                  "energyLevel": 4
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Today's condition updated"))
-                .andExpect(jsonPath("$.data.sleepScore").value(4))
+                .andExpect(jsonPath("$.message").value("오늘 컨디션이 저장되었습니다."))
+                .andExpect(jsonPath("$.data.conditionLevel").value(4))
+                .andExpect(jsonPath("$.data.sleepScore").value(3))
                 .andExpect(jsonPath("$.data.stressScore").value(2))
-                .andExpect(jsonPath("$.data.fatigueScore").value(3))
-                .andExpect(jsonPath("$.data.conditionScore").value(73.33))
-                .andExpect(jsonPath("$.data.exerciseMultiplier").value(1.00))
-                .andExpect(jsonPath("$.data.memo").value("컨디션 보통"));
+                .andExpect(jsonPath("$.data.energyLevel").value(4))
+                .andExpect(jsonPath("$.data.conditionScore").value(78.75))
+                .andExpect(jsonPath("$.data.exerciseMultiplier").value(1.00));
     }
 
     @Test
@@ -82,9 +82,10 @@ class ConditionControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {
-                                  "sleepScore": 5,
+                                  "conditionLevel": 5,
+                                  "sleepScore": 4,
                                   "stressScore": 1,
-                                  "fatigueScore": 1
+                                  "energyLevel": 5
                                 }
                                 """))
                 .andExpect(status().isOk());
@@ -92,9 +93,10 @@ class ConditionControllerTest {
         mockMvc.perform(get("/api/conditions/today")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.sleepScore").value(5))
+                .andExpect(jsonPath("$.data.conditionLevel").value(5))
+                .andExpect(jsonPath("$.data.sleepScore").value(4))
                 .andExpect(jsonPath("$.data.stressScore").value(1))
-                .andExpect(jsonPath("$.data.fatigueScore").value(1))
+                .andExpect(jsonPath("$.data.energyLevel").value(5))
                 .andExpect(jsonPath("$.data.conditionScore").value(100.00))
                 .andExpect(jsonPath("$.data.exerciseMultiplier").value(1.15));
     }
@@ -109,9 +111,10 @@ class ConditionControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {
-                                  "sleepScore": 5,
+                                  "conditionLevel": 5,
+                                  "sleepScore": 4,
                                   "stressScore": 1,
-                                  "fatigueScore": 1
+                                  "energyLevel": 5
                                 }
                                 """))
                 .andExpect(status().isOk());
@@ -121,24 +124,24 @@ class ConditionControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {
+                                  "conditionLevel": 1,
                                   "sleepScore": 1,
                                   "stressScore": 5,
-                                  "fatigueScore": 5,
-                                  "memo": "오늘은 낮은 강도"
+                                  "energyLevel": 1
                                 }
                                 """))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.conditionLevel").value(1))
                 .andExpect(jsonPath("$.data.sleepScore").value(1))
                 .andExpect(jsonPath("$.data.stressScore").value(5))
-                .andExpect(jsonPath("$.data.fatigueScore").value(5))
-                .andExpect(jsonPath("$.data.conditionScore").value(20.00))
-                .andExpect(jsonPath("$.data.exerciseMultiplier").value(0.70))
-                .andExpect(jsonPath("$.data.memo").value("오늘은 낮은 강도"));
+                .andExpect(jsonPath("$.data.energyLevel").value(1))
+                .andExpect(jsonPath("$.data.conditionScore").value(21.25))
+                .andExpect(jsonPath("$.data.exerciseMultiplier").value(0.70));
 
         mockMvc.perform(get("/api/conditions/today")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.conditionScore").value(20.00));
+                .andExpect(jsonPath("$.data.conditionScore").value(21.25));
     }
 
     @Test

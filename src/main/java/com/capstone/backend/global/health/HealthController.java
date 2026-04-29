@@ -9,12 +9,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "Health", description = "Server health checks")
+@Tag(name = "헬스체크", description = "서버 상태 확인 API")
 @RestController
 @RequestMapping("/api")
 public class HealthController {
 
-    @Operation(summary = "Check backend API health")
+    @Operation(summary = "서버 상태 확인", description = "백엔드 API 서버가 정상 동작 중인지 확인합니다.")
     @GetMapping("/health")
     public ApiResponse<HealthResponse> health() {
         return ApiResponse.ok(new HealthResponse("UP", Instant.now()));

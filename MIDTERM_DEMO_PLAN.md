@@ -125,9 +125,11 @@
 - [ ] `condition_logs` 엔티티 생성
   - `userId`
   - `logDate`
+  - `conditionLevel`
   - `sleepScore`
   - `stressScore`
   - `fatigueScore`
+  - `energyLevel`
   - `conditionScore`
   - `exerciseMultiplier`
 - [ ] 컨디션 입력/수정 API 구현
@@ -135,7 +137,7 @@
 - [ ] 당일 컨디션 조회 API 구현
   - `GET /api/conditions/today`
 - [ ] 컨디션 점수 계산 구현
-  - V1은 수면, 스트레스, 피로도 동일 가중치
+  - V1은 오늘 컨디션, 수면, 스트레스, 에너지 입력값 기준
 - [ ] 운동 배율 매핑 구현
   - 낮음: `0.7x`
   - 보통 이하: `0.85x`
