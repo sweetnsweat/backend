@@ -6,6 +6,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,11 +15,15 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.ContentCachingRequestWrapper;
+import org.springframework.web.util.ContentCachingResponseWrapper;
 
 public class ApiRequestLoggingFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(ApiRequestLoggingFilter.class);
     private static final String API_PREFIX = "/api/";
+    private static final int MAX_PAYLOAD_LENGTH = 2_000;
+    private static final int REQUEST_CACHE_LIMIT = 10_000;
 
     private final boolean enabled;
 
@@ -34,17 +40,20 @@ public class ApiRequestLoggingFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
+        ContentCachingRequestWrapper wrappedRequest = new ContentCachingRequestWrapper(request, REQUEST_CACHE_LIMIT);
+        ContentCachingResponseWrapper wrappedResponse = new ContentCachingResponseWrapper(response);
         long startedAt = System.nanoTime();
         Exception failure = null;
 
         try {
-            filterChain.doFilter(request, response);
+            filterChain.doFilter(wrappedRequest, wrappedResponse);
         } catch (IOException | ServletException | RuntimeException exception) {
             failure = exception;
             throw exception;
         } finally {
             long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
-            writeAccessLog(request, response, durationMs, failure);
+            writeAccessLog(wrappedRequest, wrappedResponse, durationMs, failure);
+            wrappedResponse.copyBodyToResponse();
         }
     }
 
@@ -53,14 +62,39 @@ public class ApiRequestLoggingFilter extends OncePerRequestFilter {
                                 long durationMs,
                                 Exception failure) {
         String failurePart = failure == null ? "" : " exception=" + failure.getClass().getSimpleName();
-        log.info("API_REQUEST method={} path={} status={} durationMs={} client={} user={}{}",
+        String detailPart = failureDetail(request, response, failure);
+
+        log.info("API_REQUEST method={} path={} status={} durationMs={} client={} user={}{}{}",
                 request.getMethod(),
                 pathWithQuery(request),
                 response.getStatus(),
                 durationMs,
                 clientIp(request),
                 currentUser(),
-                failurePart);
+                failurePart,
+                detailPart);
+    }
+
+    private String failureDetail(HttpServletRequest request,
+                                 HttpServletResponse response,
+                                 Exception failure) {
+        if (response.getStatus() < 400 && failure == null) {
+            return "";
+        }
+
+        StringBuilder builder = new StringBuilder();
+        String requestBody = cachedBody(request);
+        if (StringUtils.hasText(requestBody)) {
+            builder.append(" requestBody=").append(requestBody);
+        }
+
+        String responseBody = cachedBody(response);
+        if (StringUtils.hasText(responseBody)) {
+            builder.append(" responseBody=").append(responseBody);
+            builder.append(" debugHint=responseBody.detail_or_errors_are_validation_requirements");
+        }
+
+        return builder.toString();
     }
 
     private String pathWithQuery(HttpServletRequest request) {
@@ -94,6 +128,72 @@ public class ApiRequestLoggingFilter extends OncePerRequestFilter {
                 || lowerKey.contains("secret")
                 || lowerKey.contains("authorization")
                 || lowerKey.contains("credential");
+    }
+
+    private String cachedBody(HttpServletRequest request) {
+        if (!(request instanceof ContentCachingRequestWrapper wrapper)) {
+            return "";
+        }
+        return payload(wrapper.getContentAsByteArray(), request.getCharacterEncoding(), request.getContentType());
+    }
+
+    private String cachedBody(HttpServletResponse response) {
+        if (!(response instanceof ContentCachingResponseWrapper wrapper)) {
+            return "";
+        }
+        return payload(wrapper.getContentAsByteArray(), response.getCharacterEncoding(), response.getContentType());
+    }
+
+    private String payload(byte[] content, String characterEncoding, String contentType) {
+        if (content.length == 0 || !isReadableContentType(contentType)) {
+            return "";
+        }
+
+        Charset charset = charset(characterEncoding);
+        String payload = new String(content, charset)
+                .replaceAll("\\s+", " ")
+                .trim();
+
+        payload = maskSensitiveValues(payload);
+        if (payload.length() > MAX_PAYLOAD_LENGTH) {
+            return payload.substring(0, MAX_PAYLOAD_LENGTH) + "...(truncated)";
+        }
+        return payload;
+    }
+
+    private boolean isReadableContentType(String contentType) {
+        if (!StringUtils.hasText(contentType)) {
+            return true;
+        }
+
+        String lowerContentType = contentType.toLowerCase(Locale.ROOT);
+        return lowerContentType.contains("json")
+                || lowerContentType.contains("text")
+                || lowerContentType.contains("xml")
+                || lowerContentType.contains("form-urlencoded");
+    }
+
+    private Charset charset(String characterEncoding) {
+        if (!StringUtils.hasText(characterEncoding)) {
+            return StandardCharsets.UTF_8;
+        }
+
+        try {
+            return Charset.forName(characterEncoding);
+        } catch (RuntimeException ignored) {
+            return StandardCharsets.UTF_8;
+        }
+    }
+
+    private String maskSensitiveValues(String payload) {
+        String masked = payload.replaceAll(
+                "(?i)(\\\"[^\\\"]*(password|token|secret|authorization|credential)[^\\\"]*\\\"\\s*:\\s*\\\")[^\\\"]*(\\\")",
+                "$1***$3"
+        );
+        return masked.replaceAll(
+                "(?i)((password|token|secret|authorization|credential)[^=&\\s]*=)[^&\\s]+",
+                "$1***"
+        );
     }
 
     private String clientIp(HttpServletRequest request) {

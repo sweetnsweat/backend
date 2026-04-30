@@ -82,6 +82,15 @@ finishes. Sensitive query parameters such as tokens and passwords are masked.
 API_REQUEST method=GET path=/api/users/me status=200 durationMs=34 client=127.0.0.1 user=demoUser(1)
 ```
 
+For 4xx/5xx responses, the log also includes the request body and response body
+when they are readable text/JSON. Sensitive fields such as passwords and tokens
+are masked. For validation errors, check `responseBody.detail` and
+`responseBody.errors` to see which input rules must be satisfied.
+
+```text
+API_REQUEST method=PUT path=/api/users/me/onboarding-profile status=400 durationMs=49 client=100.76.190.48 user=admin123(8) requestBody={...} responseBody={"code":"VALIDATION_ERROR","errors":[...]} debugHint=responseBody.detail_or_errors_are_validation_requirements
+```
+
 ```bash
 curl -s -X POST http://100.89.171.113:8080/api/auth/login \
   -H 'Content-Type: application/json' \

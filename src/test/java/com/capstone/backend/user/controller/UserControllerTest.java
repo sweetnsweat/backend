@@ -157,8 +157,10 @@ class UserControllerTest {
                                 }
                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
                 .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors[0]").exists())
                 .andExpect(jsonPath("$.instance").value("/api/users/me/onboarding-profile"));
     }
 
@@ -237,10 +239,12 @@ class UserControllerTest {
                         .content("""
                                 {
                                 }
-                                """))
+                """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
                 .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors[0]").exists())
                 .andExpect(jsonPath("$.instance").value("/api/users/me/routines/active"));
     }
 

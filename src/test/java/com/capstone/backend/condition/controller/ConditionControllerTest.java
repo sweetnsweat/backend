@@ -168,10 +168,12 @@ class ConditionControllerTest {
                                   "sleepScore": 0,
                                   "stressScore": 6
                                 }
-                                """))
+                """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
                 .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors[0]").exists())
                 .andExpect(jsonPath("$.instance").value("/api/conditions/today"));
     }
 
