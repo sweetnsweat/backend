@@ -8,10 +8,12 @@ import com.capstone.backend.auth.entity.RefreshToken;
 import com.capstone.backend.auth.repository.RefreshTokenRepository;
 import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.auth.security.JwtTokenService;
+import com.capstone.backend.condition.repository.ConditionLogRepository;
 import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,15 +25,18 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final ConditionLogRepository conditionLogRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
+                       ConditionLogRepository conditionLogRepository,
                        PasswordEncoder passwordEncoder,
                        JwtTokenService jwtTokenService) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.conditionLogRepository = conditionLogRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
     }
@@ -82,7 +87,7 @@ public class AuthService {
                 tokenPair.accessToken(),
                 tokenPair.refreshToken(),
                 "Bearer",
-                UserProfileResponse.from(user)
+                UserProfileResponse.from(user, hasTodayCondition(user.getId()))
         );
     }
 
@@ -110,5 +115,9 @@ public class AuthService {
             jwtTokenService.deleteRefreshTokenHash(refreshToken.getTokenHash());
         }
         refreshTokenRepository.saveAll(activeTokens);
+    }
+
+    private boolean hasTodayCondition(Long userId) {
+        return conditionLogRepository.findByUser_IdAndLogDate(userId, LocalDate.now()).isPresent();
     }
 }

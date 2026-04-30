@@ -68,7 +68,7 @@ class ConditionControllerTest {
                 .andExpect(jsonPath("$.data.sleepScore").value(3))
                 .andExpect(jsonPath("$.data.stressScore").value(2))
                 .andExpect(jsonPath("$.data.energyLevel").value(4))
-                .andExpect(jsonPath("$.data.conditionScore").value(78.75))
+                .andExpect(jsonPath("$.data.conditionScore").value(72.92))
                 .andExpect(jsonPath("$.data.exerciseMultiplier").value(1.00));
     }
 
@@ -98,7 +98,7 @@ class ConditionControllerTest {
                 .andExpect(jsonPath("$.data.stressScore").value(1))
                 .andExpect(jsonPath("$.data.energyLevel").value(5))
                 .andExpect(jsonPath("$.data.conditionScore").value(100.00))
-                .andExpect(jsonPath("$.data.exerciseMultiplier").value(1.15));
+                .andExpect(jsonPath("$.data.exerciseMultiplier").value(1.10));
     }
 
     @Test
@@ -135,13 +135,13 @@ class ConditionControllerTest {
                 .andExpect(jsonPath("$.data.sleepScore").value(1))
                 .andExpect(jsonPath("$.data.stressScore").value(5))
                 .andExpect(jsonPath("$.data.energyLevel").value(1))
-                .andExpect(jsonPath("$.data.conditionScore").value(21.25))
+                .andExpect(jsonPath("$.data.conditionScore").value(0.00))
                 .andExpect(jsonPath("$.data.exerciseMultiplier").value(0.70));
 
         mockMvc.perform(get("/api/conditions/today")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.conditionScore").value(21.25));
+                .andExpect(jsonPath("$.data.conditionScore").value(0.00));
     }
 
     @Test

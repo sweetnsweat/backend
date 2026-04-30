@@ -20,6 +20,7 @@ public record UserProfileResponse(
         List<String> preferredExerciseTypes,
         Boolean onboardingCompleted,
         Boolean requiresOnboarding,
+        Boolean todayConditionCompleted,
         Boolean pushEnabled,
         Boolean pushQuestEnabled,
         Boolean pushRoutineEnabled,
@@ -27,6 +28,10 @@ public record UserProfileResponse(
         String status
 ) {
     public static UserProfileResponse from(User user) {
+        return from(user, false);
+    }
+
+    public static UserProfileResponse from(User user, boolean todayConditionCompleted) {
         return new UserProfileResponse(
                 user.getId(),
                 user.getEmail(),
@@ -42,6 +47,7 @@ public record UserProfileResponse(
                 user.getPreferredExerciseTypes(),
                 user.isOnboardingCompleted(),
                 !user.isOnboardingCompleted(),
+                todayConditionCompleted,
                 user.getPushEnabled(),
                 user.getPushQuestEnabled(),
                 user.getPushRoutineEnabled(),

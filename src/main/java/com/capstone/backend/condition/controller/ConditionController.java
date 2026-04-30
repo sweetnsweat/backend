@@ -32,7 +32,7 @@ public class ConditionController {
         return ApiResponse.ok(conditionService.getTodayCondition(authUser.userId()));
     }
 
-    @Operation(summary = "오늘 컨디션 저장", description = "오늘 컨디션, 수면, 스트레스, 에너지 레벨을 저장하거나 수정합니다.")
+    @Operation(summary = "오늘 컨디션 저장", description = "오늘 컨디션, 수면, 스트레스, 에너지 레벨을 저장하거나 수정하고 주관 웰니스 기반 컨디션 점수와 운동 강도 배율을 계산합니다.")
     @PutMapping("/today")
     public ApiResponse<ConditionLogResponse> updateTodayCondition(@AuthenticationPrincipal AuthUser authUser,
                                                                   @Valid @RequestBody ConditionTodayRequest request) {

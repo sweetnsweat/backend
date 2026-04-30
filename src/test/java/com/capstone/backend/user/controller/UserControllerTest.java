@@ -74,6 +74,7 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.status").value("active"))
                 .andExpect(jsonPath("$.data.onboardingCompleted").value(false))
                 .andExpect(jsonPath("$.data.requiresOnboarding").value(true))
+                .andExpect(jsonPath("$.data.todayConditionCompleted").value(false))
                 .andExpect(jsonPath("$.data.preferredExerciseTypes", empty()))
                 .andExpect(jsonPath("$.data.pushEnabled").value(true))
                 .andExpect(jsonPath("$.data.pushQuestEnabled").value(true))
@@ -87,6 +88,32 @@ class UserControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
                 .andExpect(jsonPath("$.path").value("/api/users/me"));
+    }
+
+    @Test
+    void meReturnsTodayConditionCompletedWhenTodayConditionExists() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+
+        User user = userRepository.save(User.createLocalUser("conditionDoneUser", "encoded-password", "Condition Done User"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+
+        mockMvc.perform(put("/api/conditions/today")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "conditionLevel": 4,
+                                  "sleepScore": 3,
+                                  "stressScore": 2,
+                                  "energyLevel": 4
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/users/me")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.todayConditionCompleted").value(true));
     }
 
     @Test
@@ -119,6 +146,7 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.experienceLevel").value("beginner"))
                 .andExpect(jsonPath("$.data.onboardingCompleted").value(true))
                 .andExpect(jsonPath("$.data.requiresOnboarding").value(false))
+                .andExpect(jsonPath("$.data.todayConditionCompleted").value(false))
                 .andExpect(jsonPath("$.data.preferredExerciseTypes[0]").value("strength"))
                 .andExpect(jsonPath("$.data.preferredExerciseTypes[1]").value("walking"));
 

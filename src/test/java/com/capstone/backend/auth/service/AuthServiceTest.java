@@ -8,6 +8,7 @@ import com.capstone.backend.auth.entity.RefreshToken;
 import com.capstone.backend.auth.repository.RefreshTokenRepository;
 import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.auth.security.JwtTokenService;
+import com.capstone.backend.condition.repository.ConditionLogRepository;
 import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
@@ -44,6 +45,9 @@ class AuthServiceTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Mock
+    private ConditionLogRepository conditionLogRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock
@@ -54,7 +58,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setup() {
-        authService = new AuthService(userRepository, refreshTokenRepository, passwordEncoder, jwtTokenService);
+        authService = new AuthService(userRepository, refreshTokenRepository, conditionLogRepository, passwordEncoder, jwtTokenService);
     }
 
     @Test
@@ -108,6 +112,7 @@ class AuthServiceTest {
         when(jwtTokenService.parseAndValidateRefreshToken("refresh-token"))
                 .thenReturn(new JwtTokenService.DecodedRefreshToken(1L, "refresh-jti", refreshExpiresAt));
         when(jwtTokenService.hashToken("refresh-token")).thenReturn("refresh-hash");
+        when(conditionLogRepository.findByUser_IdAndLogDate(eq(1L), any())).thenReturn(Optional.empty());
 
         LoginResponse response = authService.login(request);
 
@@ -117,6 +122,7 @@ class AuthServiceTest {
         assertEquals(1L, response.user().id());
         assertEquals(false, response.user().onboardingCompleted());
         assertEquals(true, response.user().requiresOnboarding());
+        assertEquals(false, response.user().todayConditionCompleted());
 
         verify(jwtTokenService).storeRefreshTokenHash("refresh-hash", 1L, refreshExpiresAt);
         verify(refreshTokenRepository).save(any(RefreshToken.class));

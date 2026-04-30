@@ -115,16 +115,23 @@ conditionScore >= 80: 1.15
 
 - `free-exercise-db`의 운동 데이터 873개를 로컬 DB와 개발 서버 DB에 임포트했다.
 - `exercises` 테이블에는 외부 운동 ID, 난이도, 장비, 주요 근육, 보조 근육, 설명, 이미지 URL, 원본 JSON 등을 저장한다.
+- 2026-04-30 기준 로컬 DB와 개발 서버 DB의 `exercises.met` NULL을 모두 채웠고, 기존 영문 운동명 873개를 한글명으로 바꿨다.
+- 수영, 요가, 러닝, 사이클, 필라테스 세부 종목 41개를 2024 Adult Compendium MET 기준으로 추가했다.
+- 현재 앱 범위에서 제외한 플라이오메트릭, 파워리프팅, 올림픽 역도, 스트롱맨 운동 155개를 로컬 DB와 개발 서버 DB에서 삭제했다.
+- 삭제된 플라이오메트릭 운동을 참조하던 기본 루틴 아이템 3개도 함께 삭제했고, 남은 루틴 아이템 순서를 재정렬했다.
+- 한글명 일괄 반영 SQL은 `db/seed/20260430_exercise_name_ko_from_tsv.sql`, MET/신규 종목 seed SQL은 `db/seed/20260430_exercise_met_multisport_seed.sql`에 두었다.
+- 제외 카테고리 삭제 SQL은 `db/seed/20260430_remove_strength_sport_categories.sql`에 두었다.
 - 운동 카테고리 분포는 대략 아래와 같다.
 
 ```text
-strength: 581
-stretching: 123
-plyometrics: 61
-powerlifting: 38
-olympic weightlifting: 35
-strongman: 21
-cardio: 14
+근력: 581
+스트레칭: 123
+유산소: 14
+사이클: 10
+러닝: 9
+수영: 8
+요가: 8
+필라테스: 6
 ```
 
 ### 기본 루틴 seed
