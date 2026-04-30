@@ -149,7 +149,7 @@ public class ApiRequestLoggingFilter extends OncePerRequestFilter {
             return "";
         }
 
-        Charset charset = charset(characterEncoding);
+        Charset charset = charset(contentType, characterEncoding);
         String payload = new String(content, charset)
                 .replaceAll("\\s+", " ")
                 .trim();
@@ -173,7 +173,23 @@ public class ApiRequestLoggingFilter extends OncePerRequestFilter {
                 || lowerContentType.contains("form-urlencoded");
     }
 
-    private Charset charset(String characterEncoding) {
+    private Charset charset(String contentType, String characterEncoding) {
+        if (StringUtils.hasText(contentType)) {
+            String lowerContentType = contentType.toLowerCase(Locale.ROOT);
+            int charsetIndex = lowerContentType.indexOf("charset=");
+            if (charsetIndex >= 0) {
+                String charsetName = contentType.substring(charsetIndex + "charset=".length()).split("[;\\s]", 2)[0].trim();
+                try {
+                    return Charset.forName(charsetName);
+                } catch (RuntimeException ignored) {
+                    return StandardCharsets.UTF_8;
+                }
+            }
+            if (lowerContentType.contains("json")) {
+                return StandardCharsets.UTF_8;
+            }
+        }
+
         if (!StringUtils.hasText(characterEncoding)) {
             return StandardCharsets.UTF_8;
         }
