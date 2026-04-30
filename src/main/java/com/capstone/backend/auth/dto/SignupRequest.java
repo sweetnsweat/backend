@@ -4,16 +4,16 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record SignupRequest(
-        @NotBlank(message = "loginId is required")
-        @Size(min = 4, max = 50, message = "loginId must be 4~50 characters")
+        @NotBlank(message = "로그인 아이디를 입력해 주세요.")
+        @Size(min = 4, max = 50, message = "로그인 아이디는 4~50자여야 합니다.")
         String loginId,
 
-        @NotBlank(message = "password is required")
-        @Size(min = 8, max = 72, message = "password must be 8~72 characters")
+        @NotBlank(message = "비밀번호를 입력해 주세요.")
+        @Size(min = 8, max = 72, message = "비밀번호는 8~72자여야 합니다.")
         String password,
 
-        @NotBlank(message = "nickname is required")
-        @Size(min = 2, max = 50, message = "nickname must be 2~50 characters")
+        @NotBlank(message = "닉네임을 입력해 주세요.")
+        @Size(min = 2, max = 50, message = "닉네임은 2~50자여야 합니다.")
         String nickname
 ) {
 }

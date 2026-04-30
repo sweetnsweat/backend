@@ -5,24 +5,24 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 public record ConditionTodayRequest(
-        @NotNull(message = "conditionLevel is required")
-        @Min(value = 1, message = "conditionLevel must be at least 1")
-        @Max(value = 5, message = "conditionLevel must be at most 5")
+        @NotNull(message = "오늘 컨디션을 선택해 주세요.")
+        @Min(value = 1, message = "오늘 컨디션은 1 이상이어야 합니다.")
+        @Max(value = 5, message = "오늘 컨디션은 5 이하여야 합니다.")
         Integer conditionLevel,
 
-        @NotNull(message = "sleepScore is required")
-        @Min(value = 1, message = "sleepScore must be at least 1")
-        @Max(value = 4, message = "sleepScore must be at most 4")
+        @NotNull(message = "수면 상태를 선택해 주세요.")
+        @Min(value = 1, message = "수면 상태는 1 이상이어야 합니다.")
+        @Max(value = 4, message = "수면 상태는 4 이하여야 합니다.")
         Integer sleepScore,
 
-        @NotNull(message = "stressScore is required")
-        @Min(value = 1, message = "stressScore must be at least 1")
-        @Max(value = 5, message = "stressScore must be at most 5")
+        @NotNull(message = "스트레스 정도를 선택해 주세요.")
+        @Min(value = 1, message = "스트레스 정도는 1 이상이어야 합니다.")
+        @Max(value = 5, message = "스트레스 정도는 5 이하여야 합니다.")
         Integer stressScore,
 
-        @NotNull(message = "energyLevel is required")
-        @Min(value = 1, message = "energyLevel must be at least 1")
-        @Max(value = 5, message = "energyLevel must be at most 5")
+        @NotNull(message = "에너지 레벨을 선택해 주세요.")
+        @Min(value = 1, message = "에너지 레벨은 1 이상이어야 합니다.")
+        @Max(value = 5, message = "에너지 레벨은 5 이하여야 합니다.")
         Integer energyLevel
 ) {
 }

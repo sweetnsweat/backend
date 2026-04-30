@@ -61,8 +61,8 @@ class ApiRequestLoggingFilterTest {
                 .contains("requestBody={ \"loginId\": \"abc\", \"password\": \"***\", \"nickname\": \"A\" }")
                 .contains("responseBody=")
                 .contains("VALIDATION_ERROR")
-                .contains("loginId must be 4~50 characters")
-                .contains("nickname must be 2~50 characters")
+                .contains("로그인 아이디는 4~50자여야 합니다.")
+                .contains("닉네임은 2~50자여야 합니다.")
                 .contains("debugHint=responseBody.detail_or_errors_are_validation_requirements")
                 .doesNotContain("plain-password");
     }
