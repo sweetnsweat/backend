@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    options {
+        disableConcurrentBuilds()
+    }
+
     triggers {
         githubPush()
         pollSCM('H/2 * * * *')
@@ -17,6 +21,7 @@ pipeline {
         DOCKER_NETWORK = 'postgres-stack_default'
         DB_URL = 'jdbc:postgresql://postgres-db:5432/postgres'
         DB_USERNAME = 'postgres'
+        AI_BASE_URL = 'http://capstone-ai:8000'
         VERIFY_BASE_URL = 'http://host.docker.internal:8080'
     }
 
@@ -61,6 +66,7 @@ pipeline {
                           -e DB_PASSWORD="${DB_PASSWORD}" \
                           -e REDIS_HOST="${REDIS_HOST}" \
                           -e REDIS_PORT="${REDIS_PORT}" \
+                          -e AI_BASE_URL="${AI_BASE_URL}" \
                           "${APP_IMAGE}"
                     '''
                 }
@@ -101,49 +107,60 @@ pipeline {
             steps {
                 sh '''
                     set -eu
+                    tmp_prefix="/tmp/jenkins-auth-${BUILD_NUMBER}"
 
                     probe_login_id="jenkins_probe_${BUILD_NUMBER}_$(date +%s)"
                     probe_nickname="JenkinsProbe${BUILD_NUMBER}"
                     password='password123'
 
                     signup_payload=$(printf '{"loginId":"%s","password":"%s","nickname":"%s"}' "$probe_login_id" "$password" "$probe_nickname")
-                    signup_code="$(curl -s -o /tmp/jenkins-signup.out -w '%{http_code}' \
+                    signup_code="$(curl -s -o "${tmp_prefix}-signup.out" -w '%{http_code}' \
                       -X POST "${VERIFY_BASE_URL}/api/auth/signup" \
                       -H 'Content-Type: application/json' \
                       -d "$signup_payload" || true)"
 
                     if [ "$signup_code" != "201" ]; then
                       echo "Auth verify failed at signup; status=${signup_code}"
-                      cat /tmp/jenkins-signup.out || true
+                      cat "${tmp_prefix}-signup.out" || true
                       exit 1
                     fi
 
                     login_payload=$(printf '{"loginId":"%s","password":"%s"}' "$probe_login_id" "$password")
-                    login_code="$(curl -s -o /tmp/jenkins-login.out -w '%{http_code}' \
+                    login_code="$(curl -s -o "${tmp_prefix}-login.out" -w '%{http_code}' \
                       -X POST "${VERIFY_BASE_URL}/api/auth/login" \
                       -H 'Content-Type: application/json' \
                       -d "$login_payload" || true)"
 
                     if [ "$login_code" != "200" ]; then
                       echo "Auth verify failed at login; status=${login_code}"
-                      cat /tmp/jenkins-login.out || true
+                      cat "${tmp_prefix}-login.out" || true
                       exit 1
                     fi
 
-                    access_token="$(sed -n 's/.*"accessToken":"\\([^"]*\\)".*/\\1/p' /tmp/jenkins-login.out | head -n 1)"
+                    access_token="$(sed -n 's/.*"accessToken":"\\([^"]*\\)".*/\\1/p' "${tmp_prefix}-login.out" | head -n 1)"
                     if [ -z "$access_token" ]; then
                       echo "Auth verify failed: accessToken missing in login response"
-                      cat /tmp/jenkins-login.out || true
+                      cat "${tmp_prefix}-login.out" || true
                       exit 1
                     fi
 
-                    logout_code="$(curl -s -o /tmp/jenkins-logout.out -w '%{http_code}' \
+                    ai_health_code="$(curl -s -o "${tmp_prefix}-ai-health.out" -w '%{http_code}' \
+                      "${VERIFY_BASE_URL}/api/ai/health" \
+                      -H "Authorization: Bearer ${access_token}" || true)"
+
+                    if [ "$ai_health_code" != "200" ]; then
+                      echo "AI proxy verify failed; status=${ai_health_code}"
+                      cat "${tmp_prefix}-ai-health.out" || true
+                      exit 1
+                    fi
+
+                    logout_code="$(curl -s -o "${tmp_prefix}-logout.out" -w '%{http_code}' \
                       -X POST "${VERIFY_BASE_URL}/api/auth/logout" \
                       -H "Authorization: Bearer ${access_token}" || true)"
 
                     if [ "$logout_code" != "200" ]; then
                       echo "Auth verify failed at logout; status=${logout_code}"
-                      cat /tmp/jenkins-logout.out || true
+                      cat "${tmp_prefix}-logout.out" || true
                       exit 1
                     fi
                 '''
