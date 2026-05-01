@@ -1,8 +1,8 @@
 package com.capstone.backend.global.exception;
 
+import com.capstone.backend.global.time.KoreanTime;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
-import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.core.annotation.AnnotationUtils;
@@ -109,7 +109,7 @@ public class GlobalExceptionHandler {
         problemDetail.setTitle((title == null || title.isBlank()) ? "Error" : title);
         problemDetail.setType(URI.create((type == null || type.isBlank()) ? "about:blank" : type));
         problemDetail.setProperty("code", code);
-        problemDetail.setProperty("timestamp", Instant.now());
+        problemDetail.setProperty("timestamp", KoreanTime.now());
         problemDetail.setProperty("path", request.getRequestURI());
         return problemDetail;
     }

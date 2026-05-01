@@ -51,6 +51,8 @@ class AiStoryProxyControllerTest {
 
     @BeforeEach
     void cleanup() {
+        jdbcTemplate.update("delete from user_quests");
+        jdbcTemplate.update("delete from user_favorite_exercises");
         jdbcTemplate.update("delete from refresh_tokens");
         jdbcTemplate.update("delete from users");
     }

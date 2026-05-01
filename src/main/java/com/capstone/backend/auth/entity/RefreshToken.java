@@ -1,5 +1,6 @@
 package com.capstone.backend.auth.entity;
 
+import com.capstone.backend.global.time.KoreanTime;
 import com.capstone.backend.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -53,7 +54,7 @@ public class RefreshToken {
 
     @PrePersist
     void onCreate() {
-        this.createdAt = Instant.now();
+        this.createdAt = KoreanTime.nowInstant();
     }
 
     public void revoke(Instant revokedAt) {

@@ -47,9 +47,12 @@ class UserControllerTest {
 
     @BeforeEach
     void cleanup() {
+        jdbcTemplate.update("delete from user_quests");
+        jdbcTemplate.update("delete from user_favorite_exercises");
         jdbcTemplate.update("update users set active_routine_id = null");
         jdbcTemplate.update("delete from condition_logs");
         jdbcTemplate.update("delete from routine_items");
+        jdbcTemplate.update("delete from routine_sessions");
         jdbcTemplate.update("delete from routines");
         jdbcTemplate.update("delete from refresh_tokens");
         jdbcTemplate.update("delete from users");
@@ -75,6 +78,11 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.onboardingCompleted").value(false))
                 .andExpect(jsonPath("$.data.requiresOnboarding").value(true))
                 .andExpect(jsonPath("$.data.todayConditionCompleted").value(false))
+                .andExpect(jsonPath("$.data.currentExerciseStatus").doesNotExist())
+                .andExpect(jsonPath("$.data.fitnessGoal").doesNotExist())
+                .andExpect(jsonPath("$.data.preferredWorkoutPlace").doesNotExist())
+                .andExpect(jsonPath("$.data.weeklyWorkoutFrequency").doesNotExist())
+                .andExpect(jsonPath("$.data.availableWorkoutMinutes").doesNotExist())
                 .andExpect(jsonPath("$.data.preferredExerciseTypes", empty()))
                 .andExpect(jsonPath("$.data.pushEnabled").value(true))
                 .andExpect(jsonPath("$.data.pushQuestEnabled").value(true))
@@ -133,7 +141,12 @@ class UserControllerTest {
                                   "heightCm": 164.5,
                                   "weightKg": 58.2,
                                   "experienceLevel": "beginner",
-                                  "preferredExerciseTypes": ["strength", "walking"]
+                                  "currentExerciseStatus": "none",
+                                  "fitnessGoal": "habit",
+                                  "preferredWorkoutPlace": "home",
+                                  "weeklyWorkoutFrequency": 3,
+                                  "availableWorkoutMinutes": 30,
+                                  "preferredExerciseTypes": ["bodyweight", "walking"]
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -144,10 +157,15 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.heightCm").value(164.5))
                 .andExpect(jsonPath("$.data.weightKg").value(58.2))
                 .andExpect(jsonPath("$.data.experienceLevel").value("beginner"))
+                .andExpect(jsonPath("$.data.currentExerciseStatus").value("none"))
+                .andExpect(jsonPath("$.data.fitnessGoal").value("habit"))
+                .andExpect(jsonPath("$.data.preferredWorkoutPlace").value("home"))
+                .andExpect(jsonPath("$.data.weeklyWorkoutFrequency").value(3))
+                .andExpect(jsonPath("$.data.availableWorkoutMinutes").value(30))
                 .andExpect(jsonPath("$.data.onboardingCompleted").value(true))
                 .andExpect(jsonPath("$.data.requiresOnboarding").value(false))
                 .andExpect(jsonPath("$.data.todayConditionCompleted").value(false))
-                .andExpect(jsonPath("$.data.preferredExerciseTypes[0]").value("strength"))
+                .andExpect(jsonPath("$.data.preferredExerciseTypes[0]").value("bodyweight"))
                 .andExpect(jsonPath("$.data.preferredExerciseTypes[1]").value("walking"));
 
         mockMvc.perform(get("/api/users/me")
@@ -158,10 +176,46 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.heightCm").value(164.50))
                 .andExpect(jsonPath("$.data.weightKg").value(58.20))
                 .andExpect(jsonPath("$.data.experienceLevel").value("beginner"))
+                .andExpect(jsonPath("$.data.currentExerciseStatus").value("none"))
+                .andExpect(jsonPath("$.data.fitnessGoal").value("habit"))
+                .andExpect(jsonPath("$.data.preferredWorkoutPlace").value("home"))
+                .andExpect(jsonPath("$.data.weeklyWorkoutFrequency").value(3))
+                .andExpect(jsonPath("$.data.availableWorkoutMinutes").value(30))
                 .andExpect(jsonPath("$.data.onboardingCompleted").value(true))
                 .andExpect(jsonPath("$.data.requiresOnboarding").value(false))
-                .andExpect(jsonPath("$.data.preferredExerciseTypes[0]").value("strength"))
+                .andExpect(jsonPath("$.data.preferredExerciseTypes[0]").value("bodyweight"))
                 .andExpect(jsonPath("$.data.preferredExerciseTypes[1]").value("walking"));
+    }
+
+    @Test
+    void updateOnboardingProfileAllowsEmptyPreferredExerciseTypes() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+
+        User user = userRepository.save(User.createLocalUser("optionalPreferenceUser", "encoded-password", "Optional Preference User"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+
+        mockMvc.perform(put("/api/users/me/onboarding-profile")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "gender": "male",
+                                  "birthDate": "2001-01-10",
+                                  "heightCm": 175.0,
+                                  "weightKg": 70.0,
+                                  "experienceLevel": "beginner",
+                                  "currentExerciseStatus": "none",
+                                  "fitnessGoal": "stamina",
+                                  "preferredWorkoutPlace": "outdoor",
+                                  "weeklyWorkoutFrequency": 2,
+                                  "availableWorkoutMinutes": 20,
+                                  "preferredExerciseTypes": []
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.onboardingCompleted").value(true))
+                .andExpect(jsonPath("$.data.requiresOnboarding").value(false))
+                .andExpect(jsonPath("$.data.preferredExerciseTypes", empty()));
     }
 
     @Test
@@ -181,6 +235,11 @@ class UserControllerTest {
                                   "heightCm": 20,
                                   "weightKg": 10,
                                   "experienceLevel": "expert",
+                                  "currentExerciseStatus": "daily",
+                                  "fitnessGoal": "bulk_up",
+                                  "preferredWorkoutPlace": "mars",
+                                  "weeklyWorkoutFrequency": 0,
+                                  "availableWorkoutMinutes": 5,
                                   "preferredExerciseTypes": ["boxing"]
                                 }
                 """))
@@ -210,14 +269,15 @@ class UserControllerTest {
                                 """.formatted(routineId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("활성 운동 루틴이 설정되었습니다."))
-                .andExpect(jsonPath("$.data.id").value(routineId))
+                .andExpect(jsonPath("$.data.isDefault").value(false))
+                .andExpect(jsonPath("$.data.sourceRoutineId").value(routineId))
                 .andExpect(jsonPath("$.data.name").value("테스트 기본 루틴"))
                 .andExpect(jsonPath("$.data.items[0].exercise.name").value("Test Squat"));
 
         mockMvc.perform(get("/api/users/me/routines/active")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.id").value(routineId))
+                .andExpect(jsonPath("$.data.sourceRoutineId").value(routineId))
                 .andExpect(jsonPath("$.data.items[0].seq").value(1))
                 .andExpect(jsonPath("$.data.items[0].exercise.primaryMuscles[0]").value("quadriceps"));
     }

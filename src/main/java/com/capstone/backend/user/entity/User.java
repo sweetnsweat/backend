@@ -1,5 +1,6 @@
 package com.capstone.backend.user.entity;
 
+import com.capstone.backend.global.time.KoreanTime;
 import com.capstone.backend.routine.entity.Routine;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -65,6 +66,21 @@ public class User {
     @Column(name = "experience_level", length = 20)
     private String experienceLevel;
 
+    @Column(name = "current_exercise_status", length = 20)
+    private String currentExerciseStatus;
+
+    @Column(name = "fitness_goal", length = 30)
+    private String fitnessGoal;
+
+    @Column(name = "preferred_workout_place", length = 20)
+    private String preferredWorkoutPlace;
+
+    @Column(name = "weekly_workout_frequency")
+    private Integer weeklyWorkoutFrequency;
+
+    @Column(name = "available_workout_minutes")
+    private Integer availableWorkoutMinutes;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "preferred_exercise_types", nullable = false)
     private List<String> preferredExerciseTypes = new ArrayList<>();
@@ -107,8 +123,19 @@ public class User {
         return user;
     }
 
-    public void updateExerciseProfile(String experienceLevel, List<String> preferredExerciseTypes) {
+    public void updateExerciseProfile(String experienceLevel,
+                                      String currentExerciseStatus,
+                                      String fitnessGoal,
+                                      String preferredWorkoutPlace,
+                                      Integer weeklyWorkoutFrequency,
+                                      Integer availableWorkoutMinutes,
+                                      List<String> preferredExerciseTypes) {
         this.experienceLevel = experienceLevel;
+        this.currentExerciseStatus = currentExerciseStatus;
+        this.fitnessGoal = fitnessGoal;
+        this.preferredWorkoutPlace = preferredWorkoutPlace;
+        this.weeklyWorkoutFrequency = weeklyWorkoutFrequency;
+        this.availableWorkoutMinutes = availableWorkoutMinutes;
         this.preferredExerciseTypes = preferredExerciseTypes == null
                 ? new ArrayList<>()
                 : new ArrayList<>(preferredExerciseTypes);
@@ -119,12 +146,25 @@ public class User {
                                         BigDecimal heightCm,
                                         BigDecimal weightKg,
                                         String experienceLevel,
+                                        String currentExerciseStatus,
+                                        String fitnessGoal,
+                                        String preferredWorkoutPlace,
+                                        Integer weeklyWorkoutFrequency,
+                                        Integer availableWorkoutMinutes,
                                         List<String> preferredExerciseTypes) {
         this.gender = gender;
         this.birthDate = birthDate;
         this.heightCm = heightCm;
         this.weightKg = weightKg;
-        updateExerciseProfile(experienceLevel, preferredExerciseTypes);
+        updateExerciseProfile(
+                experienceLevel,
+                currentExerciseStatus,
+                fitnessGoal,
+                preferredWorkoutPlace,
+                weeklyWorkoutFrequency,
+                availableWorkoutMinutes,
+                preferredExerciseTypes
+        );
     }
 
     public void updateActiveRoutine(Routine activeRoutine) {
@@ -133,7 +173,7 @@ public class User {
 
     @PrePersist
     void onCreate() {
-        Instant now = Instant.now();
+        Instant now = KoreanTime.nowInstant();
         this.createdAt = now;
         this.updatedAt = now;
         if (this.status == null) {
@@ -144,7 +184,7 @@ public class User {
 
     @PreUpdate
     void onUpdate() {
-        this.updatedAt = Instant.now();
+        this.updatedAt = KoreanTime.nowInstant();
         applyDefaults();
     }
 
@@ -218,6 +258,26 @@ public class User {
         return experienceLevel;
     }
 
+    public String getCurrentExerciseStatus() {
+        return currentExerciseStatus;
+    }
+
+    public String getFitnessGoal() {
+        return fitnessGoal;
+    }
+
+    public String getPreferredWorkoutPlace() {
+        return preferredWorkoutPlace;
+    }
+
+    public Integer getWeeklyWorkoutFrequency() {
+        return weeklyWorkoutFrequency;
+    }
+
+    public Integer getAvailableWorkoutMinutes() {
+        return availableWorkoutMinutes;
+    }
+
     public List<String> getPreferredExerciseTypes() {
         return preferredExerciseTypes == null ? List.of() : List.copyOf(preferredExerciseTypes);
     }
@@ -228,8 +288,11 @@ public class User {
                 && heightCm != null
                 && weightKg != null
                 && experienceLevel != null
-                && preferredExerciseTypes != null
-                && !preferredExerciseTypes.isEmpty();
+                && currentExerciseStatus != null
+                && fitnessGoal != null
+                && preferredWorkoutPlace != null
+                && weeklyWorkoutFrequency != null
+                && availableWorkoutMinutes != null;
     }
 
     public Boolean getPushEnabled() {

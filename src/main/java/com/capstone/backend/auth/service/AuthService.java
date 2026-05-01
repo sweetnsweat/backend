@@ -10,10 +10,10 @@ import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.auth.security.JwtTokenService;
 import com.capstone.backend.condition.repository.ConditionLogRepository;
 import com.capstone.backend.global.exception.ApiException;
+import com.capstone.backend.global.time.KoreanTime;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -109,7 +109,7 @@ public class AuthService {
             return;
         }
 
-        Instant now = Instant.now();
+        Instant now = KoreanTime.nowInstant();
         for (RefreshToken refreshToken : activeTokens) {
             refreshToken.revoke(now);
             jwtTokenService.deleteRefreshTokenHash(refreshToken.getTokenHash());
@@ -118,6 +118,6 @@ public class AuthService {
     }
 
     private boolean hasTodayCondition(Long userId) {
-        return conditionLogRepository.findByUser_IdAndLogDate(userId, LocalDate.now()).isPresent();
+        return conditionLogRepository.findByUser_IdAndLogDate(userId, KoreanTime.today()).isPresent();
     }
 }

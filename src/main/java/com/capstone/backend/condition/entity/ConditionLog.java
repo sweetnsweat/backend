@@ -1,5 +1,6 @@
 package com.capstone.backend.condition.entity;
 
+import com.capstone.backend.global.time.KoreanTime;
 import com.capstone.backend.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -103,18 +104,22 @@ public class ConditionLog {
 
     @PrePersist
     void onCreate() {
-        Instant now = Instant.now();
+        Instant now = KoreanTime.nowInstant();
         this.createdAt = now;
         this.updatedAt = now;
     }
 
     @PreUpdate
     void onUpdate() {
-        this.updatedAt = Instant.now();
+        this.updatedAt = KoreanTime.nowInstant();
     }
 
     public Long getId() {
         return id;
+    }
+
+    public User getUser() {
+        return user;
     }
 
     public LocalDate getLogDate() {

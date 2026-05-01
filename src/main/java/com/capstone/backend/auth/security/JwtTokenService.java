@@ -2,6 +2,7 @@ package com.capstone.backend.auth.security;
 
 import com.capstone.backend.auth.config.JwtProperties;
 import com.capstone.backend.global.exception.ApiException;
+import com.capstone.backend.global.time.KoreanTime;
 import com.capstone.backend.user.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -75,7 +76,7 @@ public class JwtTokenService {
     }
 
     public void blacklistAccessToken(String jti, Instant expiresAt) {
-        Duration ttl = Duration.between(Instant.now(), expiresAt);
+        Duration ttl = Duration.between(KoreanTime.nowInstant(), expiresAt);
         if (ttl.isNegative() || ttl.isZero()) {
             return;
         }
@@ -98,7 +99,7 @@ public class JwtTokenService {
     }
 
     public void storeRefreshTokenHash(String tokenHash, Long userId, Instant expiresAt) {
-        Duration ttl = Duration.between(Instant.now(), expiresAt);
+        Duration ttl = Duration.between(KoreanTime.nowInstant(), expiresAt);
         if (ttl.isNegative() || ttl.isZero()) {
             return;
         }
@@ -110,7 +111,7 @@ public class JwtTokenService {
     }
 
     private String createToken(User user, String tokenType, long ttlSeconds) {
-        Instant now = Instant.now();
+        Instant now = KoreanTime.nowInstant();
         Instant expiresAt = now.plusSeconds(ttlSeconds);
 
         return Jwts.builder()

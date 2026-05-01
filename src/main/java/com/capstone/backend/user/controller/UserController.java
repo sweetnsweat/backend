@@ -34,7 +34,7 @@ public class UserController {
         return ApiResponse.ok(userService.getMyProfile(authUser.userId()));
     }
 
-    @Operation(summary = "온보딩 프로필 저장", description = "최초 로그인 온보딩에서 입력한 신체 정보, 운동 경험 수준, 선호 운동 유형을 저장합니다.")
+    @Operation(summary = "온보딩 프로필 저장", description = "최초 로그인 온보딩에서 입력한 신체 정보와 루틴 추천용 운동 성향을 저장합니다.")
     @PutMapping("/me/onboarding-profile")
     public ApiResponse<UserProfileResponse> updateOnboardingProfile(@AuthenticationPrincipal AuthUser authUser,
                                                                     @Valid @RequestBody OnboardingProfileRequest request) {

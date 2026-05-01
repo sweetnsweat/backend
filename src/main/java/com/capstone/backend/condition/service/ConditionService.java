@@ -5,12 +5,12 @@ import com.capstone.backend.condition.dto.ConditionTodayRequest;
 import com.capstone.backend.condition.entity.ConditionLog;
 import com.capstone.backend.condition.repository.ConditionLogRepository;
 import com.capstone.backend.global.exception.ApiException;
+import com.capstone.backend.global.time.KoreanTime;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ConditionService {
 
-    private static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
     private static final BigDecimal VERY_LOW_READINESS_THRESHOLD = BigDecimal.valueOf(40);
     private static final BigDecimal LOW_READINESS_THRESHOLD = BigDecimal.valueOf(60);
     private static final BigDecimal HIGH_READINESS_THRESHOLD = BigDecimal.valueOf(80);
@@ -37,7 +36,7 @@ public class ConditionService {
 
     @Transactional(readOnly = true)
     public ConditionLogResponse getTodayCondition(Long userId) {
-        LocalDate today = LocalDate.now(SERVICE_ZONE);
+        LocalDate today = KoreanTime.today();
         ConditionLog conditionLog = conditionLogRepository.findByUser_IdAndLogDate(userId, today)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONDITION_NOT_FOUND", "Today's condition log not found"));
 
@@ -49,7 +48,7 @@ public class ConditionService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "User not found"));
 
-        LocalDate today = LocalDate.now(SERVICE_ZONE);
+        LocalDate today = KoreanTime.today();
         BigDecimal conditionScore = calculateConditionScore(request);
         BigDecimal exerciseMultiplier = calculateExerciseMultiplier(conditionScore);
 
