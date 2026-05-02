@@ -5,6 +5,8 @@ import com.capstone.backend.auth.security.JwtTokenService;
 import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,12 +18,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.mockito.ArgumentCaptor;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -42,6 +47,8 @@ class AiStoryProxyControllerTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     @MockitoBean
     private AiProxyService aiProxyService;
@@ -74,8 +81,10 @@ class AiStoryProxyControllerTest {
     }
 
     @Test
-    void playStoryProxiesRequestAndReturnsAiResponseAsIs() throws Exception {
+    void playStoryInjectsAuthenticatedUserIdAndReturnsAiResponseAsIs() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User user = userRepository.save(User.createLocalUser("aiPlayUser", "encoded-password", "aiPlayUser"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
         Map<String, Object> response = Map.of(
                 "scenario_id", 4,
                 "chapter_num", 1,
@@ -88,11 +97,11 @@ class AiStoryProxyControllerTest {
         when(aiProxyService.post(eq("/stories/play"), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/stories/play")
-                        .header("Authorization", "Bearer " + accessTokenFor("aiPlayUser"))
+                        .header("Authorization", "Bearer " + accessToken)
                         .contentType("application/json")
                         .content("""
                                 {
-                                  "user_id": 100,
+                                  "user_id": 999999,
                                   "scenario_id": 4,
                                   "user_message": null,
                                   "choice_id": null,
@@ -107,7 +116,12 @@ class AiStoryProxyControllerTest {
                 .andExpect(jsonPath("$.data.phase").value("INTRO"))
                 .andExpect(jsonPath("$.data.is_story_completed").value(false));
 
-        verify(aiProxyService).post(eq("/stories/play"), any());
+        ArgumentCaptor<String> bodyCaptor = forClass(String.class);
+        verify(aiProxyService).post(eq("/stories/play"), bodyCaptor.capture());
+        Map<?, ?> forwardedBody = objectMapper.readValue(bodyCaptor.getValue(), Map.class);
+        assertThat(forwardedBody.get("user_id")).isEqualTo(user.getId().intValue());
+        assertThat(forwardedBody.get("scenario_id")).isEqualTo(4);
+        assertThat(forwardedBody.get("restart")).isEqualTo(true);
     }
 
     @Test
@@ -121,7 +135,6 @@ class AiStoryProxyControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {
-                                  "user_id": 100,
                                   "scenario_id": 999999,
                                   "restart": true
                                 }
@@ -129,6 +142,18 @@ class AiStoryProxyControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("AI_SERVER_ERROR"))
                 .andExpect(jsonPath("$.detail").value("scenario_id=999999 시나리오를 찾을 수 없습니다."));
+    }
+
+    @Test
+    void playStoryRejectsNonObjectJsonBody() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+
+        mockMvc.perform(post("/api/stories/play")
+                        .header("Authorization", "Bearer " + accessTokenFor("aiPlayInvalidBodyUser"))
+                        .contentType("application/json")
+                        .content("[]"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_AI_STORY_REQUEST"));
     }
 
     @Test

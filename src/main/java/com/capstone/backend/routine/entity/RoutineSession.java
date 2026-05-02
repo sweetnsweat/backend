@@ -74,6 +74,24 @@ public class RoutineSession {
         return session;
     }
 
+    public static RoutineSession create(Routine routine,
+                                        String dayOfWeek,
+                                        String sessionName,
+                                        String sessionType,
+                                        Integer seq,
+                                        Integer estimatedMinutes) {
+        RoutineSession session = new RoutineSession();
+        session.routine = routine;
+        session.dayOfWeek = dayOfWeek;
+        session.sessionName = sessionName;
+        session.sessionType = sessionType;
+        session.seq = seq == null ? 1 : seq;
+        session.estimatedMinutes = estimatedMinutes;
+        session.active = true;
+        routine.addSession(session);
+        return session;
+    }
+
     @PrePersist
     void onCreate() {
         Instant now = KoreanTime.nowInstant();

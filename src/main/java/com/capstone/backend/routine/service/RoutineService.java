@@ -1,16 +1,25 @@
 package com.capstone.backend.routine.service;
 
 import com.capstone.backend.global.exception.ApiException;
+import com.capstone.backend.exercise.repository.ExerciseRepository;
+import com.capstone.backend.routine.dto.CreateCustomRoutineRequest;
 import com.capstone.backend.routine.dto.RoutineDetailResponse;
 import com.capstone.backend.routine.dto.RoutineRecommendationResponse;
 import com.capstone.backend.routine.dto.RoutineSummaryResponse;
+import com.capstone.backend.routine.entity.Exercise;
 import com.capstone.backend.routine.entity.Routine;
+import com.capstone.backend.routine.entity.RoutineItem;
+import com.capstone.backend.routine.entity.RoutineSession;
+import com.capstone.backend.routine.repository.RoutineItemRepository;
 import com.capstone.backend.routine.repository.RoutineRepository;
+import com.capstone.backend.routine.repository.RoutineSessionRepository;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,10 +29,20 @@ public class RoutineService {
 
     private final RoutineRepository routineRepository;
     private final UserRepository userRepository;
+    private final RoutineSessionRepository routineSessionRepository;
+    private final RoutineItemRepository routineItemRepository;
+    private final ExerciseRepository exerciseRepository;
 
-    public RoutineService(RoutineRepository routineRepository, UserRepository userRepository) {
+    public RoutineService(RoutineRepository routineRepository,
+                          UserRepository userRepository,
+                          RoutineSessionRepository routineSessionRepository,
+                          RoutineItemRepository routineItemRepository,
+                          ExerciseRepository exerciseRepository) {
         this.routineRepository = routineRepository;
         this.userRepository = userRepository;
+        this.routineSessionRepository = routineSessionRepository;
+        this.routineItemRepository = routineItemRepository;
+        this.exerciseRepository = exerciseRepository;
     }
 
     @Transactional(readOnly = true)
@@ -50,13 +69,66 @@ public class RoutineService {
     }
 
     @Transactional(readOnly = true)
-    public RoutineDetailResponse getRoutine(Long routineId) {
-        Routine routine = routineRepository.findWithItemsByIdAndActiveTrue(routineId)
+    public RoutineDetailResponse getRoutine(Long userId, Long routineId) {
+        Routine routine = routineRepository.findAccessibleWithItemsByIdAndActiveTrue(routineId, userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ROUTINE_NOT_FOUND", "Routine not found"));
         Routine routineWithSessions = routineRepository.findWithSessionsByIdAndActiveTrue(routineId)
                 .orElse(routine);
 
         return RoutineDetailResponse.from(routine, routineWithSessions.getSessions());
+    }
+
+    @Transactional
+    public RoutineDetailResponse createCustomRoutine(Long userId, CreateCustomRoutineRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다."));
+
+        int estimatedMinutes = request.sessions().stream()
+                .map(CreateCustomRoutineRequest.SessionRequest::estimatedMinutes)
+                .filter(minutes -> minutes != null)
+                .mapToInt(Integer::intValue)
+                .sum();
+        Routine routine = routineRepository.save(Routine.createCustom(
+                user,
+                request.name().trim(),
+                normalizeText(request.description()),
+                estimatedMinutes == 0 ? null : estimatedMinutes
+        ));
+
+        Map<Long, Exercise> exerciseCache = new HashMap<>();
+        int sessionSeq = 1;
+        for (CreateCustomRoutineRequest.SessionRequest sessionRequest : request.sessions()) {
+            RoutineSession session = routineSessionRepository.save(RoutineSession.create(
+                    routine,
+                    sessionRequest.dayOfWeek(),
+                    sessionRequest.sessionName().trim(),
+                    normalizeText(sessionRequest.sessionType()),
+                    sessionSeq++,
+                    sessionRequest.estimatedMinutes()
+            ));
+            int itemIndex = 1;
+            for (CreateCustomRoutineRequest.ItemRequest itemRequest : sessionRequest.items()) {
+                validateTarget(itemRequest);
+                Exercise exercise = exerciseCache.computeIfAbsent(itemRequest.exerciseId(), this::findExercise);
+                routineItemRepository.save(RoutineItem.create(
+                        routine,
+                        session,
+                        exercise,
+                        itemRequest.seq() == null ? itemIndex : itemRequest.seq(),
+                        itemRequest.sets(),
+                        itemRequest.reps(),
+                        itemRequest.durationSec(),
+                        itemRequest.restSec()
+                ));
+                itemIndex++;
+            }
+        }
+
+        if (request.activate() == null || Boolean.TRUE.equals(request.activate())) {
+            user.updateActiveRoutine(routine);
+        }
+
+        return routineDetail(routine.getId());
     }
 
     private RoutineRecommendationResponse scoreRoutine(User user, Routine routine) {
@@ -131,5 +203,31 @@ public class RoutineService {
             }
         }
         return count;
+    }
+
+    private RoutineDetailResponse routineDetail(Long routineId) {
+        Routine routine = routineRepository.findWithItemsByIdAndActiveTrue(routineId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ROUTINE_NOT_FOUND", "루틴을 찾을 수 없습니다."));
+        Routine routineWithSessions = routineRepository.findWithSessionsByIdAndActiveTrue(routineId)
+                .orElse(routine);
+        return RoutineDetailResponse.from(routine, routineWithSessions.getSessions());
+    }
+
+    private Exercise findExercise(Long exerciseId) {
+        return exerciseRepository.findById(exerciseId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "EXERCISE_NOT_FOUND", "루틴에 추가할 운동을 찾을 수 없습니다."));
+    }
+
+    private void validateTarget(CreateCustomRoutineRequest.ItemRequest itemRequest) {
+        if (itemRequest.sets() == null && itemRequest.reps() == null && itemRequest.durationSec() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_ROUTINE_ITEM_TARGET", "운동 항목에는 세트 수, 반복 횟수, 운동 시간 중 하나 이상을 입력해 주세요.");
+        }
+    }
+
+    private String normalizeText(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 }

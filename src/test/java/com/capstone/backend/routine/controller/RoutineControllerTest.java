@@ -190,6 +190,47 @@ class RoutineControllerTest {
     }
 
     @Test
+    void routineDetailDoesNotExposeOtherUsersCustomRoutine() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User owner = userRepository.save(User.createLocalUser("customRoutineOwner", "encoded-password", "Custom Routine Owner"));
+        User other = userRepository.save(User.createLocalUser("customRoutineOther", "encoded-password", "Custom Routine Other"));
+        String ownerToken = jwtTokenService.issueTokenPair(owner).accessToken();
+        String otherToken = jwtTokenService.issueTokenPair(other).accessToken();
+        Long exerciseId = seedExercise("Owner Only Exercise", "owner_only_exercise_" + System.nanoTime());
+
+        Number routineId = com.jayway.jsonpath.JsonPath.read(mockMvc.perform(post("/api/routines/custom")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name": "소유자 전용 루틴",
+                                  "sessions": [
+                                    {
+                                      "dayOfWeek": "MONDAY",
+                                      "sessionName": "월요일",
+                                      "items": [
+                                        {
+                                          "exerciseId": %d,
+                                          "sets": 3,
+                                          "reps": 12
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                                """.formatted(exerciseId)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(), "$.data.id");
+
+        mockMvc.perform(get("/api/routines/{routineId}", routineId.longValue())
+                        .header("Authorization", "Bearer " + otherToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("ROUTINE_NOT_FOUND"));
+    }
+
+    @Test
     void activateDefaultRoutineCopiesOnceAndSetsUserActiveRoutine() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         User user = userRepository.save(User.createLocalUser("activateRoutineUser", "encoded-password", "Activate Routine User"));
@@ -225,13 +266,176 @@ class RoutineControllerTest {
         org.assertj.core.api.Assertions.assertThat(activeRoutineSourceId).isEqualTo(defaultRoutineId);
     }
 
+    @Test
+    void createCustomRoutineStoresSessionsItemsAndActivatesByDefault() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User user = userRepository.save(User.createLocalUser("customRoutineUser", "encoded-password", "Custom Routine User"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+        Long squatId = seedExercise("Custom Squat", "custom_squat_" + System.nanoTime());
+        Long plankId = seedExercise("Custom Plank", "custom_plank_" + System.nanoTime());
+
+        mockMvc.perform(post("/api/routines/custom")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name": "내 전신 루틴",
+                                  "description": "직접 만든 전신 루틴",
+                                  "sessions": [
+                                    {
+                                      "dayOfWeek": "MONDAY",
+                                      "sessionName": "월요일 전신",
+                                      "sessionType": "full_body",
+                                      "estimatedMinutes": 40,
+                                      "items": [
+                                        {
+                                          "exerciseId": %d,
+                                          "sets": 3,
+                                          "reps": 12,
+                                          "restSec": 60
+                                        },
+                                        {
+                                          "exerciseId": %d,
+                                          "seq": 2,
+                                          "durationSec": 45,
+                                          "restSec": 30
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                                """.formatted(squatId, plankId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("직접 만든 운동 루틴이 저장되었습니다."))
+                .andExpect(jsonPath("$.data.name").value("내 전신 루틴"))
+                .andExpect(jsonPath("$.data.description").value("직접 만든 전신 루틴"))
+                .andExpect(jsonPath("$.data.difficulty").value("custom"))
+                .andExpect(jsonPath("$.data.estimatedMinutes").value(40))
+                .andExpect(jsonPath("$.data.isDefault").value(false))
+                .andExpect(jsonPath("$.data.sessions[0].dayOfWeek").value("MONDAY"))
+                .andExpect(jsonPath("$.data.sessions[0].sessionName").value("월요일 전신"))
+                .andExpect(jsonPath("$.data.sessions[0].items[0].seq").value(1))
+                .andExpect(jsonPath("$.data.sessions[0].items[0].sets").value(3))
+                .andExpect(jsonPath("$.data.sessions[0].items[0].reps").value(12))
+                .andExpect(jsonPath("$.data.sessions[0].items[0].exercise.id").value(squatId))
+                .andExpect(jsonPath("$.data.sessions[0].items[1].seq").value(2))
+                .andExpect(jsonPath("$.data.sessions[0].items[1].durationSec").value(45))
+                .andExpect(jsonPath("$.data.sessions[0].items[1].exercise.id").value(plankId));
+
+        Long activeRoutineId = jdbcTemplate.queryForObject(
+                "select active_routine_id from users where id = ?",
+                Long.class,
+                user.getId()
+        );
+        org.assertj.core.api.Assertions.assertThat(activeRoutineId).isNotNull();
+    }
+
+    @Test
+    void createCustomRoutineCanSkipActivation() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User user = userRepository.save(User.createLocalUser("customRoutineSkipActivateUser", "encoded-password", "Custom Routine Skip Activate User"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+        Long exerciseId = seedExercise("Custom Lunge", "custom_lunge_" + System.nanoTime());
+
+        mockMvc.perform(post("/api/routines/custom")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name": "비활성 저장 루틴",
+                                  "activate": false,
+                                  "sessions": [
+                                    {
+                                      "dayOfWeek": "WEDNESDAY",
+                                      "sessionName": "수요일 하체",
+                                      "items": [
+                                        {
+                                          "exerciseId": %d,
+                                          "sets": 2,
+                                          "reps": 10
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                                """.formatted(exerciseId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("비활성 저장 루틴"));
+
+        Long activeRoutineId = jdbcTemplate.queryForObject(
+                "select active_routine_id from users where id = ?",
+                Long.class,
+                user.getId()
+        );
+        org.assertj.core.api.Assertions.assertThat(activeRoutineId).isNull();
+    }
+
+    @Test
+    void createCustomRoutineRejectsItemWithoutTarget() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        String accessToken = accessTokenFor("customRoutineInvalidTargetUser");
+        Long exerciseId = seedExercise("Custom Pushup", "custom_pushup_" + System.nanoTime());
+
+        mockMvc.perform(post("/api/routines/custom")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name": "잘못된 루틴",
+                                  "sessions": [
+                                    {
+                                      "dayOfWeek": "FRIDAY",
+                                      "sessionName": "금요일 전신",
+                                      "items": [
+                                        {
+                                          "exerciseId": %d
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                                """.formatted(exerciseId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ROUTINE_ITEM_TARGET"));
+    }
+
+    @Test
+    void createCustomRoutineReturnsNotFoundForMissingExercise() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        String accessToken = accessTokenFor("customRoutineMissingExerciseUser");
+
+        mockMvc.perform(post("/api/routines/custom")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name": "없는 운동 루틴",
+                                  "sessions": [
+                                    {
+                                      "dayOfWeek": "FRIDAY",
+                                      "sessionName": "금요일 전신",
+                                      "items": [
+                                        {
+                                          "exerciseId": 999999,
+                                          "sets": 3,
+                                          "reps": 12
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("EXERCISE_NOT_FOUND"));
+    }
+
     private String accessTokenFor(String loginId) {
         User user = userRepository.save(User.createLocalUser(loginId, "encoded-password", loginId));
         return jwtTokenService.issueTokenPair(user).accessToken();
     }
 
-    private Long seedRoutine() {
-        Long exerciseId = insertAndReturnId("""
+    private Long seedExercise(String name, String externalId) {
+        return insertAndReturnId("""
                 insert into exercises (
                     name,
                     category,
@@ -251,7 +455,7 @@ class RoutineControllerTest {
                     updated_at
                 )
                 values (
-                    'Test Squat',
+                    ?,
                     'strength',
                     'beginner',
                     ?,
@@ -259,7 +463,7 @@ class RoutineControllerTest {
                     'body only',
                     JSON '["quadriceps"]',
                     JSON '["glutes"]',
-                    JSON '["Stand with feet shoulder-width apart.", "Bend knees and lower hips."]',
+                    JSON '["Test instruction"]',
                     JSON '["https://example.com/test-squat.jpg"]',
                     'test',
                     'test',
@@ -268,7 +472,11 @@ class RoutineControllerTest {
                     CURRENT_TIMESTAMP,
                     CURRENT_TIMESTAMP
                 )
-                """, "test_squat_" + System.nanoTime());
+                """, name, externalId);
+    }
+
+    private Long seedRoutine() {
+        Long exerciseId = seedExercise("Test Squat", "test_squat_" + System.nanoTime());
 
         Long routineId = insertAndReturnId("""
                 insert into routines (

@@ -2,6 +2,7 @@ package com.capstone.backend.routine.controller;
 
 import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.global.api.ApiResponse;
+import com.capstone.backend.routine.dto.CreateCustomRoutineRequest;
 import com.capstone.backend.routine.dto.RoutineDetailResponse;
 import com.capstone.backend.routine.dto.RoutineRecommendationResponse;
 import com.capstone.backend.routine.dto.RoutineSummaryResponse;
@@ -9,11 +10,13 @@ import com.capstone.backend.routine.service.RoutineService;
 import com.capstone.backend.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -42,10 +45,18 @@ public class RoutineController {
         return ApiResponse.ok(routineService.getRecommendations(authUser.userId()));
     }
 
+    @Operation(summary = "직접 운동 루틴 생성", description = "운동 목록에서 사용자가 선택한 운동과 요일별 세션 정보로 개인 루틴을 생성합니다. activate를 생략하거나 true로 보내면 생성한 루틴을 바로 활성화합니다.")
+    @PostMapping("/custom")
+    public ApiResponse<RoutineDetailResponse> createCustomRoutine(@AuthenticationPrincipal AuthUser authUser,
+                                                                  @Valid @RequestBody CreateCustomRoutineRequest request) {
+        return ApiResponse.ok("직접 만든 운동 루틴이 저장되었습니다.", routineService.createCustomRoutine(authUser.userId(), request));
+    }
+
     @Operation(summary = "운동 루틴 상세 조회", description = "루틴에 포함된 운동 목록, 세트, 반복 횟수 등 상세 정보를 조회합니다.")
     @GetMapping("/{routineId}")
-    public ApiResponse<RoutineDetailResponse> routine(@PathVariable Long routineId) {
-        return ApiResponse.ok(routineService.getRoutine(routineId));
+    public ApiResponse<RoutineDetailResponse> routine(@AuthenticationPrincipal AuthUser authUser,
+                                                      @PathVariable Long routineId) {
+        return ApiResponse.ok(routineService.getRoutine(authUser.userId(), routineId));
     }
 
     @Operation(summary = "루틴 선택 및 활성화", description = "기본 루틴이면 사용자 전용 루틴으로 복사한 뒤 활성화하고, 사용자 루틴이면 그대로 활성화합니다.")

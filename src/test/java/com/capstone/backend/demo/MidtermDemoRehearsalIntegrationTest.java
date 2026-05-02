@@ -100,11 +100,14 @@ class MidtermDemoRehearsalIntegrationTest {
                                   "preferredWorkoutPlace": "home",
                                   "weeklyWorkoutFrequency": 3,
                                   "availableWorkoutMinutes": 30,
-                                  "preferredExerciseTypes": ["bodyweight", "strength"]
+                                  "preferredExerciseTypes": []
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.onboardingCompleted").value(true));
+                .andExpect(jsonPath("$.data.onboardingCompleted").value(true))
+                .andExpect(jsonPath("$.data.todayConditionCompleted").value(true))
+                .andExpect(jsonPath("$.data.routineSetupRequired").value(true))
+                .andExpect(jsonPath("$.data.preferredExerciseTypes").isEmpty());
 
         mockMvc.perform(get("/api/exercises/categories")
                         .header("Authorization", "Bearer " + accessToken))

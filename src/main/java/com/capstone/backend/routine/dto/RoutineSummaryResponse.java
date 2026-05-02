@@ -15,9 +15,15 @@ public record RoutineSummaryResponse(
         List<String> placeTypes,
         Integer weeklyFrequency,
         List<String> recommendedExerciseTypes,
-        Boolean isDefault
+        Boolean isDefault,
+        Long sourceRoutineId,
+        Boolean active
 ) {
     public static RoutineSummaryResponse from(Routine routine) {
+        return from(routine, false);
+    }
+
+    public static RoutineSummaryResponse from(Routine routine, boolean active) {
         return new RoutineSummaryResponse(
                 routine.getId(),
                 routine.getName(),
@@ -30,7 +36,9 @@ public record RoutineSummaryResponse(
                 routine.getPlaceTypes(),
                 routine.getWeeklyFrequency(),
                 routine.getRecommendedExerciseTypes(),
-                routine.getDefaultRoutine()
+                routine.getDefaultRoutine(),
+                routine.getSourceRoutine() == null ? null : routine.getSourceRoutine().getId(),
+                active
         );
     }
 }

@@ -65,6 +65,30 @@ public class RoutineItem {
         return item;
     }
 
+    public static RoutineItem create(Routine routine,
+                                     RoutineSession routineSession,
+                                     Exercise exercise,
+                                     Integer seq,
+                                     Integer sets,
+                                     Integer reps,
+                                     Integer durationSec,
+                                     Integer restSec) {
+        RoutineItem item = new RoutineItem();
+        item.routine = routine;
+        item.routineSession = routineSession;
+        item.exercise = exercise;
+        item.seq = seq;
+        item.sets = sets;
+        item.reps = reps;
+        item.durationSec = durationSec;
+        item.restSec = restSec;
+        routine.addItem(item);
+        if (routineSession != null) {
+            routineSession.addItem(item);
+        }
+        return item;
+    }
+
     public Long getId() {
         return id;
     }

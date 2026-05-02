@@ -4,12 +4,14 @@ import com.capstone.backend.auth.dto.UserProfileResponse;
 import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.global.api.ApiResponse;
 import com.capstone.backend.routine.dto.RoutineDetailResponse;
+import com.capstone.backend.routine.dto.RoutineSummaryResponse;
 import com.capstone.backend.user.dto.OnboardingProfileRequest;
 import com.capstone.backend.user.dto.UpdateActiveRoutineRequest;
 import com.capstone.backend.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -45,6 +47,12 @@ public class UserController {
     @GetMapping("/me/routines/active")
     public ApiResponse<RoutineDetailResponse> getActiveRoutine(@AuthenticationPrincipal AuthUser authUser) {
         return ApiResponse.ok(userService.getActiveRoutine(authUser.userId()));
+    }
+
+    @Operation(summary = "내 운동 루틴 목록 조회", description = "현재 사용자가 직접 만들었거나 추천 루틴을 활성화하며 복사된 사용자 루틴 목록을 조회합니다.")
+    @GetMapping("/me/routines")
+    public ApiResponse<List<RoutineSummaryResponse>> getMyRoutines(@AuthenticationPrincipal AuthUser authUser) {
+        return ApiResponse.ok(userService.getMyRoutines(authUser.userId()));
     }
 
     @Operation(summary = "활성 운동 루틴 설정", description = "사용자가 사용할 운동 루틴을 활성 루틴으로 설정합니다.")

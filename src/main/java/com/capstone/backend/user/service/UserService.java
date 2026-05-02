@@ -1,9 +1,11 @@
 package com.capstone.backend.user.service;
 
 import com.capstone.backend.auth.dto.UserProfileResponse;
+import com.capstone.backend.condition.entity.ConditionLog;
 import com.capstone.backend.condition.repository.ConditionLogRepository;
 import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.routine.dto.RoutineDetailResponse;
+import com.capstone.backend.routine.dto.RoutineSummaryResponse;
 import com.capstone.backend.routine.entity.Routine;
 import com.capstone.backend.routine.entity.RoutineItem;
 import com.capstone.backend.routine.entity.RoutineSession;
@@ -15,15 +17,24 @@ import com.capstone.backend.user.dto.UpdateActiveRoutineRequest;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import com.capstone.backend.global.time.KoreanTime;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserService {
+
+    private static final Integer DEFAULT_CONDITION_LEVEL = 3;
+    private static final Integer DEFAULT_SLEEP_SCORE = 3;
+    private static final Integer DEFAULT_STRESS_SCORE = 2;
+    private static final Integer DEFAULT_FATIGUE_SCORE = 3;
+    private static final Integer DEFAULT_ENERGY_LEVEL = 3;
+    private static final BigDecimal DEFAULT_CONDITION_SCORE = BigDecimal.valueOf(60.42);
+    private static final BigDecimal DEFAULT_EXERCISE_MULTIPLIER = BigDecimal.valueOf(1.00).setScale(2);
 
     private final UserRepository userRepository;
     private final RoutineRepository routineRepository;
@@ -55,6 +66,7 @@ public class UserService {
     public UserProfileResponse updateOnboardingProfile(Long userId, OnboardingProfileRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "User not found"));
+        boolean firstOnboardingCompletion = !user.isOnboardingCompleted();
 
         user.updateOnboardingProfile(
                 request.gender(),
@@ -69,6 +81,9 @@ public class UserService {
                 request.availableWorkoutMinutes(),
                 request.preferredExerciseTypes()
         );
+        if (firstOnboardingCompletion) {
+            createDefaultTodayConditionIfAbsent(user);
+        }
 
         return UserProfileResponse.from(user, hasTodayCondition(user.getId()));
     }
@@ -85,6 +100,16 @@ public class UserService {
         Routine routineWithSessions = routineRepository.findWithSessionsByIdAndActiveTrue(routine.getId())
                 .orElse(routine);
         return RoutineDetailResponse.from(routine, routineWithSessions.getSessions());
+    }
+
+    @Transactional(readOnly = true)
+    public List<RoutineSummaryResponse> getMyRoutines(Long userId) {
+        User user = findUser(userId);
+        Long activeRoutineId = user.getActiveRoutine() == null ? null : user.getActiveRoutine().getId();
+
+        return routineRepository.findByUser_IdAndActiveTrueOrderByIdDesc(userId).stream()
+                .map(routine -> RoutineSummaryResponse.from(routine, routine.getId().equals(activeRoutineId)))
+                .toList();
     }
 
     @Transactional
@@ -149,5 +174,20 @@ public class UserService {
 
     private boolean hasTodayCondition(Long userId) {
         return conditionLogRepository.findByUser_IdAndLogDate(userId, KoreanTime.today()).isPresent();
+    }
+
+    private void createDefaultTodayConditionIfAbsent(User user) {
+        conditionLogRepository.findByUser_IdAndLogDate(user.getId(), KoreanTime.today())
+                .orElseGet(() -> conditionLogRepository.save(ConditionLog.create(
+                        user,
+                        KoreanTime.today(),
+                        DEFAULT_CONDITION_LEVEL,
+                        DEFAULT_SLEEP_SCORE,
+                        DEFAULT_STRESS_SCORE,
+                        DEFAULT_FATIGUE_SCORE,
+                        DEFAULT_ENERGY_LEVEL,
+                        DEFAULT_CONDITION_SCORE,
+                        DEFAULT_EXERCISE_MULTIPLIER
+                )));
     }
 }

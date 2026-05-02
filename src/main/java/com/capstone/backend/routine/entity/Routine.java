@@ -113,6 +113,18 @@ public class Routine {
         return routine;
     }
 
+    public static Routine createCustom(User user, String name, String description, Integer estimatedMinutes) {
+        Routine routine = new Routine();
+        routine.user = user;
+        routine.name = name;
+        routine.description = description;
+        routine.defaultRoutine = false;
+        routine.difficulty = "custom";
+        routine.estimatedMinutes = estimatedMinutes;
+        routine.active = true;
+        return routine;
+    }
+
     @PrePersist
     void onCreate() {
         Instant now = KoreanTime.nowInstant();

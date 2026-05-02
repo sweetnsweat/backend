@@ -1,9 +1,12 @@
 package com.capstone.backend.ai.controller;
 
 import com.capstone.backend.ai.service.AiProxyService;
+import com.capstone.backend.ai.service.AiStoryRequestFactory;
+import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.global.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -16,9 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AiStoryProxyController {
 
     private final AiProxyService aiProxyService;
+    private final AiStoryRequestFactory aiStoryRequestFactory;
 
-    public AiStoryProxyController(AiProxyService aiProxyService) {
+    public AiStoryProxyController(AiProxyService aiProxyService, AiStoryRequestFactory aiStoryRequestFactory) {
         this.aiProxyService = aiProxyService;
+        this.aiStoryRequestFactory = aiStoryRequestFactory;
     }
 
     @Operation(summary = "AI 서버 상태 확인", description = "백엔드에서 AI 서버 루트 상태 확인 API를 호출합니다.")
@@ -33,33 +38,38 @@ public class AiStoryProxyController {
         return ApiResponse.ok("AI 스토리 생성이 완료되었습니다.", aiProxyService.post("/stories/generate", request));
     }
 
-    @Operation(summary = "AI 스토리 플레이 통합 진행", description = "프론트에서 주로 사용할 메인 API입니다. 시작, 대화, 선택지 선택, 다음 챕터 진행을 AI 서버에 중개합니다.")
+    @Operation(summary = "AI 스토리 플레이 통합 진행", description = "프론트에서 주로 사용할 메인 API입니다. user_id는 요청에 넣지 않고 백엔드가 로그인 사용자 ID를 AI 서버 요청에 주입합니다.")
     @PostMapping("/stories/play")
-    public ApiResponse<Object> playStory(@RequestBody String request) {
-        return ApiResponse.ok("AI 스토리 진행 응답을 조회했습니다.", aiProxyService.post("/stories/play", request));
+    public ApiResponse<Object> playStory(@AuthenticationPrincipal AuthUser authUser,
+                                         @RequestBody String request) {
+        return ApiResponse.ok("AI 스토리 진행 응답을 조회했습니다.", aiProxyService.post("/stories/play", aiStoryRequestFactory.withAuthenticatedUserId(request, authUser.userId())));
     }
 
-    @Operation(summary = "AI 스토리 처음부터 시작", description = "기존 진행 상태를 리셋하고 1챕터 처음부터 시작하는 AI API를 호출합니다.")
+    @Operation(summary = "AI 스토리 처음부터 시작", description = "기존 진행 상태를 리셋하고 1챕터 처음부터 시작합니다. user_id는 백엔드가 로그인 사용자 ID로 주입합니다.")
     @PostMapping("/stories/play/start")
-    public ApiResponse<Object> startStory(@RequestBody String request) {
-        return ApiResponse.ok("AI 스토리를 처음부터 시작했습니다.", aiProxyService.post("/stories/play/start", request));
+    public ApiResponse<Object> startStory(@AuthenticationPrincipal AuthUser authUser,
+                                          @RequestBody String request) {
+        return ApiResponse.ok("AI 스토리를 처음부터 시작했습니다.", aiProxyService.post("/stories/play/start", aiStoryRequestFactory.withAuthenticatedUserId(request, authUser.userId())));
     }
 
-    @Operation(summary = "AI 스토리 현재 흐름 이어가기", description = "사용자 입력을 반영해 현재 챕터의 다음 흐름을 진행하는 AI API를 호출합니다.")
+    @Operation(summary = "AI 스토리 현재 흐름 이어가기", description = "사용자 입력을 반영해 현재 챕터의 다음 흐름을 진행합니다. user_id는 백엔드가 로그인 사용자 ID로 주입합니다.")
     @PostMapping("/stories/play/continue")
-    public ApiResponse<Object> continueStory(@RequestBody String request) {
-        return ApiResponse.ok("AI 스토리 현재 흐름을 이어갔습니다.", aiProxyService.post("/stories/play/continue", request));
+    public ApiResponse<Object> continueStory(@AuthenticationPrincipal AuthUser authUser,
+                                             @RequestBody String request) {
+        return ApiResponse.ok("AI 스토리 현재 흐름을 이어갔습니다.", aiProxyService.post("/stories/play/continue", aiStoryRequestFactory.withAuthenticatedUserId(request, authUser.userId())));
     }
 
-    @Operation(summary = "AI 스토리 선택지 선택", description = "현재 선택지 대기 상태에서 선택지를 골라 세부 전개를 진행하는 AI API를 호출합니다.")
+    @Operation(summary = "AI 스토리 선택지 선택", description = "현재 선택지 대기 상태에서 선택지를 골라 세부 전개를 진행합니다. user_id는 백엔드가 로그인 사용자 ID로 주입합니다.")
     @PostMapping("/stories/play/choose")
-    public ApiResponse<Object> chooseStory(@RequestBody String request) {
-        return ApiResponse.ok("AI 스토리 선택지를 반영했습니다.", aiProxyService.post("/stories/play/choose", request));
+    public ApiResponse<Object> chooseStory(@AuthenticationPrincipal AuthUser authUser,
+                                           @RequestBody String request) {
+        return ApiResponse.ok("AI 스토리 선택지를 반영했습니다.", aiProxyService.post("/stories/play/choose", aiStoryRequestFactory.withAuthenticatedUserId(request, authUser.userId())));
     }
 
-    @Operation(summary = "AI 스토리 다음 챕터 이동", description = "현재 챕터가 완료된 경우 다음 챕터 도입부로 이동하는 AI API를 호출합니다.")
+    @Operation(summary = "AI 스토리 다음 챕터 이동", description = "현재 챕터가 완료된 경우 다음 챕터 도입부로 이동합니다. user_id는 백엔드가 로그인 사용자 ID로 주입합니다.")
     @PostMapping("/stories/play/next-chapter")
-    public ApiResponse<Object> nextChapter(@RequestBody String request) {
-        return ApiResponse.ok("AI 스토리 다음 챕터로 이동했습니다.", aiProxyService.post("/stories/play/next-chapter", request));
+    public ApiResponse<Object> nextChapter(@AuthenticationPrincipal AuthUser authUser,
+                                           @RequestBody String request) {
+        return ApiResponse.ok("AI 스토리 다음 챕터로 이동했습니다.", aiProxyService.post("/stories/play/next-chapter", aiStoryRequestFactory.withAuthenticatedUserId(request, authUser.userId())));
     }
 }

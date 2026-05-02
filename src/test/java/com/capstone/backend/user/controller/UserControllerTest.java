@@ -78,6 +78,8 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.onboardingCompleted").value(false))
                 .andExpect(jsonPath("$.data.requiresOnboarding").value(true))
                 .andExpect(jsonPath("$.data.todayConditionCompleted").value(false))
+                .andExpect(jsonPath("$.data.activeRoutineId").doesNotExist())
+                .andExpect(jsonPath("$.data.routineSetupRequired").value(false))
                 .andExpect(jsonPath("$.data.currentExerciseStatus").doesNotExist())
                 .andExpect(jsonPath("$.data.fitnessGoal").doesNotExist())
                 .andExpect(jsonPath("$.data.preferredWorkoutPlace").doesNotExist())
@@ -164,7 +166,9 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.availableWorkoutMinutes").value(30))
                 .andExpect(jsonPath("$.data.onboardingCompleted").value(true))
                 .andExpect(jsonPath("$.data.requiresOnboarding").value(false))
-                .andExpect(jsonPath("$.data.todayConditionCompleted").value(false))
+                .andExpect(jsonPath("$.data.todayConditionCompleted").value(true))
+                .andExpect(jsonPath("$.data.activeRoutineId").doesNotExist())
+                .andExpect(jsonPath("$.data.routineSetupRequired").value(true))
                 .andExpect(jsonPath("$.data.preferredExerciseTypes[0]").value("bodyweight"))
                 .andExpect(jsonPath("$.data.preferredExerciseTypes[1]").value("walking"));
 
@@ -183,8 +187,21 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.availableWorkoutMinutes").value(30))
                 .andExpect(jsonPath("$.data.onboardingCompleted").value(true))
                 .andExpect(jsonPath("$.data.requiresOnboarding").value(false))
+                .andExpect(jsonPath("$.data.todayConditionCompleted").value(true))
+                .andExpect(jsonPath("$.data.activeRoutineId").doesNotExist())
+                .andExpect(jsonPath("$.data.routineSetupRequired").value(true))
                 .andExpect(jsonPath("$.data.preferredExerciseTypes[0]").value("bodyweight"))
                 .andExpect(jsonPath("$.data.preferredExerciseTypes[1]").value("walking"));
+
+        mockMvc.perform(get("/api/conditions/today")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.conditionLevel").value(3))
+                .andExpect(jsonPath("$.data.sleepScore").value(3))
+                .andExpect(jsonPath("$.data.stressScore").value(2))
+                .andExpect(jsonPath("$.data.energyLevel").value(3))
+                .andExpect(jsonPath("$.data.conditionScore").value(60.42))
+                .andExpect(jsonPath("$.data.exerciseMultiplier").value(1.0));
     }
 
     @Test
@@ -215,6 +232,7 @@ class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.onboardingCompleted").value(true))
                 .andExpect(jsonPath("$.data.requiresOnboarding").value(false))
+                .andExpect(jsonPath("$.data.todayConditionCompleted").value(true))
                 .andExpect(jsonPath("$.data.preferredExerciseTypes", empty()));
     }
 
@@ -280,6 +298,12 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.sourceRoutineId").value(routineId))
                 .andExpect(jsonPath("$.data.items[0].seq").value(1))
                 .andExpect(jsonPath("$.data.items[0].exercise.primaryMuscles[0]").value("quadriceps"));
+
+        mockMvc.perform(get("/api/users/me")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activeRoutineId").exists())
+                .andExpect(jsonPath("$.data.routineSetupRequired").value(false));
     }
 
     @Test
@@ -293,6 +317,31 @@ class UserControllerTest {
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("ACTIVE_ROUTINE_NOT_SET"));
+    }
+
+    @Test
+    void getMyRoutinesReturnsOnlyCurrentUsersRoutinesWithActiveFlag() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+
+        User user = userRepository.save(User.createLocalUser("myRoutineListUser", "encoded-password", "My Routine List User"));
+        User otherUser = userRepository.save(User.createLocalUser("otherRoutineListUser", "encoded-password", "Other Routine List User"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+        Long sourceRoutineId = seedRoutine();
+        Long activeRoutineId = seedUserRoutine(user.getId(), sourceRoutineId, "내 활성 루틴");
+        seedUserRoutine(user.getId(), null, "내 비활성 선택 루틴");
+        seedUserRoutine(otherUser.getId(), null, "다른 사용자 루틴");
+        jdbcTemplate.update("update users set active_routine_id = ? where id = ?", activeRoutineId, user.getId());
+
+        mockMvc.perform(get("/api/users/me/routines")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].name").value("내 비활성 선택 루틴"))
+                .andExpect(jsonPath("$.data[0].active").value(false))
+                .andExpect(jsonPath("$.data[1].id").value(activeRoutineId))
+                .andExpect(jsonPath("$.data[1].name").value("내 활성 루틴"))
+                .andExpect(jsonPath("$.data[1].sourceRoutineId").value(sourceRoutineId))
+                .andExpect(jsonPath("$.data[1].active").value(true));
     }
 
     @Test
@@ -407,6 +456,35 @@ class UserControllerTest {
                 """, routineId, exerciseId);
 
         return routineId;
+    }
+
+    private Long seedUserRoutine(Long userId, Long sourceRoutineId, String name) {
+        return insertAndReturnId("""
+                insert into routines (
+                    user_id,
+                    source_routine_id,
+                    name,
+                    description,
+                    is_default,
+                    difficulty,
+                    estimated_minutes,
+                    is_active,
+                    created_at,
+                    updated_at
+                )
+                values (
+                    ?,
+                    ?,
+                    ?,
+                    '사용자 루틴입니다.',
+                    false,
+                    'custom',
+                    30,
+                    true,
+                    CURRENT_TIMESTAMP,
+                    CURRENT_TIMESTAMP
+                )
+                """, userId, sourceRoutineId, name);
     }
 
     private Long insertAndReturnId(String sql, Object... params) {

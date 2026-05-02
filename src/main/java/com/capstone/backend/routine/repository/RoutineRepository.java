@@ -11,6 +11,8 @@ public interface RoutineRepository extends JpaRepository<Routine, Long> {
 
     List<Routine> findByDefaultRoutineTrueAndActiveTrueOrderByIdAsc();
 
+    List<Routine> findByUser_IdAndActiveTrueOrderByIdDesc(Long userId);
+
     Optional<Routine> findByUser_IdAndSourceRoutine_IdAndActiveTrue(Long userId, Long sourceRoutineId);
 
     @Query("""
