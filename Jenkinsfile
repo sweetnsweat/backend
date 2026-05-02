@@ -29,7 +29,10 @@ pipeline {
         stage('Build and Test') {
             steps {
                 sh 'chmod +x ./gradlew'
-                sh './gradlew clean test bootJar'
+                sh '''
+                    unset DB_URL DB_USERNAME DB_PASSWORD
+                    ./gradlew clean test bootJar
+                '''
             }
         }
 
