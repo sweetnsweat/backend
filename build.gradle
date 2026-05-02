@@ -42,4 +42,5 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	systemProperty 'user.timezone', 'Asia/Seoul'
 }
