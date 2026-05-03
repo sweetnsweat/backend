@@ -223,7 +223,9 @@ Authorization: Bearer {accessToken}
 
 프론트는 AI 스토리 플레이 요청에 `user_id`를 보내지 않는다.
 
-백엔드가 JWT에서 로그인 사용자 ID를 꺼내 AI 서버 요청의 `user_id`로 주입한다. 프론트가 실수로 `user_id`를 보내도 백엔드 값으로 덮어쓴다.
+백엔드가 JWT에서 로그인 사용자 ID를 꺼내 AI 서버 요청의 `user_id`로 주입한다. 프론트가 실수로 `user_id`를 보내도 요청 DTO에서는 사용하지 않고, 백엔드 인증 사용자 ID만 AI 서버로 전달한다.
+
+Swagger에는 `scenario_id`, `user_message`, `choice_id`, `restart`가 요청 필드로 표시된다.
 
 ```http
 POST /api/stories/play
@@ -248,6 +250,15 @@ Content-Type: application/json
 {
   "scenario_id": 1,
   "restart": true
+}
+```
+
+잘못된 JSON 본문을 보내면:
+
+```json
+{
+  "code": "INVALID_REQUEST_BODY",
+  "detail": "요청 본문 JSON 형식이 올바르지 않습니다."
 }
 ```
 

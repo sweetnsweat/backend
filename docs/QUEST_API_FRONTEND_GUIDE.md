@@ -145,7 +145,7 @@ Content-Type: application/json
 ```json
 {
   "code": "ACTIVE_ROUTINE_REQUIRED",
-  "detail": "오늘 퀘스트를 생성하려면 먼저 활성 루틴을 설정해 주세요."
+  "detail": "오늘 퀘스트를 생성하려면 추천 루틴을 선택하거나 내 루틴을 먼저 만들어 주세요."
 }
 ```
 

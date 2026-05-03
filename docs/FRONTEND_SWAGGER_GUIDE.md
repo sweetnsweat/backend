@@ -18,7 +18,7 @@
   - 현재 서버 코드에서 자동 생성된 실제 구현 중심
   - 디버깅/실동작 확인 시 우선 사용
 
-권장: 프론트 개발 초기에는 `openapi.yaml`로 인터페이스를 잡고, 실제 호출 이슈가 있으면 `v3/api-docs.yaml`로 최종 확인한다.
+권장: 현재 구현 여부와 요청/응답 필드는 `v3/api-docs.yaml`을 우선 확인한다. `openapi.yaml`은 정적 계약 파일이므로 실제 서버 코드와 차이가 날 수 있다.
 
 ## 3) 인증(Bearer JWT) 사용 방법
 
@@ -46,7 +46,7 @@ Bearer <accessToken>
   "success": true,
   "code": "OK",
   "message": "Request succeeded",
-  "timestamp": "2026-04-14T14:49:04.571864676Z",
+  "timestamp": "2026-05-02T16:38:06.344187281+09:00",
   "data": {}
 }
 ```
@@ -68,7 +68,7 @@ Bearer <accessToken>
   "detail": "Authentication required",
   "code": "UNAUTHORIZED",
   "path": "/api/auth/logout",
-  "timestamp": "2026-04-14T14:48:40Z"
+  "timestamp": "2026-05-02T16:38:06.344187281+09:00"
 }
 ```
 
@@ -91,6 +91,7 @@ Bearer <accessToken>
 - `POST /api/auth/signup`이 `201`인지
 - `POST /api/auth/login`이 `accessToken`/`refreshToken`을 반환하는지
 - 보호 API 호출 시 Authorization 헤더 누락으로 401이 나는지(정상 동작 확인)
+- `POST /api/stories/play` 요청 Body가 문자열이 아니라 `scenario_id`, `user_message`, `choice_id`, `restart` 필드로 보이는지
 
 ## 7) 참고 파일
 

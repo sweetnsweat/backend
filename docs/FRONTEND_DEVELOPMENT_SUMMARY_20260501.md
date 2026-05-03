@@ -19,7 +19,7 @@
       -> POST /api/routines/{routineId}/activate
    2. 내 루틴 직접 만들기
       -> 운동 목록 조회 후 커스텀 루틴 생성 화면으로 이동
-      -> 커스텀 루틴 저장 API는 아직 미구현
+      -> POST /api/routines/custom
    3. 나중에 할게요
       -> 홈 진입 가능
       -> activeRoutineId가 없으므로 퀘스트 생성 시 루틴 설정 필요 응답 발생
@@ -553,7 +553,7 @@ Content-Type: application/json
 
 프론트가 스토리 플레이 API를 호출할 때 `user_id`는 보내지 않는다.
 
-백엔드가 JWT에서 로그인 사용자 ID를 꺼내 AI 서버 요청의 `user_id`로 주입한다.
+백엔드가 JWT에서 로그인 사용자 ID를 꺼내 AI 서버 요청의 `user_id`로 주입한다. Swagger에는 `scenario_id`, `user_message`, `choice_id`, `restart`가 요청 필드로 표시된다.
 
 ```http
 POST /api/stories/play
@@ -593,7 +593,16 @@ Content-Type: application/json
 }
 ```
 
-프론트가 실수로 `user_id`를 보내도 백엔드가 로그인 사용자 ID로 덮어쓴다.
+프론트가 실수로 `user_id`를 보내도 요청 DTO에서는 사용하지 않고, 백엔드 인증 사용자 ID만 AI 서버로 전달한다.
+
+잘못된 JSON 본문을 보내면:
+
+```json
+{
+  "code": "INVALID_REQUEST_BODY",
+  "detail": "요청 본문 JSON 형식이 올바르지 않습니다."
+}
+```
 
 AI 서버는 DB를 직접 보지 말고 백엔드 API를 호출한다.
 
@@ -633,7 +642,7 @@ AI 서버 -> 프론트에 스토리 응답
 ```json
 {
   "code": "ACTIVE_ROUTINE_REQUIRED",
-  "detail": "오늘 퀘스트를 생성하려면 먼저 활성 루틴을 설정해 주세요."
+  "detail": "오늘 퀘스트를 생성하려면 추천 루틴을 선택하거나 내 루틴을 먼저 만들어 주세요."
 }
 ```
 
@@ -677,4 +686,4 @@ demo_recovery_quest
 - `ROUTINE_API_FRONTEND_GUIDE.md`
 - `EXERCISE_API_FRONTEND_GUIDE.md`
 - `QUEST_API_FRONTEND_GUIDE.md`
-- `CONDITION_SCORE_MODEL.md`
+- `FRONTEND_HANDOFF_20260502.md`
