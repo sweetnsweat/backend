@@ -153,7 +153,8 @@ class AiStoryProxyControllerTest {
                         .contentType("application/json")
                         .content("[]"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_AI_STORY_REQUEST"));
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"))
+                .andExpect(jsonPath("$.detail").value("요청 본문 JSON 형식이 올바르지 않습니다."));
     }
 
     @Test

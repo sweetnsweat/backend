@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -58,6 +59,19 @@ public class GlobalExceptionHandler {
         );
         problemDetail.setProperty("errors", fieldErrors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ProblemDetail> handleUnreadableMessage(HttpMessageNotReadableException exception,
+                                                                 HttpServletRequest request) {
+        return toProblemDetail(
+                HttpStatus.BAD_REQUEST,
+                "INVALID_REQUEST_BODY",
+                "요청 본문 JSON 형식이 올바르지 않습니다.",
+                "Invalid Request Body",
+                "urn:problem:invalid-request-body",
+                request
+        );
     }
 
     @ExceptionHandler(Exception.class)

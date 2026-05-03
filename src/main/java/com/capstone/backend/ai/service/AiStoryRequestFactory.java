@@ -1,5 +1,6 @@
 package com.capstone.backend.ai.service;
 
+import com.capstone.backend.ai.dto.AiStoryPlayRequest;
 import com.capstone.backend.global.exception.ApiException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -21,6 +22,22 @@ public class AiStoryRequestFactory {
     public String withAuthenticatedUserId(String requestBody, Long userId) {
         ObjectNode payload = parseObject(requestBody);
         payload.put("user_id", userId);
+        return writeJson(payload);
+    }
+
+    public String fromPlayRequest(AiStoryPlayRequest request, Long userId) {
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("user_id", userId);
+        payload.put("scenario_id", request.scenarioId());
+        if (request.userMessage() != null) {
+            payload.put("user_message", request.userMessage());
+        }
+        if (request.choiceId() != null) {
+            payload.put("choice_id", request.choiceId());
+        }
+        if (request.restart() != null) {
+            payload.put("restart", request.restart());
+        }
         return writeJson(payload);
     }
 

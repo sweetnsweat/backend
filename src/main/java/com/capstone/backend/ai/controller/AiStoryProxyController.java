@@ -1,11 +1,13 @@
 package com.capstone.backend.ai.controller;
 
+import com.capstone.backend.ai.dto.AiStoryPlayRequest;
 import com.capstone.backend.ai.service.AiProxyService;
 import com.capstone.backend.ai.service.AiStoryRequestFactory;
 import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.global.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,8 +43,8 @@ public class AiStoryProxyController {
     @Operation(summary = "AI 스토리 플레이 통합 진행", description = "프론트에서 주로 사용할 메인 API입니다. user_id는 요청에 넣지 않고 백엔드가 로그인 사용자 ID를 AI 서버 요청에 주입합니다.")
     @PostMapping("/stories/play")
     public ApiResponse<Object> playStory(@AuthenticationPrincipal AuthUser authUser,
-                                         @RequestBody String request) {
-        return ApiResponse.ok("AI 스토리 진행 응답을 조회했습니다.", aiProxyService.post("/stories/play", aiStoryRequestFactory.withAuthenticatedUserId(request, authUser.userId())));
+                                         @Valid @RequestBody AiStoryPlayRequest request) {
+        return ApiResponse.ok("AI 스토리 진행 응답을 조회했습니다.", aiProxyService.post("/stories/play", aiStoryRequestFactory.fromPlayRequest(request, authUser.userId())));
     }
 
     @Operation(summary = "AI 스토리 처음부터 시작", description = "기존 진행 상태를 리셋하고 1챕터 처음부터 시작합니다. user_id는 백엔드가 로그인 사용자 ID로 주입합니다.")
