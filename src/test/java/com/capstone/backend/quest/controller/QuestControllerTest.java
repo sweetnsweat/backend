@@ -103,6 +103,21 @@ class QuestControllerTest {
     }
 
     @Test
+    void todayQuestByUserIdAllowsAiServerWithoutBearerToken() throws Exception {
+        TestUser testUser = onboardedUser("questAiUserIdUser");
+        Long routineId = seedRoutineWithSession(KoreanTime.today().getDayOfWeek().name());
+        jdbcTemplate.update("update users set active_routine_id = ? where id = ?", routineId, testUser.userId());
+        seedCondition(testUser.userId(), KoreanTime.today(), BigDecimal.valueOf(72.92), BigDecimal.valueOf(1.00));
+
+        mockMvc.perform(get("/api/quests/today/by-user")
+                        .queryParam("userId", testUser.userId().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.questType").value("ROUTINE"))
+                .andExpect(jsonPath("$.data.routineId").value(routineId))
+                .andExpect(jsonPath("$.data.exercises.length()").value(3));
+    }
+
+    @Test
     void todayQuestCreatesOffDayQuestWhenTodayHasNoRoutineSession() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = onboardedUser("questOffDayUser");

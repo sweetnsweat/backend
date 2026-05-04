@@ -1,14 +1,18 @@
 package com.capstone.backend.ai.service;
 
+import com.capstone.backend.ai.dto.AiStoryGenerateRequest;
+import com.capstone.backend.ai.dto.AiStoryPlayHistoryRequest;
 import com.capstone.backend.ai.dto.AiStoryPlayRequest;
 import com.capstone.backend.global.exception.ApiException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @Component
 public class AiStoryRequestFactory {
@@ -16,7 +20,10 @@ public class AiStoryRequestFactory {
     private final ObjectMapper objectMapper;
 
     public AiStoryRequestFactory() {
-        this.objectMapper = JsonMapper.builder().findAndAddModules().build();
+        this.objectMapper = JsonMapper.builder()
+                .findAndAddModules()
+                .build()
+                .setDefaultPropertyInclusion(JsonInclude.Value.construct(JsonInclude.Include.NON_NULL, JsonInclude.Include.NON_NULL));
     }
 
     public String withAuthenticatedUserId(String requestBody, Long userId) {
@@ -41,6 +48,20 @@ public class AiStoryRequestFactory {
         return writeJson(payload);
     }
 
+    public String fromGenerateRequest(AiStoryGenerateRequest request) {
+        return writeJson(request);
+    }
+
+    public String historyPath(AiStoryPlayHistoryRequest request, Long userId) {
+        return UriComponentsBuilder.fromPath("/stories/play/history")
+                .queryParam("user_id", userId)
+                .queryParam("scenario_id", request.getScenarioId())
+                .queryParam("limit", request.resolvedLimit())
+                .queryParam("offset", request.resolvedOffset())
+                .build()
+                .toUriString();
+    }
+
     private ObjectNode parseObject(String requestBody) {
         if (requestBody == null || requestBody.isBlank()) {
             return objectMapper.createObjectNode();
@@ -58,6 +79,10 @@ public class AiStoryRequestFactory {
     }
 
     private String writeJson(ObjectNode payload) {
+        return writeJson((Object) payload);
+    }
+
+    private String writeJson(Object payload) {
         try {
             return objectMapper.writeValueAsString(payload);
         } catch (JsonProcessingException exception) {

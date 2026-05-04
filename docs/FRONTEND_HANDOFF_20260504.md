@@ -2,6 +2,128 @@
 
 오늘 변경된 프론트 연동 영향은 운동 카테고리/운동 목록 무한스크롤, 운동 즐겨찾기 조회, 오늘의 루틴 조회, 주간 통계 조회, 루틴 수정/삭제, 루틴 단위 퀘스트, 테스트 데이터, 액세스 토큰 만료 시간이다.
 
+## 0. AI 스토리 Swagger 노출 정리
+
+백엔드 Swagger에서 프론트가 직접 볼 AI 프록시 API는 아래 4개만 노출한다.
+
+```http
+GET /api/ai/health
+POST /api/stories/generate
+POST /api/stories/play
+GET /api/stories/play/history
+```
+
+아래 legacy 세부 플레이 API는 기존 호환을 위해 서버에는 남아 있지만 Swagger에서는 숨긴다. 신규 프론트는 사용하지 않는다.
+
+```http
+POST /api/stories/play/start
+POST /api/stories/play/continue
+POST /api/stories/play/choose
+POST /api/stories/play/next-chapter
+```
+
+`POST /api/stories/generate`는 더 이상 Swagger에서 단순 문자열로 보이지 않는다. AI 서버의 `StoryTemplateInput`과 같은 의미의 DTO로 표시된다.
+
+필수 필드:
+
+```text
+genre
+world_setting
+tone_and_mood
+player_role
+core_conflict
+characters[].name
+characters[].role
+characters[].personality
+```
+
+주요 선택 필드:
+
+```text
+title
+thumbnail_url
+generate_images
+trope_style
+drama_intensity
+pacing_style
+required_events
+forbidden_elements
+ending_direction
+chapter_count
+characters[].relationship_to_player
+characters[].background
+characters[].special_notes
+```
+
+예시:
+
+```json
+{
+  "title": "붉은 달의 계약",
+  "thumbnail_url": "https://example.com/thumbnails/red-moon.jpg",
+  "generate_images": false,
+  "genre": "로맨스 판타지",
+  "trope_style": "회귀/빙의/환생",
+  "drama_intensity": "high",
+  "pacing_style": "shortform_melodrama",
+  "world_setting": "마법과 귀족 정치가 공존하는 제국. 붉은 달이 뜨는 밤마다 금지된 계약이 깨어난다.",
+  "tone_and_mood": "긴장감 있고 서정적이며, 인물 간 감정선이 중요하다.",
+  "player_role": "기억을 잃고 제국 신전에 나타난 계약자",
+  "core_conflict": "플레이어는 자신의 정체와 제국을 뒤흔들 예언 사이에서 선택해야 한다.",
+  "required_events": "황태자와의 첫 만남, 금지된 마법의 발현, 배신자의 등장",
+  "forbidden_elements": "지나치게 코믹한 전개",
+  "ending_direction": "플레이어가 스스로 운명을 선택하는 결말",
+  "chapter_count": 5,
+  "characters": [
+    {
+      "name": "리안",
+      "role": "황태자",
+      "personality": "차갑고 신중하지만 플레이어에게만 약한 면을 보인다.",
+      "relationship_to_player": "처음에는 경계하지만 점점 신뢰하게 되는 인물",
+      "background": "제국의 정치적 음모 속에서 살아남은 후계자",
+      "special_notes": "플레이어가 위험해질 때 감정이 크게 흔들린다."
+    }
+  ]
+}
+```
+
+`GET /api/stories/play/history`는 AI 서버의 대화 히스토리 조회 API를 백엔드가 감싼 것이다. AI 서버 원본은 `user_id`, `scenario_id`, `limit`, `offset`을 받지만, 백엔드는 `user_id`를 JWT 로그인 사용자 ID로 주입한다. 프론트는 `user_id`를 보내지 않는다.
+
+```http
+GET /api/stories/play/history?scenario_id=4&limit=100&offset=0
+Authorization: Bearer {accessToken}
+```
+
+쿼리:
+
+| 이름 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `scenario_id` | O | - | 조회할 시나리오 ID |
+| `limit` | X | `100` | 가져올 로그 수. 1~300 |
+| `offset` | X | `0` | 건너뛸 로그 수 |
+
+응답의 `data.items`는 AI 서버 응답을 그대로 감싼다.
+
+```json
+{
+  "items": [
+    {
+      "role": "assistant",
+      "character_name": "리안",
+      "content": "여기가 어디인지 정말 모르는 건가?"
+    }
+  ]
+}
+```
+
+AI 서버가 스토리 중 운동 퀘스트를 세계관 문장으로 래핑해야 할 때는 아래 백엔드 API를 사용한다. 캡스톤 데모 편의를 위해 이 API는 토큰 없이 `userId`만 받는다.
+
+```http
+GET /api/quests/today/by-user?userId=14
+```
+
+응답은 기존 `GET /api/quests/today`와 같은 `QuestResponse`다. 상세 내용은 `AI_QUEST_API_GUIDE.md`를 기준으로 본다.
+
 ## 1. 운동 카테고리/목록 무한스크롤 기준
 
 운동 카테고리, 운동 목록, 즐겨찾기 운동 목록은 기본 `size=30`으로 페이지 응답을 내려준다. 모바일 무한스크롤에서는 첫 호출 후 `hasNext=true`일 때 `nextPage`로 다음 페이지를 호출하면 된다.
