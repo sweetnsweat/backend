@@ -100,6 +100,41 @@ activeRoutineId가 있으면 홈/스토리/퀘스트 화면 진입 가능
 
 따라서 회원가입 직후에는 컨디션 입력 화면을 바로 강제하지 않는다. 사용자가 나중에 스토리/퀘스트에 진입했을 때 오늘 컨디션이 없으면 그때 입력받으면 된다.
 
+홈 화면의 “오늘의 루틴”은 퀘스트가 아니라 활성 루틴의 오늘 요일 세션을 조회한다.
+
+```http
+GET /api/routines/today
+Authorization: Bearer {accessToken}
+```
+
+이 API는 컨디션 입력 여부와 무관하며, 활성 루틴이 없거나 오늘 세션이 없어도 `200 OK`로 상태를 내려준다.
+
+```text
+activeRoutineExists=false -> 활성 루틴 없음
+activeRoutineExists=true, routineScheduledToday=false -> 오늘은 루틴 쉬는 날
+activeRoutineExists=true, routineScheduledToday=true -> session/items로 오늘 루틴 표시
+```
+
+홈 화면의 “이번 주 통계”는 완료된 퀘스트 기록을 기준으로 조회한다.
+
+```http
+GET /api/users/me/weekly-stats
+Authorization: Bearer {accessToken}
+```
+
+응답 필드:
+
+```text
+weekStartDate -> KST 기준 이번 주 월요일
+weekEndDate -> KST 기준 이번 주 일요일
+completedWorkoutCount -> 이번 주 완료 운동 횟수
+maxStreakDays -> 이번 주 최대 연속 달성일
+estimatedCaloriesKcal -> 예상 소모 칼로리
+earnedExp -> 이번 주 획득 경험치
+```
+
+주간 랭킹은 이번 주 획득 경험치(`earnedExp`) 합계 기준으로 정렬한다. 동점자는 완료 운동 횟수(`completedWorkoutCount`), 예상 소모 칼로리(`estimatedCaloriesKcal`) 순으로 보조 정렬한다.
+
 ## 온보딩 저장
 
 ```http
@@ -451,8 +486,18 @@ Content-Type: application/json
 좋아요 목록:
 
 ```http
-GET /api/exercises?scope=favorite
+GET /api/users/me/exercises/favorites
+Authorization: Bearer {accessToken}
 ```
+
+카테고리 필터 예시:
+
+```http
+GET /api/users/me/exercises/favorites?category=유산소
+Authorization: Bearer {accessToken}
+```
+
+`GET /api/exercises?scope=favorite`도 호환되지만, 즐겨찾기 탭에서는 `GET /api/users/me/exercises/favorites`를 우선 사용한다.
 
 ## 오늘 퀘스트 조회 및 자동 생성
 
@@ -480,12 +525,12 @@ Authorization: Bearer {accessToken}
   "id": 12,
   "questDate": "2026-05-01",
   "questType": "ROUTINE",
-  "targetMetric": "EXERCISES",
+  "targetMetric": "ROUTINE",
   "status": "ISSUED",
   "completed": false,
-  "title": "상체 머신 운동 2개 완료",
-  "description": "상체 머신 세션에서 제시된 운동 2개를 완료해 주세요.",
-  "targetValue": 2,
+  "title": "상체 머신 루틴 완료",
+  "description": "상체 머신 세션의 운동 루틴을 완료해 주세요. 포함된 운동은 총 3개입니다.",
+  "targetValue": 1,
   "progressValue": 0,
   "conditionAdjusted": false,
   "routineId": 6,
@@ -515,7 +560,7 @@ Authorization: Bearer {accessToken}
 퀘스트 타입:
 
 ```text
-ROUTINE: 오늘 요일에 루틴 세션이 있음
+ROUTINE: 오늘 요일에 루틴 세션이 있어서 해당 세션 전체를 완료
 OFF_DAY: 오늘 요일에 루틴 세션이 없음
 RECOVERY: 컨디션이 낮아서 회복 퀘스트로 대체
 ```

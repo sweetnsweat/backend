@@ -9,9 +9,15 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 @Entity
-@Table(name = "routine_items")
+@Table(
+        name = "routine_items",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "routine_items_routine_session_id_seq_key", columnNames = {"routine_session_id", "seq"})
+        }
+)
 public class RoutineItem {
 
     @Id

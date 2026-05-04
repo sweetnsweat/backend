@@ -117,6 +117,16 @@ public class ExerciseService {
         return ExerciseDetailResponse.from(exercise, liked, resolveEffectiveWeightKg(user));
     }
 
+    @Transactional(readOnly = true)
+    public ExerciseListResponse getFavoriteExercises(Long userId,
+                                                     String category,
+                                                     String level,
+                                                     String keyword,
+                                                     int page,
+                                                     int size) {
+        return getExercises(userId, "favorite", category, level, keyword, page, size);
+    }
+
     @Transactional
     public ExerciseFavoriteResponse updateFavorite(Long userId, Long exerciseId, boolean liked) {
         User user = findUser(userId);

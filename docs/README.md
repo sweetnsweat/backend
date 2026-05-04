@@ -14,10 +14,11 @@
 
 | 문서 | 용도 |
 | --- | --- |
+| `FRONTEND_HANDOFF_20260504.md` | 2026-05-04 기준 즐겨찾기 조회, 오늘의 루틴 조회, 주간 통계 조회, 루틴 수정/삭제, 루틴 단위 퀘스트, 테스트 계정, 액세스 토큰 변경 요약 |
 | `FRONTEND_HANDOFF_20260502.md` | 2026-05-02 기준 프론트 전달 요약 |
 | `FRONTEND_DEVELOPMENT_SUMMARY_20260501.md` | 온보딩, 루틴, 운동, 컨디션, 퀘스트, AI 연동 흐름 종합 |
 | `ONBOARDING_API_FRONTEND_GUIDE.md` | 온보딩 입력 필드와 응답 필드 |
-| `ROUTINE_API_FRONTEND_GUIDE.md` | 추천 루틴, 직접 루틴 생성, 활성화, 세션 구조 |
+| `ROUTINE_API_FRONTEND_GUIDE.md` | 추천 루틴, 직접 루틴 생성/수정/삭제, 활성화, 세션 구조 |
 | `EXERCISE_API_FRONTEND_GUIDE.md` | 운동 목록, 상세, 즐겨찾기 |
 | `QUEST_API_FRONTEND_GUIDE.md` | 오늘 퀘스트 생성/조회/완료, AI 연동 방식 |
 | `FRONTEND_SWAGGER_GUIDE.md` | Swagger 확인 방법과 응답 포맷 |
@@ -26,7 +27,8 @@
 
 ## 현재 프론트 우선 확인 순서
 
-1. `FRONTEND_HANDOFF_20260502.md`
-2. `FRONTEND_DEVELOPMENT_SUMMARY_20260501.md`
-3. 필요한 기능별 상세 문서
-4. Swagger UI 또는 `/v3/api-docs.yaml`
+1. `FRONTEND_HANDOFF_20260504.md`
+2. `FRONTEND_HANDOFF_20260502.md`
+3. `FRONTEND_DEVELOPMENT_SUMMARY_20260501.md`
+4. 필요한 기능별 상세 문서
+5. Swagger UI 또는 `/v3/api-docs.yaml`

@@ -72,13 +72,15 @@
 
 ```text
 MY 탭 -> scope=all
-즐겨찾기 탭 -> scope=favorite
+즐겨찾기 탭 -> GET /api/users/me/exercises/favorites 권장
 최근 한 운동 탭 -> scope=recent
 종목 필터 -> category
 강도 필터 -> level
 검색창 -> keyword
 하트 상태 -> liked
 ```
+
+호환 경로로 `GET /api/exercises?scope=favorite`도 사용할 수 있지만, 프론트 즐겨찾기 화면에서는 의미가 명확한 `GET /api/users/me/exercises/favorites`를 우선 사용한다.
 
 필터 alias:
 
@@ -139,6 +141,75 @@ estimatedKcalPerHour = MET * 적용 체중(kg)
   "data": {
     "exerciseId": 875,
     "liked": true
+  }
+}
+```
+
+## 내 즐겨찾기 운동 목록 조회
+
+`GET /api/users/me/exercises/favorites`
+
+로그인 사용자가 하트로 저장한 운동만 조회한다. 운동 목록과 같은 카드/그룹 응답을 사용하고, `scope`는 항상 `favorite`로 내려간다.
+
+쿼리:
+
+| 이름 | 필수 | 예시 | 설명 |
+| --- | --- | --- | --- |
+| `category` | X | `유산소` | 종목 필터. 전체면 생략하거나 `all` |
+| `level` | X | `초급` | 강도/난이도 필터. 전체면 생략하거나 `all` |
+| `keyword` | X | `자전거` | 운동 이름 검색 |
+| `page` | X | `0` | 기본값 0 |
+| `size` | X | `50` | 기본값 50, 최대 100 |
+
+예시:
+
+```text
+GET /api/users/me/exercises/favorites?category=유산소
+```
+
+응답:
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "Request succeeded",
+  "timestamp": "2026-05-04T09:50:00+09:00",
+  "data": {
+    "scope": "favorite",
+    "category": "유산소",
+    "level": null,
+    "keyword": null,
+    "page": 0,
+    "size": 50,
+    "totalCount": 1,
+    "totalPages": 1,
+    "first": true,
+    "last": true,
+    "groups": [
+      {
+        "category": "유산소",
+        "categoryDisplayName": "유산소",
+        "count": 1,
+        "exercises": [
+          {
+            "id": 901,
+            "name": "실내 자전거",
+            "category": "유산소",
+            "categoryDisplayName": "유산소",
+            "level": "초급",
+            "levelDisplayName": "초급",
+            "equipment": "실내 자전거",
+            "met": 4.0,
+            "estimatedKcalPerHour": 280,
+            "primaryMuscles": ["전신"],
+            "emoji": "🔥",
+            "imageUrl": null,
+            "liked": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```

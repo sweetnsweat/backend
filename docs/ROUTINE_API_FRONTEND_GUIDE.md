@@ -73,9 +73,116 @@ preferredExerciseTypes
 
 `POST /api/routines/custom`
 
+`PUT /api/routines/{routineId}`
+
+`DELETE /api/routines/{routineId}`
+
 위 응답 모두 `RoutineDetailResponse`를 사용하므로 `sessions`가 포함된다.
 
 단, `GET /api/users/me/routines`는 목록 화면용 `RoutineSummaryResponse[]`를 반환한다.
+
+## 오늘의 활성 루틴 세션 조회
+
+메인 홈의 “오늘의 루틴” 영역에서는 퀘스트가 아니라 오늘 요일에 실제로 활성화된 루틴 세션을 조회한다.
+
+```http
+GET /api/routines/today
+Authorization: Bearer {accessToken}
+```
+
+응답은 활성 루틴이 없거나 오늘 운동이 없는 날도 `200 OK`로 내려간다. 프론트는 `activeRoutineExists`, `routineScheduledToday`로 화면을 분기하면 된다.
+
+오늘 세션이 있는 경우:
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "Request succeeded",
+  "timestamp": "2026-05-04T10:10:00+09:00",
+  "data": {
+    "date": "2026-05-04",
+    "dayOfWeek": "MONDAY",
+    "dayOfWeekDisplayName": "월요일",
+    "activeRoutineExists": true,
+    "routineScheduledToday": true,
+    "routine": {
+      "id": 20,
+      "name": "초급 헬스장 근력 입문 루틴",
+      "description": "헬스장에서 머신과 가벼운 유산소로 시작하는 초급 근력 루틴입니다.",
+      "difficulty": "easy",
+      "estimatedMinutes": 30,
+      "isDefault": false,
+      "sourceRoutineId": 4,
+      "active": true
+    },
+    "session": {
+      "id": 35,
+      "seq": 1,
+      "dayOfWeek": "MONDAY",
+      "dayOfWeekDisplayName": "월요일",
+      "sessionName": "상체 머신",
+      "sessionType": "upper_body",
+      "sessionTypeDisplayName": "상체",
+      "estimatedMinutes": 30,
+      "active": true,
+      "items": [
+        {
+          "id": 91,
+          "seq": 1,
+          "reps": 10,
+          "sets": 3,
+          "durationSec": null,
+          "restSec": 60,
+          "exercise": {
+            "id": 10,
+            "name": "Chest Press",
+            "category": "strength",
+            "level": "beginner",
+            "equipment": "machine"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+활성 루틴은 있지만 오늘 요일 세션이 없는 경우:
+
+```json
+{
+  "data": {
+    "date": "2026-05-04",
+    "dayOfWeek": "MONDAY",
+    "dayOfWeekDisplayName": "월요일",
+    "activeRoutineExists": true,
+    "routineScheduledToday": false,
+    "routine": {
+      "id": 20,
+      "name": "초급 헬스장 근력 입문 루틴",
+      "active": true
+    },
+    "session": null
+  }
+}
+```
+
+활성 루틴이 없는 경우:
+
+```json
+{
+  "data": {
+    "date": "2026-05-04",
+    "dayOfWeek": "MONDAY",
+    "dayOfWeekDisplayName": "월요일",
+    "activeRoutineExists": false,
+    "routineScheduledToday": false,
+    "routine": null,
+    "session": null
+  }
+}
+```
 
 ## 추천 루틴 선택 및 활성화
 
@@ -223,6 +330,8 @@ sessions[].sessionName 필수
 sessions[].items 최소 1개
 items[].exerciseId는 실제 운동 ID여야 함
 items[].sets, items[].reps, items[].durationSec 중 하나 이상 필요
+items[].seq는 세션 내부 순서 기준. 생략 시 해당 세션 배열 순서대로 1부터 부여
+다른 세션끼리는 같은 seq 사용 가능
 activate 생략 시 true
 ```
 
@@ -232,7 +341,94 @@ activate 생략 시 true
 
 ```text
 400 INVALID_ROUTINE_ITEM_TARGET: 세트 수, 반복 횟수, 운동 시간 중 하나도 입력하지 않음
+400 DUPLICATE_ROUTINE_ITEM_SEQ: 같은 세션 안에서 운동 순서가 중복됨
 404 EXERCISE_NOT_FOUND: 없는 운동 ID를 루틴에 넣으려고 함
+```
+
+## 직접 루틴 수정
+
+사용자가 직접 만든 루틴 또는 추천 루틴 선택으로 사용자에게 복사된 루틴만 수정할 수 있다. 기본 루틴 원본과 다른 사용자의 루틴은 수정할 수 없다.
+
+```http
+PUT /api/routines/{routineId}
+Authorization: Bearer {accessToken}
+Content-Type: application/json
+```
+
+요청 구조는 `POST /api/routines/custom`의 `name`, `description`, `sessions`와 동일하다. 단, 수정 API에는 `activate`가 없다.
+
+수정 방식:
+
+```text
+루틴 이름/설명/예상 시간을 갱신
+기존 sessions/items 전체 삭제
+요청으로 받은 sessions/items를 새로 저장
+루틴 ID는 유지
+items[].seq는 세션 내부 순서 기준으로 저장
+```
+
+응답은 수정된 `RoutineDetailResponse`다.
+
+```json
+{
+  "name": "수정 후 루틴",
+  "description": "수정된 설명",
+  "sessions": [
+    {
+      "dayOfWeek": "WEDNESDAY",
+      "sessionName": "수요일 전신",
+      "sessionType": "full_body",
+      "estimatedMinutes": 35,
+      "items": [
+        {
+          "exerciseId": 109,
+          "sets": 3,
+          "reps": 12,
+          "restSec": 60
+        }
+      ]
+    }
+  ]
+}
+```
+
+주요 실패:
+
+```text
+400 INVALID_ROUTINE_ITEM_TARGET: 세트 수, 반복 횟수, 운동 시간 중 하나도 입력하지 않음
+400 DUPLICATE_ROUTINE_ITEM_SEQ: 같은 세션 안에서 운동 순서가 중복됨
+404 ROUTINE_NOT_FOUND: 수정할 수 있는 사용자 루틴이 아님
+404 EXERCISE_NOT_FOUND: 없는 운동 ID를 루틴에 넣으려고 함
+```
+
+## 직접 루틴 삭제
+
+```http
+DELETE /api/routines/{routineId}
+Authorization: Bearer {accessToken}
+```
+
+삭제는 물리 삭제가 아니라 `is_active=false` 비활성 처리다. 과거 퀘스트나 로그가 루틴을 참조할 수 있으므로 레코드는 유지한다.
+
+동작:
+
+```text
+사용자 소유 루틴만 삭제 가능
+기본 루틴 원본 삭제 불가
+현재 activeRoutineId와 같은 루틴이면 사용자 activeRoutineId를 null로 해제
+삭제 후 상세 조회/내 루틴 목록/오늘의 루틴에서는 제외
+```
+
+응답:
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "운동 루틴이 삭제되었습니다.",
+  "timestamp": "2026-05-04T10:50:00+09:00",
+  "data": null
+}
 ```
 
 ## 응답 구조
@@ -296,7 +492,7 @@ activate 생략 시 true
 
 ```text
 오늘 요일과 일치하는 sessions[].dayOfWeek 찾기
--> 해당 session의 items에서 퀘스트 후보 추출
+-> 해당 session 전체를 오늘 루틴/루틴 단위 퀘스트로 사용
 ```
 
 요일 표시값은 백엔드가 `dayOfWeekDisplayName`으로 같이 내려준다.

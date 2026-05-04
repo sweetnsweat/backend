@@ -75,18 +75,20 @@ class QuestControllerTest {
                         .header("Authorization", "Bearer " + testUser.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.questType").value("ROUTINE"))
-                .andExpect(jsonPath("$.data.targetMetric").value("EXERCISES"))
+                .andExpect(jsonPath("$.data.targetMetric").value("ROUTINE"))
                 .andExpect(jsonPath("$.data.status").value("ISSUED"))
-                .andExpect(jsonPath("$.data.targetValue").value(2))
+                .andExpect(jsonPath("$.data.targetValue").value(1))
                 .andExpect(jsonPath("$.data.routineId").value(routineId))
                 .andExpect(jsonPath("$.data.sessionName").value("오늘 세션"))
-                .andExpect(jsonPath("$.data.exercises[0].exerciseName").value("Quest Exercise 1"));
+                .andExpect(jsonPath("$.data.exercises.length()").value(3))
+                .andExpect(jsonPath("$.data.exercises[0].exerciseName").value("Quest Exercise 1"))
+                .andExpect(jsonPath("$.data.exercises[2].exerciseName").value("Quest Exercise 3"));
 
         mockMvc.perform(get("/api/quests/today")
                         .header("Authorization", "Bearer " + testUser.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.questType").value("ROUTINE"))
-                .andExpect(jsonPath("$.data.targetValue").value(2));
+                .andExpect(jsonPath("$.data.targetValue").value(1));
 
         Integer questCount = jdbcTemplate.queryForObject(
                 "select count(*) from user_quests where user_id = ? and quest_date = ?",

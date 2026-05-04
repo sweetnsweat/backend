@@ -26,10 +26,14 @@ public record RoutineDetailResponse(
         List<RoutineItemResponse> items
 ) {
     public static RoutineDetailResponse from(Routine routine) {
-        return from(routine, routine.getSessions());
+        return from(routine, routine.getSessions(), routine.getItems());
     }
 
     public static RoutineDetailResponse from(Routine routine, List<RoutineSession> sessions) {
+        return from(routine, sessions, routine.getItems());
+    }
+
+    public static RoutineDetailResponse from(Routine routine, List<RoutineSession> sessions, List<RoutineItem> items) {
         return new RoutineDetailResponse(
                 routine.getId(),
                 routine.getName(),
@@ -48,7 +52,7 @@ public record RoutineDetailResponse(
                         .sorted(Comparator.comparing(RoutineSession::getSeq))
                         .map(RoutineSessionResponse::from)
                         .toList(),
-                routine.getItems().stream()
+                items.stream()
                         .sorted(Comparator.comparing(RoutineItem::getSeq))
                         .map(RoutineItemResponse::from)
                         .toList()

@@ -15,8 +15,13 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
+import java.util.List;
 
 import static org.hamcrest.Matchers.empty;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -124,6 +129,45 @@ class UserControllerTest {
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.todayConditionCompleted").value(true));
+    }
+
+    @Test
+    void weeklyStatsReturnsCompletedWorkoutCountStreakCaloriesAndExp() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+
+        User user = User.createLocalUser("weeklyStatsUser", "encoded-password", "Weekly Stats User");
+        user.updateOnboardingProfile(
+                "female",
+                LocalDate.of(2002, 5, 20),
+                BigDecimal.valueOf(164.5),
+                BigDecimal.valueOf(60),
+                "beginner",
+                "none",
+                "habit",
+                "home",
+                3,
+                30,
+                List.of()
+        );
+        user = userRepository.save(user);
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+        RoutineSeed routine = seedRoutineWithSessionAndMet();
+        LocalDate weekStart = com.capstone.backend.global.time.KoreanTime.today()
+                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+
+        seedCompletedQuest(user.getId(), routine.routineId(), routine.sessionId(), weekStart, "routine", "routine", 1, 20);
+        seedCompletedQuest(user.getId(), routine.routineId(), null, weekStart.plusDays(1), "off_day", "minutes", 15, 10);
+        seedCompletedQuest(user.getId(), routine.routineId(), null, weekStart.plusDays(3), "recovery", "minutes", 10, 10);
+
+        mockMvc.perform(get("/api/users/me/weekly-stats")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.weekStartDate").value(weekStart.toString()))
+                .andExpect(jsonPath("$.data.weekEndDate").value(weekStart.plusDays(6).toString()))
+                .andExpect(jsonPath("$.data.completedWorkoutCount").value(3))
+                .andExpect(jsonPath("$.data.maxStreakDays").value(2))
+                .andExpect(jsonPath("$.data.estimatedCaloriesKcal").value(218))
+                .andExpect(jsonPath("$.data.earnedExp").value(40));
     }
 
     @Test
@@ -485,6 +529,128 @@ class UserControllerTest {
                     CURRENT_TIMESTAMP
                 )
                 """, userId, sourceRoutineId, name);
+    }
+
+    private RoutineSeed seedRoutineWithSessionAndMet() {
+        Long exerciseId = insertAndReturnId("""
+                insert into exercises (
+                    name,
+                    category,
+                    intensity,
+                    external_id,
+                    level,
+                    equipment,
+                    met,
+                    primary_muscles,
+                    secondary_muscles,
+                    instructions,
+                    image_urls,
+                    source,
+                    source_license,
+                    source_url,
+                    raw_data,
+                    created_at,
+                    updated_at
+                )
+                values (
+                    'Weekly Stat Bike',
+                    '유산소',
+                    '초급',
+                    ?,
+                    '초급',
+                    '실내 자전거',
+                    5.0,
+                    JSON '["전신"]',
+                    JSON '[]',
+                    JSON '["테스트 운동"]',
+                    JSON '[]',
+                    'test',
+                    'test',
+                    'https://example.com',
+                    JSON '{}',
+                    CURRENT_TIMESTAMP,
+                    CURRENT_TIMESTAMP
+                )
+                """, "weekly_stat_bike_" + System.nanoTime());
+        Long routineId = insertAndReturnId("""
+                insert into routines (
+                    user_id,
+                    name,
+                    description,
+                    is_default,
+                    difficulty,
+                    estimated_minutes,
+                    is_active,
+                    created_at,
+                    updated_at
+                )
+                values (
+                    null,
+                    '주간 통계 루틴',
+                    '주간 통계 테스트용 루틴입니다.',
+                    true,
+                    'easy',
+                    30,
+                    true,
+                    CURRENT_TIMESTAMP,
+                    CURRENT_TIMESTAMP
+                )
+                """);
+        Long sessionId = insertAndReturnId("""
+                insert into routine_sessions (
+                    routine_id,
+                    day_of_week,
+                    session_name,
+                    session_type,
+                    seq,
+                    estimated_minutes,
+                    is_active,
+                    created_at,
+                    updated_at
+                )
+                values (?, 'MONDAY', '통계 세션', 'cardio', 1, 30, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, routineId);
+        jdbcTemplate.update("""
+                insert into routine_items (routine_id, routine_session_id, exercise_id, seq, reps, sets, duration_sec, rest_sec)
+                values (?, ?, ?, 1, null, null, null, 60)
+                """, routineId, sessionId, exerciseId);
+        return new RoutineSeed(routineId, sessionId);
+    }
+
+    private void seedCompletedQuest(Long userId,
+                                    Long routineId,
+                                    Long sourceSessionId,
+                                    LocalDate questDate,
+                                    String questType,
+                                    String targetMetric,
+                                    int targetValue,
+                                    int rewardExp) {
+        jdbcTemplate.update("""
+                insert into user_quests (
+                    user_id,
+                    routine_id,
+                    source_session_id,
+                    quest_date,
+                    quest_type,
+                    target_metric,
+                    title,
+                    description,
+                    target_value,
+                    progress_value,
+                    status,
+                    condition_adjusted,
+                    reward_currency,
+                    reward_exp,
+                    completed_at,
+                    proof_json,
+                    quest_context_json,
+                    created_at
+                )
+                values (?, ?, ?, ?, ?, ?, '완료 퀘스트', '완료된 테스트 퀘스트입니다.', ?, ?, 'completed', false, 0, ?, CURRENT_TIMESTAMP, JSON '{}', JSON '{}', CURRENT_TIMESTAMP)
+                """, userId, routineId, sourceSessionId, questDate, questType, targetMetric, targetValue, targetValue, rewardExp);
+    }
+
+    private record RoutineSeed(Long routineId, Long sessionId) {
     }
 
     private Long insertAndReturnId(String sql, Object... params) {

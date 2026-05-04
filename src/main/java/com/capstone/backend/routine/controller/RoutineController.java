@@ -6,6 +6,8 @@ import com.capstone.backend.routine.dto.CreateCustomRoutineRequest;
 import com.capstone.backend.routine.dto.RoutineDetailResponse;
 import com.capstone.backend.routine.dto.RoutineRecommendationResponse;
 import com.capstone.backend.routine.dto.RoutineSummaryResponse;
+import com.capstone.backend.routine.dto.TodayRoutineResponse;
+import com.capstone.backend.routine.dto.UpdateCustomRoutineRequest;
 import com.capstone.backend.routine.service.RoutineService;
 import com.capstone.backend.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,9 +15,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -50,6 +54,28 @@ public class RoutineController {
     public ApiResponse<RoutineDetailResponse> createCustomRoutine(@AuthenticationPrincipal AuthUser authUser,
                                                                   @Valid @RequestBody CreateCustomRoutineRequest request) {
         return ApiResponse.ok("직접 만든 운동 루틴이 저장되었습니다.", routineService.createCustomRoutine(authUser.userId(), request));
+    }
+
+    @Operation(summary = "오늘의 활성 루틴 세션 조회", description = "메인 홈에서 표시할 오늘 요일의 활성 루틴 세션과 포함 운동 목록을 조회합니다. 활성 루틴이 없거나 오늘 운동이 없는 날도 200 응답으로 상태를 내려줍니다.")
+    @GetMapping("/today")
+    public ApiResponse<TodayRoutineResponse> todayRoutine(@AuthenticationPrincipal AuthUser authUser) {
+        return ApiResponse.ok(routineService.getTodayRoutine(authUser.userId()));
+    }
+
+    @Operation(summary = "사용자 루틴 수정", description = "현재 로그인한 사용자가 소유한 루틴을 수정합니다. 기본 루틴은 수정할 수 없고, 세션과 운동 항목은 요청 내용으로 전체 교체됩니다.")
+    @PutMapping("/{routineId}")
+    public ApiResponse<RoutineDetailResponse> updateCustomRoutine(@AuthenticationPrincipal AuthUser authUser,
+                                                                  @PathVariable Long routineId,
+                                                                  @Valid @RequestBody UpdateCustomRoutineRequest request) {
+        return ApiResponse.ok("운동 루틴이 수정되었습니다.", routineService.updateCustomRoutine(authUser.userId(), routineId, request));
+    }
+
+    @Operation(summary = "사용자 루틴 삭제", description = "현재 로그인한 사용자가 소유한 루틴을 삭제합니다. 과거 퀘스트 참조를 보존하기 위해 비활성 처리하며, 활성 루틴이면 활성 설정을 해제합니다.")
+    @DeleteMapping("/{routineId}")
+    public ApiResponse<Void> deleteCustomRoutine(@AuthenticationPrincipal AuthUser authUser,
+                                                 @PathVariable Long routineId) {
+        routineService.deleteCustomRoutine(authUser.userId(), routineId);
+        return ApiResponse.ok("운동 루틴이 삭제되었습니다.");
     }
 
     @Operation(summary = "운동 루틴 상세 조회", description = "루틴에 포함된 운동 목록, 세트, 반복 횟수 등 상세 정보를 조회합니다.")

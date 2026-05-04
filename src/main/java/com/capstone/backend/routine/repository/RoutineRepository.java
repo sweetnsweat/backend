@@ -15,6 +15,8 @@ public interface RoutineRepository extends JpaRepository<Routine, Long> {
 
     Optional<Routine> findByUser_IdAndSourceRoutine_IdAndActiveTrue(Long userId, Long sourceRoutineId);
 
+    Optional<Routine> findByIdAndUser_IdAndDefaultRoutineFalseAndActiveTrue(Long id, Long userId);
+
     @Query("""
             select distinct routine
             from Routine routine

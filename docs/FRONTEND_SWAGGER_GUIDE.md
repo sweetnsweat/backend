@@ -35,6 +35,11 @@ Bearer <accessToken>
 3. 보호 API 호출 시 `Authorization: Bearer <accessToken>` 헤더 전달
 4. `POST /api/auth/logout` 호출 시 현재 액세스 토큰 폐기 + refresh 토큰 revoke
 
+참고:
+
+- 액세스 토큰 기본 만료 시간은 1시간이다.
+- 서버 환경변수 `JWT_ACCESS_TOKEN_SECONDS`가 지정되어 있으면 그 값이 우선한다.
+
 ## 4) 응답 포맷 규칙
 
 ### 성공 응답
@@ -92,9 +97,15 @@ Bearer <accessToken>
 - `POST /api/auth/login`이 `accessToken`/`refreshToken`을 반환하는지
 - 보호 API 호출 시 Authorization 헤더 누락으로 401이 나는지(정상 동작 확인)
 - `POST /api/stories/play` 요청 Body가 문자열이 아니라 `scenario_id`, `user_message`, `choice_id`, `restart` 필드로 보이는지
+- `GET /api/users/me/exercises/favorites`가 즐겨찾기 운동 목록 조회 API로 보이는지
+- `GET /api/routines/today`가 오늘의 활성 루틴 세션 조회 API로 보이는지
+- `PUT /api/routines/{routineId}`와 `DELETE /api/routines/{routineId}`가 사용자 루틴 수정/삭제 API로 보이는지
+- `GET /api/users/me/weekly-stats`가 이번 주 운동 통계 조회 API로 보이는지
+- `GET /api/quests/today`의 `ROUTINE` 퀘스트 `targetMetric`이 `ROUTINE`으로 보이는지
 
 ## 7) 참고 파일
 
 - Swagger 계약 파일: `src/main/resources/static/openapi.yaml`
+- 프론트 최신 변경 요약: `docs/FRONTEND_HANDOFF_20260504.md`
 - 인증 컨트롤러: `src/main/java/com/capstone/backend/auth/controller/AuthController.java`
 - 전역 예외 처리: `src/main/java/com/capstone/backend/global/exception/GlobalExceptionHandler.java`

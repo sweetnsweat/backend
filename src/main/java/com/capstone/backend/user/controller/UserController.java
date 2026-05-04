@@ -7,6 +7,7 @@ import com.capstone.backend.routine.dto.RoutineDetailResponse;
 import com.capstone.backend.routine.dto.RoutineSummaryResponse;
 import com.capstone.backend.user.dto.OnboardingProfileRequest;
 import com.capstone.backend.user.dto.UpdateActiveRoutineRequest;
+import com.capstone.backend.user.dto.WeeklyStatsResponse;
 import com.capstone.backend.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -53,6 +54,12 @@ public class UserController {
     @GetMapping("/me/routines")
     public ApiResponse<List<RoutineSummaryResponse>> getMyRoutines(@AuthenticationPrincipal AuthUser authUser) {
         return ApiResponse.ok(userService.getMyRoutines(authUser.userId()));
+    }
+
+    @Operation(summary = "이번 주 운동 통계 조회", description = "KST 기준 이번 주 월요일부터 일요일까지 완료한 운동 횟수, 최대 연속 달성일, 예상 소모 칼로리, 획득 경험치를 조회합니다.")
+    @GetMapping("/me/weekly-stats")
+    public ApiResponse<WeeklyStatsResponse> getWeeklyStats(@AuthenticationPrincipal AuthUser authUser) {
+        return ApiResponse.ok(userService.getWeeklyStats(authUser.userId()));
     }
 
     @Operation(summary = "활성 운동 루틴 설정", description = "사용자가 사용할 운동 루틴을 활성 루틴으로 설정합니다.")

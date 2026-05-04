@@ -39,7 +39,7 @@ public class UserQuest {
     public static final String TYPE_OFF_DAY = "off_day";
     public static final String TYPE_RECOVERY = "recovery";
 
-    public static final String METRIC_EXERCISES = "exercises";
+    public static final String METRIC_ROUTINE = "routine";
     public static final String METRIC_MINUTES = "minutes";
 
     @Id

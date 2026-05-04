@@ -126,6 +126,46 @@ class ExerciseControllerTest {
     }
 
     @Test
+    void favoriteExercisesEndpointSupportsCategoryFilter() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        String accessToken = accessTokenFor("favoriteEndpointUser");
+        Long cardioId = seedExercise("실내 자전거", "유산소", "초급", "실내 자전거", "favorite_indoor_bike", "4.0");
+        Long yogaId = seedExercise("회복 요가", "요가", "초급", "매트", "favorite_recovery_yoga", "2.0");
+        seedExercise("즐겨찾기 안 한 유산소", "유산소", "초급", "트레드밀", "unliked_cardio", "4.5");
+
+        mockMvc.perform(put("/api/users/me/exercises/{exerciseId}/favorite", cardioId)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "liked": true
+                                }
+                                """))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/api/users/me/exercises/{exerciseId}/favorite", yogaId)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "liked": true
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/users/me/exercises/favorites")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .queryParam("category", "유산소"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.scope").value("favorite"))
+                .andExpect(jsonPath("$.data.category").value("유산소"))
+                .andExpect(jsonPath("$.data.totalCount").value(1))
+                .andExpect(jsonPath("$.data.groups", hasSize(1)))
+                .andExpect(jsonPath("$.data.groups[0].category").value("유산소"))
+                .andExpect(jsonPath("$.data.groups[0].exercises[0].id").value(cardioId))
+                .andExpect(jsonPath("$.data.groups[0].exercises[0].liked").value(true));
+    }
+
+    @Test
     void exerciseDetailReturnsLikedAndFavoriteCanBeRemoved() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         String accessToken = accessTokenFor("exerciseDetailUser");

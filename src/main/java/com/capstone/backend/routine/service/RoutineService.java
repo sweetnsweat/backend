@@ -1,11 +1,14 @@
 package com.capstone.backend.routine.service;
 
-import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.exercise.repository.ExerciseRepository;
+import com.capstone.backend.global.exception.ApiException;
+import com.capstone.backend.global.time.KoreanTime;
 import com.capstone.backend.routine.dto.CreateCustomRoutineRequest;
 import com.capstone.backend.routine.dto.RoutineDetailResponse;
 import com.capstone.backend.routine.dto.RoutineRecommendationResponse;
 import com.capstone.backend.routine.dto.RoutineSummaryResponse;
+import com.capstone.backend.routine.dto.TodayRoutineResponse;
+import com.capstone.backend.routine.dto.UpdateCustomRoutineRequest;
 import com.capstone.backend.routine.entity.Exercise;
 import com.capstone.backend.routine.entity.Routine;
 import com.capstone.backend.routine.entity.RoutineItem;
@@ -15,11 +18,14 @@ import com.capstone.backend.routine.repository.RoutineRepository;
 import com.capstone.backend.routine.repository.RoutineSessionRepository;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,10 +78,38 @@ public class RoutineService {
     public RoutineDetailResponse getRoutine(Long userId, Long routineId) {
         Routine routine = routineRepository.findAccessibleWithItemsByIdAndActiveTrue(routineId, userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ROUTINE_NOT_FOUND", "Routine not found"));
-        Routine routineWithSessions = routineRepository.findWithSessionsByIdAndActiveTrue(routineId)
-                .orElse(routine);
+        List<RoutineSession> sessions = routineSessionRepository.findWithItemsByRoutineIdOrderBySeqAsc(routineId);
+        List<RoutineItem> items = routineItemRepository.findWithExerciseByRoutineIdOrderBySeqAsc(routineId);
 
-        return RoutineDetailResponse.from(routine, routineWithSessions.getSessions());
+        return RoutineDetailResponse.from(routine, sessions, items);
+    }
+
+    @Transactional(readOnly = true)
+    public TodayRoutineResponse getTodayRoutine(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다."));
+        LocalDate today = KoreanTime.today();
+        Routine activeRoutine = user.getActiveRoutine();
+        if (activeRoutine == null) {
+            return TodayRoutineResponse.noActiveRoutine(today);
+        }
+
+        Routine routine = routineRepository.findWithSessionsByIdAndActiveTrue(activeRoutine.getId())
+                .orElse(null);
+        if (routine == null) {
+            return TodayRoutineResponse.noActiveRoutine(today);
+        }
+
+        String todayDayOfWeek = today.getDayOfWeek().name();
+        RoutineSession todaySession = routine.getSessions().stream()
+                .filter(session -> Boolean.TRUE.equals(session.getActive()))
+                .filter(session -> todayDayOfWeek.equalsIgnoreCase(session.getDayOfWeek()))
+                .min(Comparator.comparing(RoutineSession::getSeq, Comparator.nullsLast(Integer::compareTo)))
+                .orElse(null);
+        if (todaySession == null) {
+            return TodayRoutineResponse.offDay(today, routine);
+        }
+        return TodayRoutineResponse.scheduled(today, routine, todaySession);
     }
 
     @Transactional
@@ -83,52 +117,51 @@ public class RoutineService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다."));
 
-        int estimatedMinutes = request.sessions().stream()
-                .map(CreateCustomRoutineRequest.SessionRequest::estimatedMinutes)
-                .filter(minutes -> minutes != null)
-                .mapToInt(Integer::intValue)
-                .sum();
+        int estimatedMinutes = estimatedMinutes(request.sessions());
         Routine routine = routineRepository.save(Routine.createCustom(
                 user,
                 request.name().trim(),
                 normalizeText(request.description()),
                 estimatedMinutes == 0 ? null : estimatedMinutes
         ));
-
-        Map<Long, Exercise> exerciseCache = new HashMap<>();
-        int sessionSeq = 1;
-        for (CreateCustomRoutineRequest.SessionRequest sessionRequest : request.sessions()) {
-            RoutineSession session = routineSessionRepository.save(RoutineSession.create(
-                    routine,
-                    sessionRequest.dayOfWeek(),
-                    sessionRequest.sessionName().trim(),
-                    normalizeText(sessionRequest.sessionType()),
-                    sessionSeq++,
-                    sessionRequest.estimatedMinutes()
-            ));
-            int itemIndex = 1;
-            for (CreateCustomRoutineRequest.ItemRequest itemRequest : sessionRequest.items()) {
-                validateTarget(itemRequest);
-                Exercise exercise = exerciseCache.computeIfAbsent(itemRequest.exerciseId(), this::findExercise);
-                routineItemRepository.save(RoutineItem.create(
-                        routine,
-                        session,
-                        exercise,
-                        itemRequest.seq() == null ? itemIndex : itemRequest.seq(),
-                        itemRequest.sets(),
-                        itemRequest.reps(),
-                        itemRequest.durationSec(),
-                        itemRequest.restSec()
-                ));
-                itemIndex++;
-            }
-        }
+        saveSessionsAndItems(routine, request.sessions());
 
         if (request.activate() == null || Boolean.TRUE.equals(request.activate())) {
             user.updateActiveRoutine(routine);
         }
 
         return routineDetail(routine.getId());
+    }
+
+    @Transactional
+    public RoutineDetailResponse updateCustomRoutine(Long userId, Long routineId, UpdateCustomRoutineRequest request) {
+        Routine routine = findOwnedMutableRoutine(userId, routineId);
+        int estimatedMinutes = estimatedMinutes(request.sessions());
+        routine.updateCustom(
+                request.name().trim(),
+                normalizeText(request.description()),
+                estimatedMinutes == 0 ? null : estimatedMinutes
+        );
+
+        routineItemRepository.deleteByRoutineId(routine.getId());
+        routineItemRepository.flush();
+        routineSessionRepository.deleteByRoutineId(routine.getId());
+        routineSessionRepository.flush();
+        routine = findOwnedMutableRoutine(userId, routineId);
+        saveSessionsAndItems(routine, request.sessions());
+
+        return routineDetail(routine.getId());
+    }
+
+    @Transactional
+    public void deleteCustomRoutine(Long userId, Long routineId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다."));
+        Routine routine = findOwnedMutableRoutine(userId, routineId);
+        if (user.getActiveRoutine() != null && routine.getId().equals(user.getActiveRoutine().getId())) {
+            user.updateActiveRoutine(null);
+        }
+        routine.deactivate();
     }
 
     private RoutineRecommendationResponse scoreRoutine(User user, Routine routine) {
@@ -208,14 +241,63 @@ public class RoutineService {
     private RoutineDetailResponse routineDetail(Long routineId) {
         Routine routine = routineRepository.findWithItemsByIdAndActiveTrue(routineId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ROUTINE_NOT_FOUND", "루틴을 찾을 수 없습니다."));
-        Routine routineWithSessions = routineRepository.findWithSessionsByIdAndActiveTrue(routineId)
-                .orElse(routine);
-        return RoutineDetailResponse.from(routine, routineWithSessions.getSessions());
+        List<RoutineSession> sessions = routineSessionRepository.findWithItemsByRoutineIdOrderBySeqAsc(routineId);
+        List<RoutineItem> items = routineItemRepository.findWithExerciseByRoutineIdOrderBySeqAsc(routineId);
+        return RoutineDetailResponse.from(routine, sessions, items);
     }
 
     private Exercise findExercise(Long exerciseId) {
         return exerciseRepository.findById(exerciseId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "EXERCISE_NOT_FOUND", "루틴에 추가할 운동을 찾을 수 없습니다."));
+    }
+
+    private Routine findOwnedMutableRoutine(Long userId, Long routineId) {
+        return routineRepository.findByIdAndUser_IdAndDefaultRoutineFalseAndActiveTrue(routineId, userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ROUTINE_NOT_FOUND", "수정하거나 삭제할 수 있는 사용자 루틴을 찾을 수 없습니다."));
+    }
+
+    private int estimatedMinutes(List<CreateCustomRoutineRequest.SessionRequest> sessions) {
+        return sessions.stream()
+                .map(CreateCustomRoutineRequest.SessionRequest::estimatedMinutes)
+                .filter(minutes -> minutes != null)
+                .mapToInt(Integer::intValue)
+                .sum();
+    }
+
+    private void saveSessionsAndItems(Routine routine, List<CreateCustomRoutineRequest.SessionRequest> sessionRequests) {
+        Map<Long, Exercise> exerciseCache = new HashMap<>();
+        int sessionSeq = 1;
+        for (CreateCustomRoutineRequest.SessionRequest sessionRequest : sessionRequests) {
+            RoutineSession session = routineSessionRepository.save(RoutineSession.create(
+                    routine,
+                    sessionRequest.dayOfWeek(),
+                    sessionRequest.sessionName().trim(),
+                    normalizeText(sessionRequest.sessionType()),
+                    sessionSeq++,
+                    sessionRequest.estimatedMinutes()
+            ));
+            int itemIndex = 1;
+            Set<Integer> sessionItemSeqs = new HashSet<>();
+            for (CreateCustomRoutineRequest.ItemRequest itemRequest : sessionRequest.items()) {
+                validateTarget(itemRequest);
+                int itemSeq = itemRequest.seq() == null ? itemIndex : itemRequest.seq();
+                if (!sessionItemSeqs.add(itemSeq)) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "DUPLICATE_ROUTINE_ITEM_SEQ", "같은 세션 안에서 운동 순서가 중복될 수 없습니다.");
+                }
+                Exercise exercise = exerciseCache.computeIfAbsent(itemRequest.exerciseId(), this::findExercise);
+                routineItemRepository.save(RoutineItem.create(
+                        routine,
+                        session,
+                        exercise,
+                        itemSeq,
+                        itemRequest.sets(),
+                        itemRequest.reps(),
+                        itemRequest.durationSec(),
+                        itemRequest.restSec()
+                ));
+                itemIndex++;
+            }
+        }
     }
 
     private void validateTarget(CreateCustomRoutineRequest.ItemRequest itemRequest) {

@@ -32,7 +32,6 @@ public class QuestService {
 
     private static final BigDecimal RECOVERY_THRESHOLD = BigDecimal.valueOf(0.80);
     private static final BigDecimal REDUCE_THRESHOLD = BigDecimal.valueOf(1.00);
-    private static final BigDecimal BOOST_THRESHOLD = BigDecimal.valueOf(1.05);
 
     private final UserQuestRepository userQuestRepository;
     private final UserRepository userRepository;
@@ -141,19 +140,12 @@ public class QuestService {
             return offDayQuest(user, routine, conditionLog, today);
         }
 
-        int baseTarget = baseTargetExerciseCount(allItems.size());
-        int targetCount = adjustedTargetExerciseCount(baseTarget, allItems.size(), conditionLog.getExerciseMultiplier());
-        List<RoutineItem> selectedItems = allItems.stream().limit(targetCount).toList();
-        boolean conditionAdjusted = targetCount != baseTarget;
-
         Map<String, Object> context = baseContext(routine, session, conditionLog);
-        context.put("exercises", selectedItems.stream().map(this::exerciseContext).toList());
+        context.put("exercises", allItems.stream().map(this::exerciseContext).toList());
 
-        String title = session.getSessionName() + " 운동 " + targetCount + "개 완료";
-        String description = session.getSessionName() + " 세션에서 제시된 운동 " + targetCount + "개를 완료해 주세요.";
-        if (conditionAdjusted) {
-            description += " 오늘 컨디션을 반영해 목표량을 조정했습니다.";
-        }
+        String title = session.getSessionName() + " 루틴 완료";
+        String description = session.getSessionName() + " 세션의 운동 루틴을 완료해 주세요. 포함된 운동은 총 "
+                + allItems.size() + "개입니다.";
 
         return UserQuest.create(
                 user,
@@ -162,11 +154,11 @@ public class QuestService {
                 conditionLog,
                 today,
                 UserQuest.TYPE_ROUTINE,
-                UserQuest.METRIC_EXERCISES,
+                UserQuest.METRIC_ROUTINE,
                 title,
                 description,
-                targetCount,
-                conditionAdjusted,
+                1,
+                false,
                 context
         );
     }
@@ -215,29 +207,6 @@ public class QuestService {
                 true,
                 context
         );
-    }
-
-    private int baseTargetExerciseCount(int itemCount) {
-        if (itemCount <= 1) {
-            return 1;
-        }
-        if (itemCount <= 3) {
-            return 2;
-        }
-        return 3;
-    }
-
-    private int adjustedTargetExerciseCount(int baseTarget, int itemCount, BigDecimal multiplier) {
-        if (multiplier == null) {
-            return baseTarget;
-        }
-        if (multiplier.compareTo(REDUCE_THRESHOLD) < 0) {
-            return Math.max(1, baseTarget - 1);
-        }
-        if (multiplier.compareTo(BOOST_THRESHOLD) >= 0) {
-            return Math.min(itemCount, baseTarget + 1);
-        }
-        return baseTarget;
     }
 
     private Map<String, Object> baseContext(Routine routine, RoutineSession session, ConditionLog conditionLog) {

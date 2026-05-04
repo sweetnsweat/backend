@@ -23,8 +23,10 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -176,6 +178,61 @@ class RoutineControllerTest {
                 .andExpect(jsonPath("$.data.sessions[0].sessionType").value("full_body"))
                 .andExpect(jsonPath("$.data.sessions[0].sessionTypeDisplayName").value("전신"))
                 .andExpect(jsonPath("$.data.sessions[0].items[0].exercise.name").value("Test Squat"));
+    }
+
+    @Test
+    void todayRoutineReturnsTodayActiveRoutineSession() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User user = userRepository.save(User.createLocalUser("todayRoutineUser", "encoded-password", "Today Routine User"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+        String todayDayOfWeek = com.capstone.backend.global.time.KoreanTime.today().getDayOfWeek().name();
+        Long routineId = seedRoutineWithSession(todayDayOfWeek, "오늘 홈 루틴", "오늘 세션");
+        jdbcTemplate.update("update users set active_routine_id = ? where id = ?", routineId, user.getId());
+
+        mockMvc.perform(get("/api/routines/today")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.date").value(com.capstone.backend.global.time.KoreanTime.today().toString()))
+                .andExpect(jsonPath("$.data.dayOfWeek").value(todayDayOfWeek))
+                .andExpect(jsonPath("$.data.activeRoutineExists").value(true))
+                .andExpect(jsonPath("$.data.routineScheduledToday").value(true))
+                .andExpect(jsonPath("$.data.routine.id").value(routineId))
+                .andExpect(jsonPath("$.data.routine.name").value("오늘 홈 루틴"))
+                .andExpect(jsonPath("$.data.session.dayOfWeek").value(todayDayOfWeek))
+                .andExpect(jsonPath("$.data.session.sessionName").value("오늘 세션"))
+                .andExpect(jsonPath("$.data.session.items[0].exercise.name").value("Today Routine Exercise"));
+    }
+
+    @Test
+    void todayRoutineReturnsOffDayWhenActiveRoutineHasNoTodaySession() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User user = userRepository.save(User.createLocalUser("todayOffRoutineUser", "encoded-password", "Today Off Routine User"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+        String otherDayOfWeek = com.capstone.backend.global.time.KoreanTime.today().plusDays(1).getDayOfWeek().name();
+        Long routineId = seedRoutineWithSession(otherDayOfWeek, "내 주간 루틴", "다른 요일 세션");
+        jdbcTemplate.update("update users set active_routine_id = ? where id = ?", routineId, user.getId());
+
+        mockMvc.perform(get("/api/routines/today")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activeRoutineExists").value(true))
+                .andExpect(jsonPath("$.data.routineScheduledToday").value(false))
+                .andExpect(jsonPath("$.data.routine.id").value(routineId))
+                .andExpect(jsonPath("$.data.session").doesNotExist());
+    }
+
+    @Test
+    void todayRoutineReturnsNoActiveRoutineState() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        String accessToken = accessTokenFor("todayNoActiveRoutineUser");
+
+        mockMvc.perform(get("/api/routines/today")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activeRoutineExists").value(false))
+                .andExpect(jsonPath("$.data.routineScheduledToday").value(false))
+                .andExpect(jsonPath("$.data.routine").doesNotExist())
+                .andExpect(jsonPath("$.data.session").doesNotExist());
     }
 
     @Test
@@ -371,6 +428,325 @@ class RoutineControllerTest {
     }
 
     @Test
+    void updateCustomRoutineReplacesSessionsAndItems() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User user = userRepository.save(User.createLocalUser("customRoutineUpdateUser", "encoded-password", "Custom Routine Update User"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+        Long oldExerciseId = seedExercise("Old Routine Exercise", "old_routine_exercise_" + System.nanoTime());
+        Long mondayFirstExerciseId = seedExercise("Monday First Routine Exercise", "monday_first_routine_exercise_" + System.nanoTime());
+        Long mondaySecondExerciseId = seedExercise("Monday Second Routine Exercise", "monday_second_routine_exercise_" + System.nanoTime());
+        Long wednesdayExerciseId = seedExercise("Wednesday Routine Exercise", "wednesday_routine_exercise_" + System.nanoTime());
+        Long fridayExerciseId = seedExercise("Friday Routine Exercise", "friday_routine_exercise_" + System.nanoTime());
+
+        Number routineId = com.jayway.jsonpath.JsonPath.read(mockMvc.perform(post("/api/routines/custom")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name": "수정 전 루틴",
+                                  "sessions": [
+                                    {
+                                      "dayOfWeek": "MONDAY",
+                                      "sessionName": "월요일 루틴",
+                                      "items": [
+                                        {
+                                          "exerciseId": %d,
+                                          "sets": 2,
+                                          "reps": 10
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                                """.formatted(oldExerciseId)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(), "$.data.id");
+
+        mockMvc.perform(put("/api/routines/{routineId}", routineId.longValue())
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name": "수정 후 루틴",
+                                  "description": "수정된 설명",
+                                  "sessions": [
+                                    {
+                                      "dayOfWeek": "MONDAY",
+                                      "sessionName": "월요일 전신",
+                                      "sessionType": "full_body",
+                                      "estimatedMinutes": 35,
+                                      "items": [
+                                        {
+                                          "exerciseId": %d,
+                                          "seq": 1,
+                                          "sets": 3,
+                                          "reps": 12,
+                                          "restSec": 60
+                                        },
+                                        {
+                                          "exerciseId": %d,
+                                          "seq": 2,
+                                          "sets": 2,
+                                          "reps": 15,
+                                          "restSec": 45
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "dayOfWeek": "WEDNESDAY",
+                                      "sessionName": "수요일 전신",
+                                      "sessionType": "full_body",
+                                      "estimatedMinutes": 35,
+                                      "items": [
+                                        {
+                                          "exerciseId": %d,
+                                          "seq": 1,
+                                          "sets": 3,
+                                          "reps": 12,
+                                          "restSec": 60
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "dayOfWeek": "FRIDAY",
+                                      "sessionName": "금요일 회복",
+                                      "sessionType": "recovery",
+                                      "estimatedMinutes": 20,
+                                      "items": [
+                                        {
+                                          "exerciseId": %d,
+                                          "durationSec": 600,
+                                          "restSec": 30
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                                """.formatted(mondayFirstExerciseId, mondaySecondExerciseId, wednesdayExerciseId, fridayExerciseId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("운동 루틴이 수정되었습니다."))
+                .andExpect(jsonPath("$.data.id").value(routineId.longValue()))
+                .andExpect(jsonPath("$.data.name").value("수정 후 루틴"))
+                .andExpect(jsonPath("$.data.description").value("수정된 설명"))
+                .andExpect(jsonPath("$.data.estimatedMinutes").value(90))
+                .andExpect(jsonPath("$.data.sessions.length()").value(3))
+                .andExpect(jsonPath("$.data.sessions[0].dayOfWeek").value("MONDAY"))
+                .andExpect(jsonPath("$.data.sessions[0].items.length()").value(2))
+                .andExpect(jsonPath("$.data.sessions[0].items[0].seq").value(1))
+                .andExpect(jsonPath("$.data.sessions[0].items[0].exercise.id").value(mondayFirstExerciseId))
+                .andExpect(jsonPath("$.data.sessions[0].items[1].seq").value(2))
+                .andExpect(jsonPath("$.data.sessions[0].items[1].exercise.id").value(mondaySecondExerciseId))
+                .andExpect(jsonPath("$.data.sessions[1].dayOfWeek").value("WEDNESDAY"))
+                .andExpect(jsonPath("$.data.sessions[1].items.length()").value(1))
+                .andExpect(jsonPath("$.data.sessions[1].items[0].seq").value(1))
+                .andExpect(jsonPath("$.data.sessions[1].items[0].exercise.id").value(wednesdayExerciseId))
+                .andExpect(jsonPath("$.data.sessions[2].dayOfWeek").value("FRIDAY"))
+                .andExpect(jsonPath("$.data.sessions[2].items.length()").value(1))
+                .andExpect(jsonPath("$.data.sessions[2].items[0].seq").value(1))
+                .andExpect(jsonPath("$.data.sessions[2].items[0].exercise.id").value(fridayExerciseId));
+
+        Integer oldItemCount = jdbcTemplate.queryForObject(
+                "select count(*) from routine_items where routine_id = ? and exercise_id = ?",
+                Integer.class,
+                routineId.longValue(),
+                oldExerciseId
+        );
+        org.assertj.core.api.Assertions.assertThat(oldItemCount).isZero();
+
+        Integer seqOneCount = jdbcTemplate.queryForObject(
+                "select count(*) from routine_items where routine_id = ? and seq = 1",
+                Integer.class,
+                routineId.longValue()
+        );
+        org.assertj.core.api.Assertions.assertThat(seqOneCount).isEqualTo(3);
+    }
+
+    @Test
+    void updateCustomRoutineRejectsDuplicateItemSeqWithinSameSession() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User user = userRepository.save(User.createLocalUser("customRoutineDuplicateSeqUser", "encoded-password", "Custom Routine Duplicate Seq User"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+        Long firstExerciseId = seedExercise("Duplicate Seq First Exercise", "duplicate_seq_first_" + System.nanoTime());
+        Long secondExerciseId = seedExercise("Duplicate Seq Second Exercise", "duplicate_seq_second_" + System.nanoTime());
+
+        Number routineId = com.jayway.jsonpath.JsonPath.read(mockMvc.perform(post("/api/routines/custom")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name": "중복 순서 수정 전 루틴",
+                                  "sessions": [
+                                    {
+                                      "dayOfWeek": "MONDAY",
+                                      "sessionName": "월요일",
+                                      "items": [
+                                        {
+                                          "exerciseId": %d,
+                                          "sets": 3,
+                                          "reps": 12
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                                """.formatted(firstExerciseId)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(), "$.data.id");
+
+        mockMvc.perform(put("/api/routines/{routineId}", routineId.longValue())
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name": "중복 순서 루틴",
+                                  "sessions": [
+                                    {
+                                      "dayOfWeek": "MONDAY",
+                                      "sessionName": "월요일",
+                                      "items": [
+                                        {
+                                          "exerciseId": %d,
+                                          "seq": 1,
+                                          "sets": 3,
+                                          "reps": 12
+                                        },
+                                        {
+                                          "exerciseId": %d,
+                                          "seq": 1,
+                                          "sets": 2,
+                                          "reps": 10
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                                """.formatted(firstExerciseId, secondExerciseId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("DUPLICATE_ROUTINE_ITEM_SEQ"));
+    }
+
+    @Test
+    void updateCustomRoutineDoesNotExposeOtherUsersRoutine() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User owner = userRepository.save(User.createLocalUser("customRoutineUpdateOwner", "encoded-password", "Custom Routine Update Owner"));
+        User other = userRepository.save(User.createLocalUser("customRoutineUpdateOther", "encoded-password", "Custom Routine Update Other"));
+        String ownerToken = jwtTokenService.issueTokenPair(owner).accessToken();
+        String otherToken = jwtTokenService.issueTokenPair(other).accessToken();
+        Long exerciseId = seedExercise("Private Update Exercise", "private_update_exercise_" + System.nanoTime());
+
+        Number routineId = com.jayway.jsonpath.JsonPath.read(mockMvc.perform(post("/api/routines/custom")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name": "소유자 수정 루틴",
+                                  "sessions": [
+                                    {
+                                      "dayOfWeek": "MONDAY",
+                                      "sessionName": "월요일",
+                                      "items": [
+                                        {
+                                          "exerciseId": %d,
+                                          "sets": 3,
+                                          "reps": 12
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                                """.formatted(exerciseId)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(), "$.data.id");
+
+        mockMvc.perform(put("/api/routines/{routineId}", routineId.longValue())
+                        .header("Authorization", "Bearer " + otherToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name": "타인 수정 시도",
+                                  "sessions": [
+                                    {
+                                      "dayOfWeek": "MONDAY",
+                                      "sessionName": "월요일",
+                                      "items": [
+                                        {
+                                          "exerciseId": %d,
+                                          "sets": 3,
+                                          "reps": 12
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                                """.formatted(exerciseId)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("ROUTINE_NOT_FOUND"));
+    }
+
+    @Test
+    void deleteCustomRoutineSoftDeletesAndClearsActiveRoutine() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User user = userRepository.save(User.createLocalUser("customRoutineDeleteUser", "encoded-password", "Custom Routine Delete User"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+        Long exerciseId = seedExercise("Delete Routine Exercise", "delete_routine_exercise_" + System.nanoTime());
+
+        Number routineId = com.jayway.jsonpath.JsonPath.read(mockMvc.perform(post("/api/routines/custom")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name": "삭제할 루틴",
+                                  "sessions": [
+                                    {
+                                      "dayOfWeek": "MONDAY",
+                                      "sessionName": "월요일",
+                                      "items": [
+                                        {
+                                          "exerciseId": %d,
+                                          "sets": 3,
+                                          "reps": 12
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                                """.formatted(exerciseId)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(), "$.data.id");
+
+        mockMvc.perform(delete("/api/routines/{routineId}", routineId.longValue())
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("운동 루틴이 삭제되었습니다."));
+
+        Boolean routineActive = jdbcTemplate.queryForObject(
+                "select is_active from routines where id = ?",
+                Boolean.class,
+                routineId.longValue()
+        );
+        org.assertj.core.api.Assertions.assertThat(routineActive).isFalse();
+        Long activeRoutineId = jdbcTemplate.queryForObject(
+                "select active_routine_id from users where id = ?",
+                Long.class,
+                user.getId()
+        );
+        org.assertj.core.api.Assertions.assertThat(activeRoutineId).isNull();
+
+        mockMvc.perform(get("/api/routines/{routineId}", routineId.longValue())
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("ROUTINE_NOT_FOUND"));
+    }
+
+    @Test
     void createCustomRoutineRejectsItemWithoutTarget() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         String accessToken = accessTokenFor("customRoutineInvalidTargetUser");
@@ -531,6 +907,57 @@ class RoutineControllerTest {
         jdbcTemplate.update("""
                 insert into routine_items (routine_id, routine_session_id, exercise_id, seq, reps, sets, duration_sec, rest_sec)
                 values (?, ?, ?, 1, 10, 2, null, 30)
+                """, routineId, sessionId, exerciseId);
+
+        return routineId;
+    }
+
+    private Long seedRoutineWithSession(String dayOfWeek, String routineName, String sessionName) {
+        Long exerciseId = seedExercise("Today Routine Exercise", "today_routine_exercise_" + System.nanoTime());
+
+        Long routineId = insertAndReturnId("""
+                insert into routines (
+                    user_id,
+                    name,
+                    description,
+                    is_default,
+                    difficulty,
+                    estimated_minutes,
+                    is_active,
+                    created_at,
+                    updated_at
+                )
+                values (
+                    null,
+                    ?,
+                    '오늘 루틴 조회 테스트입니다.',
+                    true,
+                    'easy',
+                    20,
+                    true,
+                    CURRENT_TIMESTAMP,
+                    CURRENT_TIMESTAMP
+                )
+                """, routineName);
+
+        Long sessionId = insertAndReturnId("""
+                insert into routine_sessions (
+                    routine_id,
+                    day_of_week,
+                    session_name,
+                    session_type,
+                    seq,
+                    estimated_minutes,
+                    is_active,
+                    created_at,
+                    updated_at
+                )
+                values (?, ?, ?, 'full_body', 1, 20, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, routineId, dayOfWeek, sessionName);
+
+        jdbcTemplate.update("""
+                insert into routine_items (routine_id, routine_session_id, exercise_id, seq, reps, sets, duration_sec, rest_sec)
+                values (?, ?, ?, 1, 12, 3, null, 60)
                 """, routineId, sessionId, exerciseId);
 
         return routineId;

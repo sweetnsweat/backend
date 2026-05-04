@@ -4,6 +4,9 @@ import com.capstone.backend.auth.dto.UserProfileResponse;
 import com.capstone.backend.condition.entity.ConditionLog;
 import com.capstone.backend.condition.repository.ConditionLogRepository;
 import com.capstone.backend.global.exception.ApiException;
+import com.capstone.backend.global.time.KoreanTime;
+import com.capstone.backend.quest.entity.UserQuest;
+import com.capstone.backend.quest.repository.UserQuestRepository;
 import com.capstone.backend.routine.dto.RoutineDetailResponse;
 import com.capstone.backend.routine.dto.RoutineSummaryResponse;
 import com.capstone.backend.routine.entity.Routine;
@@ -14,13 +17,19 @@ import com.capstone.backend.routine.repository.RoutineRepository;
 import com.capstone.backend.routine.repository.RoutineSessionRepository;
 import com.capstone.backend.user.dto.OnboardingProfileRequest;
 import com.capstone.backend.user.dto.UpdateActiveRoutineRequest;
+import com.capstone.backend.user.dto.WeeklyStatsResponse;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
-import com.capstone.backend.global.time.KoreanTime;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,23 +44,34 @@ public class UserService {
     private static final Integer DEFAULT_ENERGY_LEVEL = 3;
     private static final BigDecimal DEFAULT_CONDITION_SCORE = BigDecimal.valueOf(60.42);
     private static final BigDecimal DEFAULT_EXERCISE_MULTIPLIER = BigDecimal.valueOf(1.00).setScale(2);
+    private static final BigDecimal FALLBACK_MALE_WEIGHT_KG = BigDecimal.valueOf(75);
+    private static final BigDecimal FALLBACK_FEMALE_WEIGHT_KG = BigDecimal.valueOf(60);
+    private static final BigDecimal FALLBACK_UNDISCLOSED_GENDER_WEIGHT_KG = BigDecimal.valueOf(65);
+    private static final BigDecimal DEFAULT_WEIGHT_KG = BigDecimal.valueOf(70);
+    private static final BigDecimal DEFAULT_ROUTINE_MET = BigDecimal.valueOf(3.5);
+    private static final BigDecimal DEFAULT_OFF_DAY_MET = BigDecimal.valueOf(3.0);
+    private static final BigDecimal DEFAULT_RECOVERY_MET = BigDecimal.valueOf(2.3);
+    private static final int DEFAULT_ROUTINE_MINUTES = 20;
 
     private final UserRepository userRepository;
     private final RoutineRepository routineRepository;
     private final RoutineSessionRepository routineSessionRepository;
     private final RoutineItemRepository routineItemRepository;
     private final ConditionLogRepository conditionLogRepository;
+    private final UserQuestRepository userQuestRepository;
 
     public UserService(UserRepository userRepository,
                        RoutineRepository routineRepository,
                        RoutineSessionRepository routineSessionRepository,
                        RoutineItemRepository routineItemRepository,
-                       ConditionLogRepository conditionLogRepository) {
+                       ConditionLogRepository conditionLogRepository,
+                       UserQuestRepository userQuestRepository) {
         this.userRepository = userRepository;
         this.routineRepository = routineRepository;
         this.routineSessionRepository = routineSessionRepository;
         this.routineItemRepository = routineItemRepository;
         this.conditionLogRepository = conditionLogRepository;
+        this.userQuestRepository = userQuestRepository;
     }
 
     @Transactional(readOnly = true)
@@ -110,6 +130,42 @@ public class UserService {
         return routineRepository.findByUser_IdAndActiveTrueOrderByIdDesc(userId).stream()
                 .map(routine -> RoutineSummaryResponse.from(routine, routine.getId().equals(activeRoutineId)))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public WeeklyStatsResponse getWeeklyStats(Long userId) {
+        User user = findUser(userId);
+        LocalDate today = KoreanTime.today();
+        LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekEnd = weekStart.plusDays(6);
+        List<UserQuest> completedQuests = userQuestRepository.findCompletedStatsByUserIdAndQuestDateBetween(
+                userId,
+                weekStart,
+                weekEnd
+        );
+
+        int completedWorkoutCount = completedQuests.size();
+        int maxStreakDays = maxStreakDays(completedQuests);
+        BigDecimal weightKg = resolveEffectiveWeightKg(user);
+        int estimatedCalories = completedQuests.stream()
+                .map(quest -> estimatedCalories(quest, weightKg))
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(0, RoundingMode.HALF_UP)
+                .intValue();
+        int earnedExp = completedQuests.stream()
+                .map(UserQuest::getRewardExp)
+                .filter(exp -> exp != null)
+                .mapToInt(Integer::intValue)
+                .sum();
+
+        return new WeeklyStatsResponse(
+                weekStart,
+                weekEnd,
+                completedWorkoutCount,
+                maxStreakDays,
+                estimatedCalories,
+                earnedExp
+        );
     }
 
     @Transactional
@@ -174,6 +230,71 @@ public class UserService {
 
     private boolean hasTodayCondition(Long userId) {
         return conditionLogRepository.findByUser_IdAndLogDate(userId, KoreanTime.today()).isPresent();
+    }
+
+    private int maxStreakDays(List<UserQuest> quests) {
+        Set<LocalDate> completedDates = new HashSet<>();
+        for (UserQuest quest : quests) {
+            completedDates.add(quest.getQuestDate());
+        }
+        int current = 0;
+        int max = 0;
+        LocalDate weekStart = KoreanTime.today().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        for (int i = 0; i < 7; i++) {
+            LocalDate date = weekStart.plusDays(i);
+            if (completedDates.contains(date)) {
+                current++;
+                max = Math.max(max, current);
+            } else {
+                current = 0;
+            }
+        }
+        return max;
+    }
+
+    private BigDecimal estimatedCalories(UserQuest quest, BigDecimal weightKg) {
+        if (UserQuest.TYPE_ROUTINE.equals(quest.getQuestType())) {
+            return estimatedRoutineCalories(quest, weightKg);
+        }
+        BigDecimal minutes = BigDecimal.valueOf(quest.getTargetValue() == null ? 0 : quest.getTargetValue());
+        BigDecimal met = UserQuest.TYPE_RECOVERY.equals(quest.getQuestType()) ? DEFAULT_RECOVERY_MET : DEFAULT_OFF_DAY_MET;
+        return met.multiply(weightKg).multiply(minutes.divide(BigDecimal.valueOf(60), 4, RoundingMode.HALF_UP));
+    }
+
+    private BigDecimal estimatedRoutineCalories(UserQuest quest, BigDecimal weightKg) {
+        RoutineSession session = quest.getSourceSession();
+        if (session == null || session.getItems().isEmpty()) {
+            int minutes = quest.getRoutine() == null || quest.getRoutine().getEstimatedMinutes() == null
+                    ? DEFAULT_ROUTINE_MINUTES
+                    : quest.getRoutine().getEstimatedMinutes();
+            return DEFAULT_ROUTINE_MET.multiply(weightKg).multiply(BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 4, RoundingMode.HALF_UP));
+        }
+
+        List<RoutineItem> items = session.getItems();
+        BigDecimal fallbackItemMinutes = BigDecimal.valueOf(
+                session.getEstimatedMinutes() == null ? DEFAULT_ROUTINE_MINUTES : session.getEstimatedMinutes()
+        ).divide(BigDecimal.valueOf(items.size()), 4, RoundingMode.HALF_UP);
+        BigDecimal total = BigDecimal.ZERO;
+        for (RoutineItem item : items) {
+            BigDecimal met = item.getExercise().getMet() == null ? DEFAULT_ROUTINE_MET : item.getExercise().getMet();
+            BigDecimal minutes = item.getDurationSec() == null
+                    ? fallbackItemMinutes
+                    : BigDecimal.valueOf(item.getDurationSec()).divide(BigDecimal.valueOf(60), 4, RoundingMode.HALF_UP);
+            total = total.add(met.multiply(weightKg).multiply(minutes.divide(BigDecimal.valueOf(60), 4, RoundingMode.HALF_UP)));
+        }
+        return total;
+    }
+
+    private BigDecimal resolveEffectiveWeightKg(User user) {
+        if (user.getWeightKg() != null) {
+            return user.getWeightKg();
+        }
+        return switch (user.getGender() == null ? "" : user.getGender()) {
+            case "male" -> FALLBACK_MALE_WEIGHT_KG;
+            case "female" -> FALLBACK_FEMALE_WEIGHT_KG;
+            case "prefer_not_to_say" -> FALLBACK_UNDISCLOSED_GENDER_WEIGHT_KG;
+            default -> DEFAULT_WEIGHT_KG;
+        };
     }
 
     private void createDefaultTodayConditionIfAbsent(User user) {

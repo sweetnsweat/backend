@@ -16,7 +16,7 @@
 이번 작업에서 `user_quests`에 추가한 컬럼은 다음과 같다.
 
 - `quest_type`: `routine`, `off_day`, `recovery`
-- `target_metric`: `exercises`, `minutes`
+- `target_metric`: `routine`, `minutes`
 - `source_session_id`: 루틴 세션 기반 퀘스트일 때 참조하는 `routine_sessions.id`
 - `condition_adjusted`: 컨디션 때문에 목표가 조정되었는지 여부
 - `quest_context_json`: 퀘스트 생성 당시 운동 목록 스냅샷
@@ -34,7 +34,7 @@ Authorization: Bearer {accessToken}
 2. 지난 날짜의 미완료 퀘스트를 `EXPIRED` 처리한다.
 3. 오늘 퀘스트가 이미 있으면 그대로 반환한다.
 4. 오늘 퀘스트가 없으면 온보딩, 오늘 컨디션, 활성 루틴을 확인한다.
-5. 오늘 요일에 맞는 루틴 세션이 있으면 `ROUTINE` 퀘스트를 생성한다.
+5. 오늘 요일에 맞는 루틴 세션이 있으면 해당 세션 전체를 완료하는 `ROUTINE` 퀘스트를 생성한다.
 6. 오늘 요일 세션이 없으면 `OFF_DAY` 퀘스트를 생성한다.
 7. 컨디션 배율이 낮으면 `RECOVERY` 퀘스트로 대체하거나 목표량을 줄인다.
 
@@ -52,12 +52,12 @@ Authorization: Bearer {accessToken}
     "id": 12,
     "questDate": "2026-05-01",
     "questType": "ROUTINE",
-    "targetMetric": "EXERCISES",
+    "targetMetric": "ROUTINE",
     "status": "ISSUED",
     "completed": false,
-    "title": "상체 머신 운동 2개 완료",
-    "description": "상체 머신 세션에서 제시된 운동 2개를 완료해 주세요.",
-    "targetValue": 2,
+    "title": "상체 머신 루틴 완료",
+    "description": "상체 머신 세션의 운동 루틴을 완료해 주세요. 포함된 운동은 총 3개입니다.",
+    "targetValue": 1,
     "progressValue": 0,
     "conditionAdjusted": false,
     "routineId": 1,
@@ -87,7 +87,7 @@ Authorization: Bearer {accessToken}
 
 ## 퀘스트 타입
 
-- `ROUTINE`: 오늘 요일에 활성 루틴 세션이 있어서 해당 세션 운동 일부를 수행하는 퀘스트
+- `ROUTINE`: 오늘 요일에 활성 루틴 세션이 있어서 해당 세션 전체를 완료하는 퀘스트. `exercises`에는 세션에 포함된 전체 운동 스냅샷이 내려간다.
 - `OFF_DAY`: 오늘 요일에 루틴 세션이 없어서 걷기/스트레칭 같은 회복성 활동을 수행하는 퀘스트
 - `RECOVERY`: 오늘 컨디션이 낮아서 루틴 대신 회복 운동으로 대체된 퀘스트
 

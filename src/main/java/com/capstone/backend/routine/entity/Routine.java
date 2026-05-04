@@ -125,6 +125,16 @@ public class Routine {
         return routine;
     }
 
+    public void updateCustom(String name, String description, Integer estimatedMinutes) {
+        this.name = name;
+        this.description = description;
+        this.estimatedMinutes = estimatedMinutes;
+    }
+
+    public void deactivate() {
+        this.active = false;
+    }
+
     @PrePersist
     void onCreate() {
         Instant now = KoreanTime.nowInstant();
