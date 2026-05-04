@@ -1,5 +1,6 @@
 package com.capstone.backend.world.service;
 
+import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.global.media.MediaUrlResolver;
 import com.capstone.backend.story.entity.CharacterProfile;
 import com.capstone.backend.story.entity.Scenario;
@@ -9,6 +10,7 @@ import com.capstone.backend.story.repository.CharacterProfileRepository;
 import com.capstone.backend.story.repository.ScenarioGenreRepository;
 import com.capstone.backend.story.repository.ScenarioRepository;
 import com.capstone.backend.story.repository.StoryProgressRepository;
+import com.capstone.backend.world.dto.WorldPreviewResponse;
 import com.capstone.backend.world.dto.WorldRankingDetailResponse;
 import com.capstone.backend.world.dto.WorldRankingListResponse;
 import com.capstone.backend.world.dto.WorldRankingPageResponse;
@@ -21,6 +23,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,6 +83,25 @@ public class WorldService {
             ));
         }
         return new WorldRankingListResponse(METRIC_ACTIVE_CHAT_COUNT, rankings);
+    }
+
+    @Transactional(readOnly = true)
+    public WorldPreviewResponse getPreview(Integer scenarioId, Long userId) {
+        Scenario scenario = scenarioRepository.findById(scenarioId)
+                .filter(foundScenario -> Boolean.TRUE.equals(foundScenario.getActive()))
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "WORLD_NOT_FOUND", "세계관을 찾을 수 없습니다."));
+        List<String> genres = genresByScenarioId(List.of(scenarioId)).getOrDefault(scenarioId, List.of());
+        List<CharacterProfile> characters = characterProfileRepository.findByScenario_IdOrderByRepresentativeDescIdAsc(scenarioId);
+        StoryProgress progress = storyProgressRepository.findTopByScenario_IdAndUserKeyOrderByUpdatedAtDesc(
+                scenarioId,
+                String.valueOf(userId)
+        ).orElse(null);
+        long score = storyProgressRepository.countDistinctUserKeyByScenarioIdAndStatus(
+                scenarioId,
+                StoryProgress.STATUS_IN_PROGRESS
+        );
+
+        return WorldPreviewResponse.from(scenario, genres, characters, progress, score, mediaUrlResolver);
     }
 
     @Transactional(readOnly = true)

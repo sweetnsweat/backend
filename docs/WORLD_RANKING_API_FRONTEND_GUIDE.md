@@ -173,3 +173,58 @@ backgroundImageUrl = worldImageUrl -> thumbnailUrl -> 대표 캐릭터 imageUrl 
 프론트는 카드 레이아웃에 따라 `imageUrl`만 써도 되고, 배경형 카드면 `backgroundImageUrl`을 쓰면 된다.
 
 DB에는 `/media/assets/...` 상대 경로가 저장되어 있어도 백엔드 응답에서는 절대 URL로 변환된다. 개발 서버 기준 호스트는 `http://100.89.171.113:8000`이고, 환경별 호스트는 백엔드 `MEDIA_BASE_URL` 설정값을 따른다.
+
+## 세계관 입장 전 미리보기
+
+세계관 랭킹 카드 클릭 시 표시할 모달 정보에 사용한다. 모달의 메인 버튼은 진행 여부와 관계없이 `입장하기`로 통일한다.
+
+```http
+GET /api/worlds/{scenarioId}/preview
+Authorization: Bearer {accessToken}
+```
+
+응답:
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "Request succeeded",
+  "data": {
+    "scenario": {
+      "id": 4,
+      "title": "월하검귀는 다시 웃지 않는다",
+      "summary": "복수와 회귀를 다루는 무협 세계관",
+      "genre": "무협 회귀 복수 로맨스",
+      "genres": ["무협", "회귀", "복수", "로맨스"],
+      "thumbnailUrl": "http://100.89.171.113:8000/media/assets/thumb.png",
+      "worldImageUrl": "http://100.89.171.113:8000/media/assets/world.png",
+      "playerImageUrl": "http://100.89.171.113:8000/media/assets/player.png",
+      "playerDescription": "이 세계관에서 사용자가 맡게 되는 역할 설명",
+      "active": true
+    },
+    "ranking": {
+      "metric": "ACTIVE_CHAT_COUNT",
+      "score": 2
+    },
+    "representativeCharacter": {
+      "id": 12,
+      "name": "천류하",
+      "title": "검귀",
+      "type": "main",
+      "imageUrl": "http://100.89.171.113:8000/media/assets/character.png",
+      "quote": "네 뒤를 쫓아가도...",
+      "tags": ["검귀", "복수"],
+      "representative": true
+    },
+    "characters": [],
+    "entry": {
+      "canEnter": true,
+      "hasProgress": true,
+      "progressStatus": "IN_PROGRESS"
+    }
+  }
+}
+```
+
+이 API는 모달 표시와 사용자의 기존 진행 상태 확인까지만 담당한다. 버튼 문구와 입장 이후 화면 전환은 프론트/스토리 담당 흐름에서 처리한다.

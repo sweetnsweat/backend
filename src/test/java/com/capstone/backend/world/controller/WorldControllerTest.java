@@ -184,6 +184,49 @@ class WorldControllerTest {
     }
 
     @Test
+    void previewReturnsWorldModalDataAndPlayEntryHint() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User user = userRepository.save(User.createLocalUser("worldPreviewUser", "encoded-password", "worldPreviewUser"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+        seedScenarios();
+        seedScenarioGenres();
+        seedCharacterProfiles();
+        seedStoryProgress();
+        jdbcTemplate.update("""
+                insert into story_progress (id, user_key, scenario_id, status, created_at, updated_at)
+                values (100, ?, 2, 'IN_PROGRESS', now(), now())
+                """, String.valueOf(user.getId()));
+
+        mockMvc.perform(get("/api/worlds/2/preview")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.scenario.id").value(2))
+                .andExpect(jsonPath("$.data.scenario.title").value("하륜의 세계"))
+                .andExpect(jsonPath("$.data.scenario.genre").value("무협"))
+                .andExpect(jsonPath("$.data.scenario.genres[0]").value("무협"))
+                .andExpect(jsonPath("$.data.scenario.thumbnailUrl").value("http://localhost:8000/media/assets/thumb_2.png"))
+                .andExpect(jsonPath("$.data.scenario.worldImageUrl").value("http://localhost:8000/media/assets/world_2.png"))
+                .andExpect(jsonPath("$.data.scenario.playerImageUrl").value("http://localhost:8000/media/assets/player_2.png"))
+                .andExpect(jsonPath("$.data.scenario.playerDescription").value("플레이어 설명 2"))
+                .andExpect(jsonPath("$.data.scenario.active").value(true))
+                .andExpect(jsonPath("$.data.ranking.metric").value("ACTIVE_CHAT_COUNT"))
+                .andExpect(jsonPath("$.data.ranking.score").value(4))
+                .andExpect(jsonPath("$.data.representativeCharacter.name").value("하륜"))
+                .andExpect(jsonPath("$.data.representativeCharacter.title").value("라이벌"))
+                .andExpect(jsonPath("$.data.representativeCharacter.imageUrl").value("http://localhost:8000/media/assets/character_haryun.png"))
+                .andExpect(jsonPath("$.data.representativeCharacter.tags[0]").value("라이벌"))
+                .andExpect(jsonPath("$.data.representativeCharacter.representative").value(true))
+                .andExpect(jsonPath("$.data.characters.length()").value(1))
+                .andExpect(jsonPath("$.data.entry.canEnter").value(true))
+                .andExpect(jsonPath("$.data.entry.hasProgress").value(true))
+                .andExpect(jsonPath("$.data.entry.progressStatus").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.data.entry.buttonLabel").doesNotExist())
+                .andExpect(jsonPath("$.data.entry.action").doesNotExist())
+                .andExpect(jsonPath("$.data.entry.playEndpoint").doesNotExist())
+                .andExpect(jsonPath("$.data.entry.defaultRestart").doesNotExist());
+    }
+
+    @Test
     void rankingsRequiresAuthentication() throws Exception {
         mockMvc.perform(get("/api/worlds/rankings"))
                 .andExpect(status().isUnauthorized())

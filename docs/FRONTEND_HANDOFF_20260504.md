@@ -131,6 +131,17 @@ score = story_progress.status = 'IN_PROGRESS'인 distinct user_key 수
 
 응답 상세는 `WORLD_RANKING_API_FRONTEND_GUIDE.md`를 기준으로 본다.
 
+## 세계관 입장 전 미리보기 API
+
+세계관 랭킹 카드 클릭 시 모달에 표시할 상세 정보다. 세계관/장르/대표 캐릭터/캐릭터 목록/랭킹 점수와 사용자의 기존 진행 상태를 내려준다.
+
+```http
+GET /api/worlds/{scenarioId}/preview
+Authorization: Bearer {accessToken}
+```
+
+이 API는 모달 표시와 사용자의 기존 진행 상태 확인까지만 담당한다. 버튼 문구와 입장 이후 화면 전환은 프론트/스토리 담당 흐름에서 처리한다. 응답 상세는 `WORLD_RANKING_API_FRONTEND_GUIDE.md`를 기준으로 본다.
+
 ## 이번 주 활동 랭킹 API
 
 메인 홈의 `이번 주 랭킹` 섹션에 표시할 사용자 활동 순위를 조회한다.

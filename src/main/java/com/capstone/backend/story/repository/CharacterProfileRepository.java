@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface CharacterProfileRepository extends JpaRepository<CharacterProfile, Integer> {
 
     List<CharacterProfile> findByScenario_IdInOrderByScenario_IdAscRepresentativeDescIdAsc(Collection<Integer> scenarioIds);
+
+    List<CharacterProfile> findByScenario_IdOrderByRepresentativeDescIdAsc(Integer scenarioId);
 }

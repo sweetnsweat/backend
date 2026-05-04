@@ -1,6 +1,8 @@
 package com.capstone.backend.world.controller;
 
+import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.global.api.ApiResponse;
+import com.capstone.backend.world.dto.WorldPreviewResponse;
 import com.capstone.backend.world.dto.WorldRankingListResponse;
 import com.capstone.backend.world.dto.WorldRankingPageResponse;
 import com.capstone.backend.world.service.WorldService;
@@ -9,8 +11,10 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,5 +53,15 @@ public class WorldController {
             @RequestParam(required = false) String keyword
     ) {
         return ApiResponse.ok(worldService.getFullRankings(genre, keyword, page, size));
+    }
+
+    @Operation(summary = "세계관 입장 전 미리보기 조회", description = "세계관 카드 클릭 시 표시할 모달 정보입니다. 세계관, 장르, 대표 캐릭터, 캐릭터 목록, 랭킹 점수, 사용자 진행 상태를 조회합니다.")
+    @GetMapping("/{scenarioId}/preview")
+    public ApiResponse<WorldPreviewResponse> preview(
+            @AuthenticationPrincipal AuthUser authUser,
+            @Parameter(description = "미리보기할 세계관 ID", example = "4")
+            @PathVariable @Min(1) Integer scenarioId
+    ) {
+        return ApiResponse.ok(worldService.getPreview(scenarioId, authUser.userId()));
     }
 }
