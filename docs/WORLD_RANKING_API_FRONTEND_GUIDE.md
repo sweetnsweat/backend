@@ -73,7 +73,7 @@ Authorization: Bearer {accessToken}
         "scenarioId": 4,
         "worldTitle": "월하검귀는 다시 웃지 않는다",
         "displayName": "천류하",
-        "imageUrl": "/media/assets/character_천류하_8b1e61b5eb.png",
+        "imageUrl": "http://100.89.171.113:8000/media/assets/character_천류하_8b1e61b5eb.png",
         "score": 9820
       }
     ]
@@ -133,22 +133,22 @@ score desc, scenarioId asc
         "summary": "회귀와 복수를 다루는 로맨스 판타지 세계관",
         "genre": "로맨스 판타지 회귀 복수",
         "genres": ["로맨스", "판타지", "회귀", "복수"],
-        "thumbnailUrl": "/media/assets/thumb.png",
-        "worldImageUrl": "/media/assets/world.png",
-        "playerImageUrl": "/media/assets/player.png",
+        "thumbnailUrl": "http://100.89.171.113:8000/media/assets/thumb.png",
+        "worldImageUrl": "http://100.89.171.113:8000/media/assets/world.png",
+        "playerImageUrl": "http://100.89.171.113:8000/media/assets/player.png",
         "playerDescription": "황궁에 다시 들어온 플레이어",
         "representativeCharacter": {
           "id": 33,
           "name": "세리엔",
           "title": "예언자",
           "type": "main",
-          "imageUrl": "/media/assets/character.png",
+          "imageUrl": "http://100.89.171.113:8000/media/assets/character.png",
           "quote": "운명은 다시 쓰일 수 있어요.",
           "tags": ["예언자", "황실마법", "정보통"]
         },
         "displayName": "세리엔",
-        "imageUrl": "/media/assets/character.png",
-        "backgroundImageUrl": "/media/assets/world.png",
+        "imageUrl": "http://100.89.171.113:8000/media/assets/character.png",
+        "backgroundImageUrl": "http://100.89.171.113:8000/media/assets/world.png",
         "score": 7210
       }
     ]
@@ -171,3 +171,5 @@ backgroundImageUrl = worldImageUrl -> thumbnailUrl -> 대표 캐릭터 imageUrl 
 ```
 
 프론트는 카드 레이아웃에 따라 `imageUrl`만 써도 되고, 배경형 카드면 `backgroundImageUrl`을 쓰면 된다.
+
+DB에는 `/media/assets/...` 상대 경로가 저장되어 있어도 백엔드 응답에서는 절대 URL로 변환된다. 개발 서버 기준 호스트는 `http://100.89.171.113:8000`이고, 환경별 호스트는 백엔드 `MEDIA_BASE_URL` 설정값을 따른다.

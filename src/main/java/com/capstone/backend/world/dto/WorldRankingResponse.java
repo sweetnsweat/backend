@@ -1,5 +1,6 @@
 package com.capstone.backend.world.dto;
 
+import com.capstone.backend.global.media.MediaUrlResolver;
 import com.capstone.backend.story.entity.CharacterProfile;
 import com.capstone.backend.story.entity.Scenario;
 
@@ -11,7 +12,11 @@ public record WorldRankingResponse(
         String imageUrl,
         long score
 ) {
-    public static WorldRankingResponse from(int rank, Scenario scenario, CharacterProfile representativeCharacter, long score) {
+    public static WorldRankingResponse from(int rank,
+                                            Scenario scenario,
+                                            CharacterProfile representativeCharacter,
+                                            long score,
+                                            MediaUrlResolver mediaUrlResolver) {
         String characterName = representativeCharacter == null ? null : representativeCharacter.getName();
         String characterImageUrl = representativeCharacter == null ? null : representativeCharacter.getImageUrl();
 
@@ -20,7 +25,7 @@ public record WorldRankingResponse(
                 scenario.getId(),
                 scenario.getTitle(),
                 firstNonBlank(characterName, scenario.getTitle()),
-                firstNonBlank(characterImageUrl, scenario.getThumbnailUrl(), scenario.getWorldImageUrl()),
+                mediaUrlResolver.resolve(firstNonBlank(characterImageUrl, scenario.getThumbnailUrl(), scenario.getWorldImageUrl())),
                 score
         );
     }

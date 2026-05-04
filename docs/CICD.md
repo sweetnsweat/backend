@@ -56,6 +56,7 @@ The pipeline uses both:
 3. Pull and recreate `redis-cache` container on `postgres-stack_default`
 4. Remove the old `capstone-backend` container if it exists
 5. Start the new backend container on `postgres-stack_default` with `REDIS_HOST=redis-cache`
+   and `MEDIA_BASE_URL=http://100.89.171.113:8000`
 6. Verify infrastructure endpoints:
    - `/actuator/health`
    - `/api/health`
@@ -68,6 +69,10 @@ The pipeline uses both:
    - `POST /api/auth/logout`
 
 Jenkins runs inside a container, so verification calls the backend through `host.docker.internal:8080` rather than `localhost:8080`.
+
+`AI_BASE_URL` is the backend-to-AI internal Docker URL (`http://capstone-ai:8000`).
+`MEDIA_BASE_URL` is the public media host returned to the mobile app for
+`/media/assets/...` image fields.
 
 ## Jenkins Server Bootstrap
 

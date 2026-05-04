@@ -1,5 +1,6 @@
 package com.capstone.backend.world.dto;
 
+import com.capstone.backend.global.media.MediaUrlResolver;
 import com.capstone.backend.story.entity.CharacterProfile;
 import com.capstone.backend.story.entity.Scenario;
 import java.util.ArrayList;
@@ -27,7 +28,8 @@ public record WorldRankingDetailResponse(
                                                   Scenario scenario,
                                                   List<String> genres,
                                                   CharacterProfile representativeCharacter,
-                                                  long score) {
+                                                  long score,
+                                                  MediaUrlResolver mediaUrlResolver) {
         String characterName = representativeCharacter == null ? null : representativeCharacter.getName();
         String characterImageUrl = representativeCharacter == null ? null : representativeCharacter.getImageUrl();
         List<String> resolvedGenres = genres == null || genres.isEmpty()
@@ -42,14 +44,14 @@ public record WorldRankingDetailResponse(
                 scenario.getSummary(),
                 scenario.getGenre(),
                 resolvedGenres,
-                scenario.getThumbnailUrl(),
-                scenario.getWorldImageUrl(),
-                scenario.getPlayerImageUrl(),
+                mediaUrlResolver.resolve(scenario.getThumbnailUrl()),
+                mediaUrlResolver.resolve(scenario.getWorldImageUrl()),
+                mediaUrlResolver.resolve(scenario.getPlayerImageUrl()),
                 scenario.getPlayerDescription(),
-                RepresentativeCharacterResponse.from(representativeCharacter),
+                RepresentativeCharacterResponse.from(representativeCharacter, mediaUrlResolver),
                 firstNonBlank(characterName, scenario.getTitle()),
-                firstNonBlank(characterImageUrl, scenario.getThumbnailUrl(), scenario.getWorldImageUrl(), scenario.getPlayerImageUrl()),
-                firstNonBlank(scenario.getWorldImageUrl(), scenario.getThumbnailUrl(), characterImageUrl, scenario.getPlayerImageUrl()),
+                mediaUrlResolver.resolve(firstNonBlank(characterImageUrl, scenario.getThumbnailUrl(), scenario.getWorldImageUrl(), scenario.getPlayerImageUrl())),
+                mediaUrlResolver.resolve(firstNonBlank(scenario.getWorldImageUrl(), scenario.getThumbnailUrl(), characterImageUrl, scenario.getPlayerImageUrl())),
                 score
         );
     }
@@ -85,7 +87,7 @@ public record WorldRankingDetailResponse(
             String quote,
             List<String> tags
     ) {
-        static RepresentativeCharacterResponse from(CharacterProfile character) {
+        static RepresentativeCharacterResponse from(CharacterProfile character, MediaUrlResolver mediaUrlResolver) {
             if (character == null) {
                 return null;
             }
@@ -94,7 +96,7 @@ public record WorldRankingDetailResponse(
                     character.getName(),
                     character.getCharacterTitle(),
                     character.getCharacterType(),
-                    character.getImageUrl(),
+                    mediaUrlResolver.resolve(character.getImageUrl()),
                     character.getMidStoryLine(),
                     parseTags(character.getTags())
             );

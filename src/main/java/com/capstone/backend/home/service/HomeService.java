@@ -1,5 +1,6 @@
 package com.capstone.backend.home.service;
 
+import com.capstone.backend.global.media.MediaUrlResolver;
 import com.capstone.backend.home.dto.HomeWorldBannerListResponse;
 import com.capstone.backend.home.dto.HomeWorldBannerResponse;
 import com.capstone.backend.story.entity.CharacterProfile;
@@ -18,11 +19,14 @@ public class HomeService {
 
     private final ScenarioRepository scenarioRepository;
     private final CharacterProfileRepository characterProfileRepository;
+    private final MediaUrlResolver mediaUrlResolver;
 
     public HomeService(ScenarioRepository scenarioRepository,
-                       CharacterProfileRepository characterProfileRepository) {
+                       CharacterProfileRepository characterProfileRepository,
+                       MediaUrlResolver mediaUrlResolver) {
         this.scenarioRepository = scenarioRepository;
         this.characterProfileRepository = characterProfileRepository;
+        this.mediaUrlResolver = mediaUrlResolver;
     }
 
     @Transactional(readOnly = true)
@@ -38,7 +42,11 @@ public class HomeService {
         Map<Integer, CharacterProfile> representativeCharacters = representativeCharactersByScenarioId(scenarioIds);
 
         List<HomeWorldBannerResponse> slides = scenarios.stream()
-                .map(scenario -> HomeWorldBannerResponse.from(scenario, representativeCharacters.get(scenario.getId())))
+                .map(scenario -> HomeWorldBannerResponse.from(
+                        scenario,
+                        representativeCharacters.get(scenario.getId()),
+                        mediaUrlResolver
+                ))
                 .toList();
         return new HomeWorldBannerListResponse(slides);
     }

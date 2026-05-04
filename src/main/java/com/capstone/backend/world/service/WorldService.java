@@ -1,5 +1,6 @@
 package com.capstone.backend.world.service;
 
+import com.capstone.backend.global.media.MediaUrlResolver;
 import com.capstone.backend.story.entity.CharacterProfile;
 import com.capstone.backend.story.entity.Scenario;
 import com.capstone.backend.story.entity.ScenarioGenre;
@@ -32,15 +33,18 @@ public class WorldService {
     private final ScenarioRepository scenarioRepository;
     private final CharacterProfileRepository characterProfileRepository;
     private final ScenarioGenreRepository scenarioGenreRepository;
+    private final MediaUrlResolver mediaUrlResolver;
 
     public WorldService(StoryProgressRepository storyProgressRepository,
                         ScenarioRepository scenarioRepository,
                         CharacterProfileRepository characterProfileRepository,
-                        ScenarioGenreRepository scenarioGenreRepository) {
+                        ScenarioGenreRepository scenarioGenreRepository,
+                        MediaUrlResolver mediaUrlResolver) {
         this.storyProgressRepository = storyProgressRepository;
         this.scenarioRepository = scenarioRepository;
         this.characterProfileRepository = characterProfileRepository;
         this.scenarioGenreRepository = scenarioGenreRepository;
+        this.mediaUrlResolver = mediaUrlResolver;
     }
 
     @Transactional(readOnly = true)
@@ -71,7 +75,8 @@ public class WorldService {
                     rank++,
                     scenario,
                     representativeCharacters.get(row.getScenarioId()),
-                    row.getScore()
+                    row.getScore(),
+                    mediaUrlResolver
             ));
         }
         return new WorldRankingListResponse(METRIC_ACTIVE_CHAT_COUNT, rankings);
@@ -126,7 +131,8 @@ public class WorldService {
                     scenario,
                     genresByScenarioId.getOrDefault(row.getScenarioId(), List.of()),
                     representativeCharacters.get(row.getScenarioId()),
-                    row.getScore() == null ? 0 : row.getScore()
+                    row.getScore() == null ? 0 : row.getScore(),
+                    mediaUrlResolver
             ));
         }
 

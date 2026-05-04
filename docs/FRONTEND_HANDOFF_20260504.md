@@ -31,8 +31,8 @@ Authorization: Bearer {accessToken}
         "worldTitle": "월하검귀는 다시 웃지 않는다",
         "genre": "무협 회귀 복수 로맨스",
         "summary": "복수와 회귀를 다루는 무협 세계관",
-        "imageUrl": "/media/assets/character_천류하_8b1e61b5eb.png",
-        "backgroundImageUrl": "/media/assets/world_월하검귀는-다시-웃지-않는다_9c98d72cc8.png",
+        "imageUrl": "http://100.89.171.113:8000/media/assets/character_천류하_8b1e61b5eb.png",
+        "backgroundImageUrl": "http://100.89.171.113:8000/media/assets/world_월하검귀는-다시-웃지-않는다_9c98d72cc8.png",
         "representativeCharacterName": "천류하",
         "representativeCharacterTitle": "검귀",
         "headline": "천류하",
@@ -50,6 +50,8 @@ Authorization: Bearer {accessToken}
 - 대표 캐릭터는 `character_profiles.is_representative=true`인 캐릭터를 우선 사용한다.
 - `imageUrl`은 대표 캐릭터 이미지가 있으면 우선 사용하고, 없으면 세계관 썸네일/세계관 이미지로 대체한다.
 - `backgroundImageUrl`은 세계관 이미지가 있으면 우선 사용하고, 없으면 썸네일/대표 캐릭터 이미지로 대체한다.
+- DB에는 `/media/assets/...` 형태의 상대 경로를 저장하지만, 백엔드 응답은 프론트가 바로 사용할 수 있는 절대 URL로 변환해서 내려준다.
+- 개발 서버 기준 이미지 호스트는 `http://100.89.171.113:8000`이다. 환경별로는 백엔드 `MEDIA_BASE_URL` 설정값을 따른다.
 
 ## 세계관 랭킹 API
 
@@ -88,7 +90,7 @@ Authorization: Bearer {accessToken}
         "scenarioId": 4,
         "worldTitle": "월하검귀는 다시 웃지 않는다",
         "displayName": "천류하",
-        "imageUrl": "/media/assets/character_천류하_8b1e61b5eb.png",
+        "imageUrl": "http://100.89.171.113:8000/media/assets/character_천류하_8b1e61b5eb.png",
         "score": 3
       }
     ]

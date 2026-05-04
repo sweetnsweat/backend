@@ -22,6 +22,7 @@ pipeline {
         DB_URL = 'jdbc:postgresql://postgres-db:5432/postgres'
         DB_USERNAME = 'postgres'
         AI_BASE_URL = 'http://capstone-ai:8000'
+        MEDIA_BASE_URL = 'http://100.89.171.113:8000'
         VERIFY_BASE_URL = 'http://host.docker.internal:8080'
     }
 
@@ -70,6 +71,7 @@ pipeline {
                           -e REDIS_HOST="${REDIS_HOST}" \
                           -e REDIS_PORT="${REDIS_PORT}" \
                           -e AI_BASE_URL="${AI_BASE_URL}" \
+                          -e MEDIA_BASE_URL="${MEDIA_BASE_URL}" \
                           "${APP_IMAGE}"
                     '''
                 }

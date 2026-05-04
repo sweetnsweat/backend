@@ -1,5 +1,6 @@
 package com.capstone.backend.home.dto;
 
+import com.capstone.backend.global.media.MediaUrlResolver;
 import com.capstone.backend.story.entity.CharacterProfile;
 import com.capstone.backend.story.entity.Scenario;
 
@@ -15,7 +16,9 @@ public record HomeWorldBannerResponse(
         String headline,
         String quote
 ) {
-    public static HomeWorldBannerResponse from(Scenario scenario, CharacterProfile representativeCharacter) {
+    public static HomeWorldBannerResponse from(Scenario scenario,
+                                               CharacterProfile representativeCharacter,
+                                               MediaUrlResolver mediaUrlResolver) {
         String characterImageUrl = representativeCharacter == null ? null : representativeCharacter.getImageUrl();
         String characterName = representativeCharacter == null ? null : representativeCharacter.getName();
         String characterTitle = representativeCharacter == null ? null : representativeCharacter.getCharacterTitle();
@@ -27,8 +30,8 @@ public record HomeWorldBannerResponse(
                 scenario.getTitle(),
                 scenario.getGenre(),
                 scenario.getSummary(),
-                firstNonBlank(characterImageUrl, scenario.getThumbnailUrl(), scenario.getWorldImageUrl()),
-                firstNonBlank(scenario.getWorldImageUrl(), scenario.getThumbnailUrl(), characterImageUrl),
+                mediaUrlResolver.resolve(firstNonBlank(characterImageUrl, scenario.getThumbnailUrl(), scenario.getWorldImageUrl())),
+                mediaUrlResolver.resolve(firstNonBlank(scenario.getWorldImageUrl(), scenario.getThumbnailUrl(), characterImageUrl)),
                 characterName,
                 characterTitle,
                 headline,
