@@ -37,6 +37,9 @@ public class CharacterProfile {
     @Column(name = "mid_story_line", columnDefinition = "text")
     private String midStoryLine;
 
+    @Column(name = "tags", columnDefinition = "text")
+    private String tags;
+
     @Column(name = "is_representative")
     private Boolean representative;
 
@@ -69,6 +72,10 @@ public class CharacterProfile {
 
     public String getMidStoryLine() {
         return midStoryLine;
+    }
+
+    public String getTags() {
+        return tags;
     }
 
     public Boolean getRepresentative() {

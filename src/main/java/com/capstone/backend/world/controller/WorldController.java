@@ -2,6 +2,7 @@ package com.capstone.backend.world.controller;
 
 import com.capstone.backend.global.api.ApiResponse;
 import com.capstone.backend.world.dto.WorldRankingListResponse;
+import com.capstone.backend.world.dto.WorldRankingPageResponse;
 import com.capstone.backend.world.service.WorldService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,5 +34,20 @@ public class WorldController {
             @RequestParam(defaultValue = "5") @Min(1) @Max(20) int limit
     ) {
         return ApiResponse.ok(worldService.getRankings(limit));
+    }
+
+    @Operation(summary = "세계관 랭킹 전체 조회", description = "세계관 랭킹 전체보기 화면용 API입니다. 50개 단위 무한스크롤, 장르 필터, 키워드 검색을 지원합니다.")
+    @GetMapping("/rankings/full")
+    public ApiResponse<WorldRankingPageResponse> fullRankings(
+            @Parameter(description = "페이지 번호. 0부터 시작합니다.", example = "0")
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @Parameter(description = "페이지 크기. 기본 50개, 최대 100개입니다.", example = "50")
+            @RequestParam(defaultValue = "50") @Min(1) @Max(100) int size,
+            @Parameter(description = "장르 필터. 전체면 생략하거나 전체/all을 보냅니다.", example = "로맨스")
+            @RequestParam(required = false) String genre,
+            @Parameter(description = "검색어. 시나리오 제목/요약/장르/대표 캐릭터 이름/칭호/tags를 검색합니다.", example = "수연")
+            @RequestParam(required = false) String keyword
+    ) {
+        return ApiResponse.ok(worldService.getFullRankings(genre, keyword, page, size));
     }
 }

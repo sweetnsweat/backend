@@ -96,6 +96,39 @@ Authorization: Bearer {accessToken}
 }
 ```
 
+## 세계관 랭킹 전체보기 API
+
+세계관 랭킹의 `전체보기` 화면에 사용한다. 모바일 무한스크롤 기준 기본 `size`는 50개다.
+
+```http
+GET /api/worlds/rankings/full?page=0&size=50&genre=로맨스&keyword=수연
+Authorization: Bearer {accessToken}
+```
+
+쿼리:
+
+| 이름 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `page` | X | `0` | 페이지 번호. 0부터 시작 |
+| `size` | X | `50` | 페이지 크기. 1~100 |
+| `genre` | X | - | 장르 필터. 전체면 생략하거나 `전체`/`all` |
+| `keyword` | X | - | 시나리오 제목/요약/장르/대표 캐릭터 이름/칭호/tags 검색 |
+
+점수 기준:
+
+```text
+score = story_progress.status = 'IN_PROGRESS'인 distinct user_key 수
+```
+
+장르 구조:
+
+- `scenarios.genre`는 `현대 막장 회귀 복수 드라마` 같은 원본 표시 문구다.
+- `scenario_genres`는 필터용 정규화 테이블이다.
+- 응답에는 `genre` 원문과 `genres` 리스트를 둘 다 내려준다.
+- 프론트 카테고리 칩은 `genres` 기준으로 맞추면 된다.
+
+응답 상세는 `WORLD_RANKING_API_FRONTEND_GUIDE.md`를 기준으로 본다.
+
 ## 이번 주 활동 랭킹 API
 
 메인 홈의 `이번 주 랭킹` 섹션에 표시할 사용자 활동 순위를 조회한다.

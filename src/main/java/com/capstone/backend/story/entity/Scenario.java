@@ -30,6 +30,12 @@ public class Scenario {
     @Column(name = "world_image_url", columnDefinition = "text")
     private String worldImageUrl;
 
+    @Column(name = "player_image_url", columnDefinition = "text")
+    private String playerImageUrl;
+
+    @Column(name = "player_description", columnDefinition = "text")
+    private String playerDescription;
+
     @Column(name = "is_active")
     private Boolean active;
 
@@ -58,6 +64,14 @@ public class Scenario {
 
     public String getWorldImageUrl() {
         return worldImageUrl;
+    }
+
+    public String getPlayerImageUrl() {
+        return playerImageUrl;
+    }
+
+    public String getPlayerDescription() {
+        return playerDescription;
     }
 
     public Boolean getActive() {

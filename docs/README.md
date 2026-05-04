@@ -22,6 +22,7 @@
 | `ROUTINE_API_FRONTEND_GUIDE.md` | 추천 루틴, 직접 루틴 생성/수정/삭제, 활성화, 세션 구조 |
 | `EXERCISE_API_FRONTEND_GUIDE.md` | 운동 목록, 상세, 즐겨찾기 |
 | `QUEST_API_FRONTEND_GUIDE.md` | 오늘 퀘스트 생성/조회/완료, AI 연동 방식 |
+| `WORLD_RANKING_API_FRONTEND_GUIDE.md` | 세계관 랭킹 요약/전체보기, 장르 필터, 무한스크롤 |
 | `AI_QUEST_API_GUIDE.md` | AI 서버가 userId로 오늘 퀘스트를 조회하는 백엔드 연동 방식 |
 | `FRONTEND_SWAGGER_GUIDE.md` | Swagger 확인 방법과 응답 포맷 |
 | `CICD.md` | 개발 서버 CI/CD 흐름 |

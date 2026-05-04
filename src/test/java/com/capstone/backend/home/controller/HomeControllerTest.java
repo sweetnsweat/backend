@@ -41,6 +41,7 @@ class HomeControllerTest {
     @BeforeEach
     void cleanup() {
         jdbcTemplate.update("delete from story_progress");
+        jdbcTemplate.update("delete from scenario_genres");
         jdbcTemplate.update("delete from character_profiles");
         jdbcTemplate.update("delete from scenarios");
         jdbcTemplate.update("delete from user_quests");
