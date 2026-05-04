@@ -33,7 +33,7 @@ public class ExerciseController {
         return ApiResponse.ok(exerciseService.getCategories());
     }
 
-    @Operation(summary = "운동 목록 조회", description = "운동 목록 화면에 필요한 그룹형 카드 목록을 조회합니다. scope는 all, favorite, recent를 지원합니다.")
+    @Operation(summary = "운동 목록 조회", description = "운동 목록 화면에 필요한 그룹형 카드 목록을 페이지 단위로 조회합니다. 모바일 무한스크롤 기준 기본 size는 30이며, scope는 all, favorite, recent를 지원합니다.")
     @GetMapping
     public ApiResponse<ExerciseListResponse> exercises(@AuthenticationPrincipal AuthUser authUser,
                                                        @RequestParam(defaultValue = "all") String scope,
@@ -41,7 +41,7 @@ public class ExerciseController {
                                                        @RequestParam(required = false) String level,
                                                        @RequestParam(required = false) String keyword,
                                                        @RequestParam(defaultValue = "0") int page,
-                                                       @RequestParam(defaultValue = "50") int size) {
+                                                       @RequestParam(defaultValue = "30") int size) {
         return ApiResponse.ok(exerciseService.getExercises(authUser.userId(), scope, category, level, keyword, page, size));
     }
 

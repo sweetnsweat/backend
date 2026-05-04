@@ -29,14 +29,14 @@ public class UserExerciseController {
         this.exerciseService = exerciseService;
     }
 
-    @Operation(summary = "내 즐겨찾기 운동 목록 조회", description = "로그인 사용자가 즐겨찾기한 운동 목록을 조회합니다. category, level, keyword로 필터링할 수 있습니다.")
+    @Operation(summary = "내 즐겨찾기 운동 목록 조회", description = "로그인 사용자가 즐겨찾기한 운동 목록을 페이지 단위로 조회합니다. 모바일 무한스크롤 기준 기본 size는 30이며, category, level, keyword로 필터링할 수 있습니다.")
     @GetMapping("/favorites")
     public ApiResponse<ExerciseListResponse> favoriteExercises(@AuthenticationPrincipal AuthUser authUser,
                                                                @RequestParam(required = false) String category,
                                                                @RequestParam(required = false) String level,
                                                                @RequestParam(required = false) String keyword,
                                                                @RequestParam(defaultValue = "0") int page,
-                                                               @RequestParam(defaultValue = "50") int size) {
+                                                               @RequestParam(defaultValue = "30") int size) {
         return ApiResponse.ok(exerciseService.getFavoriteExercises(authUser.userId(), category, level, keyword, page, size));
     }
 

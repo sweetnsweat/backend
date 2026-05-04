@@ -13,6 +13,8 @@ public record ExerciseListResponse(
         int totalPages,
         boolean first,
         boolean last,
+        boolean hasNext,
+        Integer nextPage,
         List<ExerciseGroupResponse> groups
 ) {
     public record ExerciseGroupResponse(

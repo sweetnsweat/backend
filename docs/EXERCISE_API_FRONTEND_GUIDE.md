@@ -17,7 +17,15 @@
 | `level` | X | `초급` | 강도/난이도 필터. 전체면 생략하거나 `all` |
 | `keyword` | X | `요가` | 운동 이름 검색 |
 | `page` | X | `0` | 기본값 0 |
-| `size` | X | `50` | 기본값 50, 최대 100 |
+| `size` | X | `30` | 기본값 30, 최대 100 |
+
+모바일 무한스크롤은 첫 진입 시 `page=0&size=30`으로 호출하고, 응답의 `hasNext=true`이면 `nextPage` 값으로 다음 페이지를 호출한다.
+
+```text
+첫 페이지: GET /api/exercises?page=0&size=30
+다음 페이지: GET /api/exercises?page={nextPage}&size=30
+필터/검색 변경 시: page를 다시 0으로 초기화
+```
 
 `recent`는 최근 운동 기록 저장 기능이 아직 없어서 현재는 빈 목록을 반환한다.
 
@@ -35,11 +43,13 @@
     "level": null,
     "keyword": null,
     "page": 0,
-    "size": 50,
-    "totalCount": 16,
-    "totalPages": 1,
+    "size": 30,
+    "totalCount": 42,
+    "totalPages": 2,
     "first": true,
-    "last": true,
+    "last": false,
+    "hasNext": true,
+    "nextPage": 1,
     "groups": [
       {
         "category": "수영",
@@ -159,7 +169,7 @@ estimatedKcalPerHour = MET * 적용 체중(kg)
 | `level` | X | `초급` | 강도/난이도 필터. 전체면 생략하거나 `all` |
 | `keyword` | X | `자전거` | 운동 이름 검색 |
 | `page` | X | `0` | 기본값 0 |
-| `size` | X | `50` | 기본값 50, 최대 100 |
+| `size` | X | `30` | 기본값 30, 최대 100 |
 
 예시:
 
@@ -181,11 +191,13 @@ GET /api/users/me/exercises/favorites?category=유산소
     "level": null,
     "keyword": null,
     "page": 0,
-    "size": 50,
+    "size": 30,
     "totalCount": 1,
     "totalPages": 1,
     "first": true,
     "last": true,
+    "hasNext": false,
+    "nextPage": null,
     "groups": [
       {
         "category": "유산소",

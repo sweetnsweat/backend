@@ -414,7 +414,7 @@ sessions[].items[]
 ## 운동 목록 조회
 
 ```http
-GET /api/exercises?scope=all&category=헬스&level=초급&keyword=스쿼트&page=0&size=50
+GET /api/exercises?scope=all&category=헬스&level=초급&keyword=스쿼트&page=0&size=30
 Authorization: Bearer {accessToken}
 ```
 
@@ -426,7 +426,7 @@ category: 전체, 수영, 요가, 러닝, 사이클, 헬스, 필라테스
 level: 전체, 입문, 초급, 중급, 고급
 keyword: 운동명 검색
 page: 0부터 시작
-size: 1~100
+size: 기본값 30, 1~100
 ```
 
 응답 핵심:

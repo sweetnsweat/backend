@@ -73,11 +73,11 @@ public class ExerciseService {
 
         List<Long> favoriteExerciseIds = favoriteExerciseRepository.findExerciseIdsByUserId(userId);
         if ("favorite".equals(normalizedScope) && favoriteExerciseIds.isEmpty()) {
-            return new ExerciseListResponse(normalizedScope, category, level, keyword, pageable.getPageNumber(), pageable.getPageSize(), 0, 0, true, true, List.of());
+            return emptyExerciseListResponse(normalizedScope, category, level, keyword, pageable);
         }
         if ("recent".equals(normalizedScope)) {
             // Recent exercise tracking is not stored yet. Return an empty tab-compatible response for now.
-            return new ExerciseListResponse(normalizedScope, category, level, keyword, pageable.getPageNumber(), pageable.getPageSize(), 0, 0, true, true, List.of());
+            return emptyExerciseListResponse(normalizedScope, category, level, keyword, pageable);
         }
 
         Page<Exercise> exercisePage = exerciseRepository.findAll(
@@ -105,6 +105,8 @@ public class ExerciseService {
                 exercisePage.getTotalPages(),
                 exercisePage.isFirst(),
                 exercisePage.isLast(),
+                exercisePage.hasNext(),
+                exercisePage.hasNext() ? exercisePage.getNumber() + 1 : null,
                 groupByCategory(cards)
         );
     }
@@ -201,6 +203,28 @@ public class ExerciseService {
 
     private int clampSize(int size) {
         return Math.max(1, Math.min(size, 100));
+    }
+
+    private ExerciseListResponse emptyExerciseListResponse(String scope,
+                                                           String category,
+                                                           String level,
+                                                           String keyword,
+                                                           Pageable pageable) {
+        return new ExerciseListResponse(
+                scope,
+                category,
+                level,
+                keyword,
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                0,
+                0,
+                true,
+                true,
+                false,
+                null,
+                List.of()
+        );
     }
 
     private String normalizeCategoryFilter(String category) {

@@ -126,6 +126,38 @@ class ExerciseControllerTest {
     }
 
     @Test
+    void exerciseListDefaultsToThirtyItemsForInfiniteScroll() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        String accessToken = accessTokenFor("infiniteScrollUser");
+        for (int i = 1; i <= 31; i++) {
+            seedExercise(String.format("테스트 운동 %02d", i), "근력", "초급", "맨몸", "infinite_scroll_" + i, "3.0");
+        }
+
+        mockMvc.perform(get("/api/exercises")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(30))
+                .andExpect(jsonPath("$.data.totalCount").value(31))
+                .andExpect(jsonPath("$.data.totalPages").value(2))
+                .andExpect(jsonPath("$.data.first").value(true))
+                .andExpect(jsonPath("$.data.last").value(false))
+                .andExpect(jsonPath("$.data.hasNext").value(true))
+                .andExpect(jsonPath("$.data.nextPage").value(1))
+                .andExpect(jsonPath("$.data.groups[0].exercises", hasSize(30)));
+
+        mockMvc.perform(get("/api/exercises")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .queryParam("page", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.size").value(30))
+                .andExpect(jsonPath("$.data.last").value(true))
+                .andExpect(jsonPath("$.data.hasNext").value(false))
+                .andExpect(jsonPath("$.data.groups[0].exercises", hasSize(1)));
+    }
+
+    @Test
     void favoriteExercisesEndpointSupportsCategoryFilter() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         String accessToken = accessTokenFor("favoriteEndpointUser");
