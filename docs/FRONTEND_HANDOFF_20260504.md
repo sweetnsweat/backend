@@ -1,8 +1,221 @@
 # 2026-05-04 프론트 전달 사항
 
-오늘 변경된 프론트 연동 영향은 운동 카테고리/운동 목록 무한스크롤, 운동 즐겨찾기 조회, 오늘의 루틴 조회, 주간 통계 조회, 루틴 수정/삭제, 루틴 단위 퀘스트, 테스트 데이터, 액세스 토큰 만료 시간이다.
+오늘 변경된 프론트 연동 영향은 홈 상단 세계관 슬라이드, 세계관 랭킹, 이번 주 활동 랭킹, 레벨/EXP/Gold 보상 정책, 운동 카테고리/운동 목록 무한스크롤, 운동 즐겨찾기 조회, 오늘의 루틴 조회, 주간 통계 조회, 루틴 수정/삭제, 루틴 단위 퀘스트, 테스트 데이터, 액세스 토큰 만료 시간이다.
 
-## 0. AI 스토리 Swagger 노출 정리
+## 0. 홈 상단 세계관 슬라이드 API
+
+메인 홈 상단 캐러셀 카드에 표시할 활성 세계관과 대표 캐릭터 정보를 조회한다.
+
+```http
+GET /api/home/world-banners
+Authorization: Bearer {accessToken}
+```
+
+쿼리:
+
+| 이름 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `limit` | X | `3` | 조회할 슬라이드 개수. 1~20 |
+
+응답:
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "Request succeeded",
+  "data": {
+    "slides": [
+      {
+        "scenarioId": 4,
+        "worldTitle": "월하검귀는 다시 웃지 않는다",
+        "genre": "무협 회귀 복수 로맨스",
+        "summary": "복수와 회귀를 다루는 무협 세계관",
+        "imageUrl": "/media/assets/character_천류하_8b1e61b5eb.png",
+        "backgroundImageUrl": "/media/assets/world_월하검귀는-다시-웃지-않는다_9c98d72cc8.png",
+        "representativeCharacterName": "천류하",
+        "representativeCharacterTitle": "검귀",
+        "headline": "천류하",
+        "quote": "네 뒤를 쫓아가도, 결코 네 그림자를 벗어날 수 없다는 걸 알게 될 거야."
+      }
+    ]
+  }
+}
+```
+
+조회 기준:
+
+- `scenarios.is_active=true`인 세계관만 내려간다.
+- 기본 정렬은 `scenarioId desc`다.
+- 대표 캐릭터는 `character_profiles.is_representative=true`인 캐릭터를 우선 사용한다.
+- `imageUrl`은 대표 캐릭터 이미지가 있으면 우선 사용하고, 없으면 세계관 썸네일/세계관 이미지로 대체한다.
+- `backgroundImageUrl`은 세계관 이미지가 있으면 우선 사용하고, 없으면 썸네일/대표 캐릭터 이미지로 대체한다.
+
+## 세계관 랭킹 API
+
+메인 홈의 `세계관 랭킹` 섹션에 표시할 세계관 순위를 조회한다.
+
+```http
+GET /api/worlds/rankings
+Authorization: Bearer {accessToken}
+```
+
+쿼리:
+
+| 이름 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `limit` | X | `5` | 조회할 랭킹 개수. 1~20 |
+
+랭킹 기준:
+
+- `story_progress.status='IN_PROGRESS'`인 진행 상태만 집계한다.
+- `score`는 해당 세계관의 진행 중인 사용자 수다.
+- `story_play_logs`는 메시지 단위 로그라서 랭킹에는 사용하지 않는다.
+- `activeChatCount` 필드는 따로 내려주지 않고 `score`만 사용한다.
+
+응답:
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "Request succeeded",
+  "data": {
+    "metric": "ACTIVE_CHAT_COUNT",
+    "rankings": [
+      {
+        "rank": 1,
+        "scenarioId": 4,
+        "worldTitle": "월하검귀는 다시 웃지 않는다",
+        "displayName": "천류하",
+        "imageUrl": "/media/assets/character_천류하_8b1e61b5eb.png",
+        "score": 3
+      }
+    ]
+  }
+}
+```
+
+## 이번 주 활동 랭킹 API
+
+메인 홈의 `이번 주 랭킹` 섹션에 표시할 사용자 활동 순위를 조회한다.
+
+```http
+GET /api/rankings/weekly-activity
+Authorization: Bearer {accessToken}
+```
+
+쿼리:
+
+| 이름 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `size` | X | `3` | 조회할 사용자 수. 1~100 |
+
+랭킹 기준:
+
+- KST 기준 이번 주 월요일부터 일요일까지 집계한다.
+- `user_quests.status='completed'`인 퀘스트만 집계한다.
+- `score`가 아니라 `weeklyExp`로 내려간다.
+- `weeklyExp`는 해당 기간 `user_quests.reward_exp` 합계다.
+- 유저 프로필 이미지는 내려주지 않는다. 필요하면 프론트에서 기본 이미지를 사용한다.
+
+응답:
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "Request succeeded",
+  "data": {
+    "weekStartDate": "2026-05-04",
+    "weekEndDate": "2026-05-10",
+    "metric": "WEEKLY_EXP",
+    "rankings": [
+      {
+        "rank": 1,
+        "userId": 15,
+        "nickname": "하준",
+        "weeklyExp": 1240,
+        "isMe": false
+      },
+      {
+        "rank": 2,
+        "userId": 16,
+        "nickname": "수연",
+        "weeklyExp": 980,
+        "isMe": true
+      }
+    ]
+  }
+}
+```
+
+## 레벨, EXP, Gold 보상 정책
+
+퀘스트 완료 시 EXP와 Gold가 지급된다. 보상 기준은 `운동 시간 기반 노력량`이다.
+
+정책 근거:
+
+- 루틴 세션에는 이미 `estimatedMinutes`가 있어서 백엔드와 프론트가 같은 기준을 공유할 수 있다.
+- MET/칼로리는 운동 종류, 체중, 수행 강도에 따라 편차가 커서 보상 기준으로 쓰면 특정 운동만 선택하는 파밍이 생길 수 있다.
+- 초보자 루틴도 완료 경험을 보상해야 하므로 최소 보상을 둔다.
+- 너무 긴 루틴으로 보상이 과하게 튀지 않도록 최대 보상을 둔다.
+
+현재 지급 기준:
+
+| 퀘스트 유형 | EXP | Gold |
+| --- | --- | --- |
+| 루틴 퀘스트 | 세션 예상 시간을 5 단위 반올림, 최소 20, 최대 60 | EXP의 절반을 5 단위 반올림, 최소 5 |
+| 오프데이 퀘스트 | 목표 시간을 5 단위 반올림, 최소 10, 최대 25 | EXP의 절반을 5 단위 반올림, 최소 5 |
+| 회복 퀘스트 | 10 | 5 |
+
+레벨은 누적 EXP 기준이다.
+
+```text
+레벨 N 도달 누적 EXP = 50 * N * (N - 1)
+```
+
+예시:
+
+| 레벨 | 필요 누적 EXP |
+| --- | ---: |
+| 1 | 0 |
+| 2 | 100 |
+| 3 | 300 |
+| 4 | 600 |
+| 5 | 1,000 |
+| 10 | 4,500 |
+
+보상은 한 퀘스트당 한 번만 지급된다. 같은 퀘스트 완료 API를 여러 번 호출해도 EXP와 Gold가 중복 증가하지 않는다.
+
+`GET /api/quests/today`, `GET /api/quests/today/by-user`, `PATCH /api/quests/{questId}/complete`의 `QuestResponse`에는 퀘스트 보상도 함께 내려간다.
+
+```json
+{
+  "rewardExp": 30,
+  "rewardCurrency": 15,
+  "rewardGold": 15
+}
+```
+
+`rewardCurrency`는 기존 호환 필드이고, 프론트에서는 이름이 명확한 `rewardGold`를 사용하면 된다.
+
+`GET /api/users/me`, 로그인 응답, 온보딩 저장 응답에 아래 필드가 추가된다.
+
+```json
+{
+  "level": 3,
+  "totalExp": 420,
+  "currentLevelExp": 120,
+  "nextLevelRequiredExp": 300,
+  "nextLevelRemainingExp": 180,
+  "balanceCurrency": 65
+}
+```
+
+상세 정책은 `docs/REWARD_POLICY_GUIDE.md`를 기준으로 보면 된다.
+
+## AI 스토리 Swagger 노출 정리
 
 백엔드 Swagger에서 프론트가 직접 볼 AI 프록시 API는 아래 4개만 노출한다.
 

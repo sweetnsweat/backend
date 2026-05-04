@@ -53,6 +53,9 @@ class QuestControllerTest {
     @BeforeEach
     void cleanup() {
         jdbcTemplate.update("delete from user_quests");
+        jdbcTemplate.update("delete from user_exp_logs");
+        jdbcTemplate.update("delete from wallet_transactions");
+        jdbcTemplate.update("delete from wallets");
         jdbcTemplate.update("delete from user_favorite_exercises");
         jdbcTemplate.update("delete from condition_logs");
         jdbcTemplate.update("update users set active_routine_id = null");
@@ -83,6 +86,9 @@ class QuestControllerTest {
                 .andExpect(jsonPath("$.data.sessionName").value("오늘 세션"))
                 .andExpect(jsonPath("$.data.sessionType").value("full_body"))
                 .andExpect(jsonPath("$.data.sessionTypeDisplayName").value("전신"))
+                .andExpect(jsonPath("$.data.rewardExp").value(30))
+                .andExpect(jsonPath("$.data.rewardCurrency").value(15))
+                .andExpect(jsonPath("$.data.rewardGold").value(15))
                 .andExpect(jsonPath("$.data.exercises.length()").value(3))
                 .andExpect(jsonPath("$.data.exercises[0].exerciseName").value("Quest Exercise 1"))
                 .andExpect(jsonPath("$.data.exercises[2].exerciseName").value("Quest Exercise 3"));
@@ -131,6 +137,9 @@ class QuestControllerTest {
                 .andExpect(jsonPath("$.data.questType").value("OFF_DAY"))
                 .andExpect(jsonPath("$.data.targetMetric").value("MINUTES"))
                 .andExpect(jsonPath("$.data.targetValue").value(15))
+                .andExpect(jsonPath("$.data.rewardExp").value(15))
+                .andExpect(jsonPath("$.data.rewardCurrency").value(10))
+                .andExpect(jsonPath("$.data.rewardGold").value(10))
                 .andExpect(jsonPath("$.data.sessionType").value(nullValue()))
                 .andExpect(jsonPath("$.data.sessionTypeDisplayName").value(nullValue()))
                 .andExpect(jsonPath("$.data.exercises").isEmpty());
@@ -150,6 +159,9 @@ class QuestControllerTest {
                 .andExpect(jsonPath("$.data.questType").value("RECOVERY"))
                 .andExpect(jsonPath("$.data.targetMetric").value("MINUTES"))
                 .andExpect(jsonPath("$.data.targetValue").value(10))
+                .andExpect(jsonPath("$.data.rewardExp").value(10))
+                .andExpect(jsonPath("$.data.rewardCurrency").value(5))
+                .andExpect(jsonPath("$.data.rewardGold").value(5))
                 .andExpect(jsonPath("$.data.conditionAdjusted").value(true));
     }
 
@@ -198,7 +210,27 @@ class QuestControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.completed").value(true))
+                .andExpect(jsonPath("$.data.rewardExp").value(30))
+                .andExpect(jsonPath("$.data.rewardGold").value(15))
                 .andExpect(jsonPath("$.data.progressValue").value(2));
+
+        assertQuestCompletionReward(testUser.userId(), questId, 30, 15);
+
+        mockMvc.perform(patch("/api/quests/{questId}/complete", questId)
+                        .header("Authorization", "Bearer " + testUser.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "progressValue": 2,
+                                  "proof": {
+                                    "source": "manual"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+
+        assertQuestCompletionReward(testUser.userId(), questId, 30, 15);
     }
 
     @Test
@@ -376,6 +408,40 @@ class QuestControllerTest {
                 )
                 values (?, ?, ?, 'routine', 'exercises', '어제 퀘스트', '어제 미완료 퀘스트입니다.', 1, 0, 'issued', false, 0, 0, JSON '{}', JSON '{}', CURRENT_TIMESTAMP)
                 """, userId, routineId, questDate);
+    }
+
+    private void assertQuestCompletionReward(Long userId, Long questId, int expectedExp, int expectedCurrency) {
+        Integer expLogCount = jdbcTemplate.queryForObject("""
+                select count(*)
+                from user_exp_logs
+                where user_id = ? and ref_type = 'user_quest' and ref_id = ?
+                """, Integer.class, userId, questId);
+        Integer transactionCount = jdbcTemplate.queryForObject("""
+                select count(*)
+                from wallet_transactions
+                where user_id = ? and tx_type = 'quest_reward' and ref_type = 'user_quest' and ref_id = ?
+                """, Integer.class, userId, questId);
+        Integer totalExp = jdbcTemplate.queryForObject(
+                "select total_exp from users where id = ?",
+                Integer.class,
+                userId
+        );
+        Integer level = jdbcTemplate.queryForObject(
+                "select level from users where id = ?",
+                Integer.class,
+                userId
+        );
+        Integer balanceCurrency = jdbcTemplate.queryForObject(
+                "select balance_currency from wallets where user_id = ?",
+                Integer.class,
+                userId
+        );
+
+        org.assertj.core.api.Assertions.assertThat(expLogCount).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(transactionCount).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(totalExp).isEqualTo(expectedExp);
+        org.assertj.core.api.Assertions.assertThat(level).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(balanceCurrency).isEqualTo(expectedCurrency);
     }
 
     private Long insertAndReturnId(String sql, Object... params) {

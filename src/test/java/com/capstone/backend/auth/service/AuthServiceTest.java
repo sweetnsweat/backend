@@ -10,6 +10,7 @@ import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.auth.security.JwtTokenService;
 import com.capstone.backend.condition.repository.ConditionLogRepository;
 import com.capstone.backend.global.exception.ApiException;
+import com.capstone.backend.reward.repository.WalletRepository;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import java.time.Instant;
@@ -48,6 +49,9 @@ class AuthServiceTest {
     private ConditionLogRepository conditionLogRepository;
 
     @Mock
+    private WalletRepository walletRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock
@@ -58,7 +62,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setup() {
-        authService = new AuthService(userRepository, refreshTokenRepository, conditionLogRepository, passwordEncoder, jwtTokenService);
+        authService = new AuthService(userRepository, refreshTokenRepository, conditionLogRepository, walletRepository, passwordEncoder, jwtTokenService);
     }
 
     @Test
@@ -113,6 +117,7 @@ class AuthServiceTest {
                 .thenReturn(new JwtTokenService.DecodedRefreshToken(1L, "refresh-jti", refreshExpiresAt));
         when(jwtTokenService.hashToken("refresh-token")).thenReturn("refresh-hash");
         when(conditionLogRepository.findByUser_IdAndLogDate(eq(1L), any())).thenReturn(Optional.empty());
+        when(walletRepository.findById(1L)).thenReturn(Optional.empty());
 
         LoginResponse response = authService.login(request);
 

@@ -11,6 +11,7 @@ import com.capstone.backend.auth.security.JwtTokenService;
 import com.capstone.backend.condition.repository.ConditionLogRepository;
 import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.global.time.KoreanTime;
+import com.capstone.backend.reward.repository.WalletRepository;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import java.time.Instant;
@@ -26,17 +27,20 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final ConditionLogRepository conditionLogRepository;
+    private final WalletRepository walletRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
                        ConditionLogRepository conditionLogRepository,
+                       WalletRepository walletRepository,
                        PasswordEncoder passwordEncoder,
                        JwtTokenService jwtTokenService) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.conditionLogRepository = conditionLogRepository;
+        this.walletRepository = walletRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
     }
@@ -57,7 +61,7 @@ public class AuthService {
         );
 
         User savedUser = userRepository.save(user);
-        return UserProfileResponse.from(savedUser);
+        return UserProfileResponse.from(savedUser, false, 0);
     }
 
     @Transactional
@@ -87,7 +91,7 @@ public class AuthService {
                 tokenPair.accessToken(),
                 tokenPair.refreshToken(),
                 "Bearer",
-                UserProfileResponse.from(user, hasTodayCondition(user.getId()))
+                UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()))
         );
     }
 
@@ -119,5 +123,11 @@ public class AuthService {
 
     private boolean hasTodayCondition(Long userId) {
         return conditionLogRepository.findByUser_IdAndLogDate(userId, KoreanTime.today()).isPresent();
+    }
+
+    private int balanceCurrency(Long userId) {
+        return walletRepository.findById(userId)
+                .map(wallet -> wallet.getBalanceCurrency())
+                .orElse(0);
     }
 }

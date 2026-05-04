@@ -130,6 +130,38 @@ public class UserQuest {
                                    Integer targetValue,
                                    boolean conditionAdjusted,
                                    Map<String, Object> questContextJson) {
+        return create(
+                user,
+                routine,
+                sourceSession,
+                conditionLog,
+                questDate,
+                questType,
+                targetMetric,
+                title,
+                description,
+                targetValue,
+                conditionAdjusted,
+                rewardCurrencyFor(questType),
+                rewardExpFor(questType),
+                questContextJson
+        );
+    }
+
+    public static UserQuest create(User user,
+                                   Routine routine,
+                                   RoutineSession sourceSession,
+                                   ConditionLog conditionLog,
+                                   LocalDate questDate,
+                                   String questType,
+                                   String targetMetric,
+                                   String title,
+                                   String description,
+                                   Integer targetValue,
+                                   boolean conditionAdjusted,
+                                   Integer rewardCurrency,
+                                   Integer rewardExp,
+                                   Map<String, Object> questContextJson) {
         UserQuest quest = new UserQuest();
         quest.user = user;
         quest.routine = routine;
@@ -144,8 +176,8 @@ public class UserQuest {
         quest.progressValue = 0;
         quest.status = STATUS_ISSUED;
         quest.conditionAdjusted = conditionAdjusted;
-        quest.rewardCurrency = rewardCurrencyFor(questType);
-        quest.rewardExp = rewardExpFor(questType);
+        quest.rewardCurrency = rewardCurrency == null ? 0 : rewardCurrency;
+        quest.rewardExp = rewardExp == null ? 0 : rewardExp;
         quest.proofJson = new LinkedHashMap<>();
         quest.questContextJson = questContextJson == null ? new LinkedHashMap<>() : new LinkedHashMap<>(questContextJson);
         return quest;
@@ -206,6 +238,10 @@ public class UserQuest {
 
     public Long getId() {
         return id;
+    }
+
+    public User getUser() {
+        return user;
     }
 
     public Routine getRoutine() {

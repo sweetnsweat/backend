@@ -68,8 +68,9 @@ Authorization: Bearer {accessToken}
     "sessionTypeDisplayName": "상체",
     "conditionScore": 72.92,
     "exerciseMultiplier": 1.00,
-    "rewardCurrency": 30,
+    "rewardCurrency": 10,
     "rewardExp": 20,
+    "rewardGold": 10,
     "completedAt": null,
     "exercises": [
       {
@@ -85,6 +86,16 @@ Authorization: Bearer {accessToken}
   }
 }
 ```
+
+보상 필드:
+
+| 필드 | 설명 |
+| --- | --- |
+| `rewardExp` | 이 퀘스트를 완료하면 지급되는 EXP |
+| `rewardGold` | 이 퀘스트를 완료하면 지급되는 Gold. 프론트 표시에는 이 필드를 사용한다. |
+| `rewardCurrency` | 기존 호환용 재화 필드. 현재는 `rewardGold`와 같은 값이다. |
+
+보상은 퀘스트 완료 시 1회만 지급된다. 같은 퀘스트 완료 API를 여러 번 호출해도 EXP/Gold가 중복 지급되지 않는다.
 
 ## 퀘스트 타입
 
@@ -122,6 +133,7 @@ Content-Type: application/json
 ```
 
 완료 후에는 `status`가 `COMPLETED`, `completed`가 `true`로 내려간다.
+응답에는 조회와 동일하게 `rewardExp`, `rewardGold`, `rewardCurrency`가 포함된다.
 
 ## 예외 응답
 

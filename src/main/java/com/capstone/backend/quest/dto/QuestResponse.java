@@ -31,6 +31,7 @@ public record QuestResponse(
         BigDecimal exerciseMultiplier,
         Integer rewardCurrency,
         Integer rewardExp,
+        Integer rewardGold,
         Instant completedAt,
         List<QuestExerciseResponse> exercises
 ) {
@@ -60,6 +61,7 @@ public record QuestResponse(
                 quest.getConditionLog() == null ? null : quest.getConditionLog().getExerciseMultiplier(),
                 quest.getRewardCurrency(),
                 quest.getRewardExp(),
+                quest.getRewardCurrency(),
                 quest.getCompletedAt(),
                 exercises
         );

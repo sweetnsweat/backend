@@ -52,6 +52,9 @@ class ExerciseControllerTest {
     @BeforeEach
     void cleanup() {
         jdbcTemplate.update("delete from user_quests");
+        jdbcTemplate.update("delete from user_exp_logs");
+        jdbcTemplate.update("delete from wallet_transactions");
+        jdbcTemplate.update("delete from wallets");
         jdbcTemplate.update("delete from user_favorite_exercises");
         jdbcTemplate.update("update users set active_routine_id = null");
         jdbcTemplate.update("delete from condition_logs");

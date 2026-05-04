@@ -9,6 +9,9 @@ import com.capstone.backend.quest.dto.QuestExerciseResponse;
 import com.capstone.backend.quest.dto.QuestResponse;
 import com.capstone.backend.quest.entity.UserQuest;
 import com.capstone.backend.quest.repository.UserQuestRepository;
+import com.capstone.backend.reward.policy.QuestRewardPolicy;
+import com.capstone.backend.reward.policy.QuestRewardPolicy.QuestReward;
+import com.capstone.backend.reward.service.RewardService;
 import com.capstone.backend.routine.entity.Exercise;
 import com.capstone.backend.routine.entity.Routine;
 import com.capstone.backend.routine.entity.RoutineItem;
@@ -37,15 +40,18 @@ public class QuestService {
     private final UserRepository userRepository;
     private final ConditionLogRepository conditionLogRepository;
     private final RoutineRepository routineRepository;
+    private final RewardService rewardService;
 
     public QuestService(UserQuestRepository userQuestRepository,
                         UserRepository userRepository,
                         ConditionLogRepository conditionLogRepository,
-                        RoutineRepository routineRepository) {
+                        RoutineRepository routineRepository,
+                        RewardService rewardService) {
         this.userQuestRepository = userQuestRepository;
         this.userRepository = userRepository;
         this.conditionLogRepository = conditionLogRepository;
         this.routineRepository = routineRepository;
+        this.rewardService = rewardService;
     }
 
     @Transactional
@@ -71,10 +77,12 @@ public class QuestService {
         if (UserQuest.STATUS_EXPIRED.equals(quest.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "QUEST_EXPIRED", "만료된 퀘스트는 완료할 수 없습니다.");
         }
-        if (!UserQuest.STATUS_COMPLETED.equals(quest.getStatus())) {
+        boolean newlyCompleted = !UserQuest.STATUS_COMPLETED.equals(quest.getStatus());
+        if (newlyCompleted) {
             Integer progressValue = request == null ? null : request.progressValue();
             Map<String, Object> proof = request == null ? null : request.proof();
             quest.complete(progressValue, proof);
+            rewardService.issueQuestCompletionRewards(quest);
         }
         return QuestResponse.from(quest, exercisesFromContext(quest));
     }
@@ -146,6 +154,7 @@ public class QuestService {
         String title = session.getSessionName() + " 루틴 완료";
         String description = session.getSessionName() + " 세션의 운동 루틴을 완료해 주세요. 포함된 운동은 총 "
                 + allItems.size() + "개입니다.";
+        QuestReward reward = QuestRewardPolicy.routine(session.getEstimatedMinutes());
 
         return UserQuest.create(
                 user,
@@ -159,6 +168,8 @@ public class QuestService {
                 description,
                 1,
                 false,
+                reward.currency(),
+                reward.exp(),
                 context
         );
     }
@@ -168,6 +179,7 @@ public class QuestService {
         boolean conditionAdjusted = targetMinutes < 15;
         Map<String, Object> context = baseContext(routine, null, conditionLog);
         context.put("recommendedAction", "걷기 또는 스트레칭");
+        QuestReward reward = QuestRewardPolicy.offDay(targetMinutes);
 
         return UserQuest.create(
                 user,
@@ -181,6 +193,8 @@ public class QuestService {
                 "오늘은 루틴이 없는 날입니다. 가볍게 걷기 또는 스트레칭을 " + targetMinutes + "분 진행해 주세요.",
                 targetMinutes,
                 conditionAdjusted,
+                reward.currency(),
+                reward.exp(),
                 context
         );
     }
@@ -192,6 +206,7 @@ public class QuestService {
                                     LocalDate today) {
         Map<String, Object> context = baseContext(routine, sourceSession, conditionLog);
         context.put("recommendedAction", "가벼운 스트레칭");
+        QuestReward reward = QuestRewardPolicy.recovery();
 
         return UserQuest.create(
                 user,
@@ -205,6 +220,8 @@ public class QuestService {
                 "오늘 컨디션이 낮아 루틴 운동 대신 가벼운 스트레칭 10분으로 조정했습니다.",
                 10,
                 true,
+                reward.currency(),
+                reward.exp(),
                 context
         );
     }

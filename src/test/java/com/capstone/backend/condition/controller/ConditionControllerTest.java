@@ -42,6 +42,9 @@ class ConditionControllerTest {
     @BeforeEach
     void cleanup() {
         jdbcTemplate.update("delete from user_quests");
+        jdbcTemplate.update("delete from user_exp_logs");
+        jdbcTemplate.update("delete from wallet_transactions");
+        jdbcTemplate.update("delete from wallets");
         jdbcTemplate.update("delete from user_favorite_exercises");
         jdbcTemplate.update("delete from condition_logs");
         jdbcTemplate.update("delete from refresh_tokens");

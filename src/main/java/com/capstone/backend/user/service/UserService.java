@@ -7,6 +7,7 @@ import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.global.time.KoreanTime;
 import com.capstone.backend.quest.entity.UserQuest;
 import com.capstone.backend.quest.repository.UserQuestRepository;
+import com.capstone.backend.reward.repository.WalletRepository;
 import com.capstone.backend.routine.dto.RoutineDetailResponse;
 import com.capstone.backend.routine.dto.RoutineSummaryResponse;
 import com.capstone.backend.routine.entity.Routine;
@@ -59,19 +60,22 @@ public class UserService {
     private final RoutineItemRepository routineItemRepository;
     private final ConditionLogRepository conditionLogRepository;
     private final UserQuestRepository userQuestRepository;
+    private final WalletRepository walletRepository;
 
     public UserService(UserRepository userRepository,
                        RoutineRepository routineRepository,
                        RoutineSessionRepository routineSessionRepository,
                        RoutineItemRepository routineItemRepository,
                        ConditionLogRepository conditionLogRepository,
-                       UserQuestRepository userQuestRepository) {
+                       UserQuestRepository userQuestRepository,
+                       WalletRepository walletRepository) {
         this.userRepository = userRepository;
         this.routineRepository = routineRepository;
         this.routineSessionRepository = routineSessionRepository;
         this.routineItemRepository = routineItemRepository;
         this.conditionLogRepository = conditionLogRepository;
         this.userQuestRepository = userQuestRepository;
+        this.walletRepository = walletRepository;
     }
 
     @Transactional(readOnly = true)
@@ -79,7 +83,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "User not found"));
 
-        return UserProfileResponse.from(user, hasTodayCondition(user.getId()));
+        return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
     }
 
     @Transactional
@@ -105,7 +109,7 @@ public class UserService {
             createDefaultTodayConditionIfAbsent(user);
         }
 
-        return UserProfileResponse.from(user, hasTodayCondition(user.getId()));
+        return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
     }
 
     @Transactional(readOnly = true)
@@ -230,6 +234,12 @@ public class UserService {
 
     private boolean hasTodayCondition(Long userId) {
         return conditionLogRepository.findByUser_IdAndLogDate(userId, KoreanTime.today()).isPresent();
+    }
+
+    private int balanceCurrency(Long userId) {
+        return walletRepository.findById(userId)
+                .map(wallet -> wallet.getBalanceCurrency())
+                .orElse(0);
     }
 
     private int maxStreakDays(List<UserQuest> quests) {

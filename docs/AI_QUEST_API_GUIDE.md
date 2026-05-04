@@ -73,8 +73,9 @@ Accept: application/json
     "sessionTypeDisplayName": "전신",
     "conditionScore": 72.92,
     "exerciseMultiplier": 1.00,
-    "rewardCurrency": 30,
+    "rewardCurrency": 10,
     "rewardExp": 20,
+    "rewardGold": 10,
     "completedAt": null,
     "exercises": [
       {
@@ -100,6 +101,9 @@ Accept: application/json
 | `data.description` | 원본 퀘스트 설명 |
 | `data.sessionName` | 오늘 루틴 세션명 |
 | `data.sessionTypeDisplayName` | 화면/문장용 세션 유형 한글명 |
+| `data.rewardExp` | 퀘스트 완료 시 지급될 EXP |
+| `data.rewardGold` | 퀘스트 완료 시 지급될 Gold |
+| `data.rewardCurrency` | 기존 호환용 재화 필드. 현재는 `rewardGold`와 같은 값 |
 | `data.exercises` | 루틴형 퀘스트일 때 포함 운동 목록 |
 | `data.exercises[].exerciseName` | 운동명 |
 | `data.exercises[].targetSets` | 목표 세트 수 |

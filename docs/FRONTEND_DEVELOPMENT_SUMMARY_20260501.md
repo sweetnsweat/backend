@@ -540,8 +540,9 @@ Authorization: Bearer {accessToken}
   "sessionType": "upper_body",
   "conditionScore": 72.92,
   "exerciseMultiplier": 1.00,
-  "rewardCurrency": 30,
+  "rewardCurrency": 10,
   "rewardExp": 20,
+  "rewardGold": 10,
   "completedAt": null,
   "exercises": [
     {

@@ -97,6 +97,12 @@ public class User {
     @Column(name = "push_competition_enabled", nullable = false)
     private Boolean pushCompetitionEnabled;
 
+    @Column(name = "total_exp", nullable = false)
+    private Integer totalExp;
+
+    @Column(name = "level", nullable = false)
+    private Integer level;
+
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
@@ -120,6 +126,8 @@ public class User {
         user.pushQuestEnabled = true;
         user.pushRoutineEnabled = true;
         user.pushCompetitionEnabled = true;
+        user.totalExp = 0;
+        user.level = 1;
         return user;
     }
 
@@ -171,6 +179,11 @@ public class User {
         this.activeRoutine = activeRoutine;
     }
 
+    public void applyExperience(int totalExp, int level) {
+        this.totalExp = Math.max(0, totalExp);
+        this.level = Math.max(1, level);
+    }
+
     @PrePersist
     void onCreate() {
         Instant now = KoreanTime.nowInstant();
@@ -203,6 +216,12 @@ public class User {
         }
         if (this.pushCompetitionEnabled == null) {
             this.pushCompetitionEnabled = true;
+        }
+        if (this.totalExp == null) {
+            this.totalExp = 0;
+        }
+        if (this.level == null || this.level < 1) {
+            this.level = 1;
         }
     }
 
@@ -309,6 +328,14 @@ public class User {
 
     public Boolean getPushCompetitionEnabled() {
         return pushCompetitionEnabled;
+    }
+
+    public Integer getTotalExp() {
+        return totalExp == null ? 0 : totalExp;
+    }
+
+    public Integer getLevel() {
+        return level == null ? 1 : level;
     }
 
     public String getStatus() {
