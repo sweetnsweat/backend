@@ -297,6 +297,15 @@ Authorization: Bearer {accessToken}
 
 수정 API는 `POST /api/routines/custom`과 거의 같은 요청 구조를 사용한다. `activate`는 수정 요청에 포함하지 않는다.
 
+직접 루틴 생성/수정 요청에서는 `sessionType` 코드값만 보낸다. 응답의 `sessions[]`에는 화면 표시용 한글 라벨 `sessionTypeDisplayName`이 함께 내려간다.
+
+```json
+{
+  "sessionType": "full_body",
+  "sessionTypeDisplayName": "전신"
+}
+```
+
 ```json
 {
   "name": "수정 후 루틴",

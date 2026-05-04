@@ -26,6 +26,7 @@ public record QuestResponse(
         Long sourceSessionId,
         String sessionName,
         String sessionType,
+        String sessionTypeDisplayName,
         BigDecimal conditionScore,
         BigDecimal exerciseMultiplier,
         Integer rewardCurrency,
@@ -54,6 +55,7 @@ public record QuestResponse(
                 session == null ? null : session.getId(),
                 session == null ? null : session.getSessionName(),
                 session == null ? null : session.getSessionType(),
+                session == null ? null : displaySessionType(session.getSessionType()),
                 quest.getConditionLog() == null ? null : quest.getConditionLog().getConditionScore(),
                 quest.getConditionLog() == null ? null : quest.getConditionLog().getExerciseMultiplier(),
                 quest.getRewardCurrency(),
@@ -65,5 +67,20 @@ public record QuestResponse(
 
     private static String upper(String value) {
         return value == null ? null : value.toUpperCase(Locale.ROOT);
+    }
+
+    private static String displaySessionType(String sessionType) {
+        return switch (sessionType == null ? "" : sessionType) {
+            case "upper_body" -> "상체";
+            case "lower_body" -> "하체";
+            case "full_body" -> "전신";
+            case "core_recovery" -> "코어/회복";
+            case "recovery" -> "회복";
+            case "mobility" -> "가동성";
+            case "cardio" -> "유산소";
+            case "cardio_core" -> "유산소/코어";
+            case "cardio_recovery" -> "유산소/회복";
+            default -> sessionType;
+        };
     }
 }

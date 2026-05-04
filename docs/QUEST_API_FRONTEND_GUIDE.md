@@ -65,6 +65,7 @@ Authorization: Bearer {accessToken}
     "sourceSessionId": 3,
     "sessionName": "상체 머신",
     "sessionType": "upper_body",
+    "sessionTypeDisplayName": "상체",
     "conditionScore": 72.92,
     "exerciseMultiplier": 1.00,
     "rewardCurrency": 30,
@@ -90,6 +91,8 @@ Authorization: Bearer {accessToken}
 - `ROUTINE`: 오늘 요일에 활성 루틴 세션이 있어서 해당 세션 전체를 완료하는 퀘스트. `exercises`에는 세션에 포함된 전체 운동 스냅샷이 내려간다.
 - `OFF_DAY`: 오늘 요일에 루틴 세션이 없어서 걷기/스트레칭 같은 회복성 활동을 수행하는 퀘스트
 - `RECOVERY`: 오늘 컨디션이 낮아서 루틴 대신 회복 운동으로 대체된 퀘스트
+
+`sessionTypeDisplayName`은 `sessionType`의 화면 표시용 한글 라벨이다. 루틴 세션이 없는 `OFF_DAY` 퀘스트는 `sessionType`, `sessionTypeDisplayName`이 `null`이다.
 
 ## 상태값
 

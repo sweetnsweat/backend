@@ -23,6 +23,7 @@ import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.List;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -80,6 +81,8 @@ class QuestControllerTest {
                 .andExpect(jsonPath("$.data.targetValue").value(1))
                 .andExpect(jsonPath("$.data.routineId").value(routineId))
                 .andExpect(jsonPath("$.data.sessionName").value("오늘 세션"))
+                .andExpect(jsonPath("$.data.sessionType").value("full_body"))
+                .andExpect(jsonPath("$.data.sessionTypeDisplayName").value("전신"))
                 .andExpect(jsonPath("$.data.exercises.length()").value(3))
                 .andExpect(jsonPath("$.data.exercises[0].exerciseName").value("Quest Exercise 1"))
                 .andExpect(jsonPath("$.data.exercises[2].exerciseName").value("Quest Exercise 3"));
@@ -113,6 +116,8 @@ class QuestControllerTest {
                 .andExpect(jsonPath("$.data.questType").value("OFF_DAY"))
                 .andExpect(jsonPath("$.data.targetMetric").value("MINUTES"))
                 .andExpect(jsonPath("$.data.targetValue").value(15))
+                .andExpect(jsonPath("$.data.sessionType").value(nullValue()))
+                .andExpect(jsonPath("$.data.sessionTypeDisplayName").value(nullValue()))
                 .andExpect(jsonPath("$.data.exercises").isEmpty());
     }
 

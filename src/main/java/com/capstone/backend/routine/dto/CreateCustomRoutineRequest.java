@@ -47,7 +47,7 @@ public record CreateCustomRoutineRequest(
             @Size(max = 100, message = "세션 이름은 최대 100자까지 입력할 수 있습니다.")
             String sessionName,
 
-            @Schema(description = "세션 유형. 예: full_body, upper_body, lower_body, cardio", example = "full_body")
+            @Schema(description = "세션 유형. 예: full_body, upper_body, lower_body, cardio. 응답에는 화면 표시용 한글 라벨인 sessionTypeDisplayName이 함께 내려갑니다.", example = "full_body")
             @Size(max = 30, message = "세션 유형은 최대 30자까지 입력할 수 있습니다.")
             String sessionType,
 

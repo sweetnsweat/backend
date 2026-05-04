@@ -371,6 +371,8 @@ class RoutineControllerTest {
                 .andExpect(jsonPath("$.data.isDefault").value(false))
                 .andExpect(jsonPath("$.data.sessions[0].dayOfWeek").value("MONDAY"))
                 .andExpect(jsonPath("$.data.sessions[0].sessionName").value("월요일 전신"))
+                .andExpect(jsonPath("$.data.sessions[0].sessionType").value("full_body"))
+                .andExpect(jsonPath("$.data.sessions[0].sessionTypeDisplayName").value("전신"))
                 .andExpect(jsonPath("$.data.sessions[0].items[0].seq").value(1))
                 .andExpect(jsonPath("$.data.sessions[0].items[0].sets").value(3))
                 .andExpect(jsonPath("$.data.sessions[0].items[0].reps").value(12))

@@ -337,6 +337,15 @@ activate 생략 시 true
 
 응답은 `RoutineDetailResponse`다. 저장 직후 활성화된 경우 응답의 `id`가 곧 `GET /api/users/me`의 `activeRoutineId`가 된다.
 
+세션 타입은 요청에서는 코드값인 `sessionType`만 보낸다. 응답에서는 화면 표시용 한글 라벨 `sessionTypeDisplayName`이 같이 내려간다.
+
+```json
+{
+  "sessionType": "full_body",
+  "sessionTypeDisplayName": "전신"
+}
+```
+
 주요 실패:
 
 ```text
