@@ -1,14 +1,13 @@
 package com.capstone.backend.exercise.controller;
 
 import com.capstone.backend.auth.security.AuthUser;
-import com.capstone.backend.exercise.dto.ExerciseCategoryResponse;
+import com.capstone.backend.exercise.dto.ExerciseCategoryListResponse;
 import com.capstone.backend.exercise.dto.ExerciseDetailResponse;
 import com.capstone.backend.exercise.dto.ExerciseListResponse;
 import com.capstone.backend.exercise.service.ExerciseService;
 import com.capstone.backend.global.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.util.List;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,10 +26,11 @@ public class ExerciseController {
         this.exerciseService = exerciseService;
     }
 
-    @Operation(summary = "운동 카테고리 조회", description = "운동 목록 필터에 사용할 종목 카테고리를 조회합니다.")
+    @Operation(summary = "운동 카테고리 조회", description = "운동 목록 필터에 사용할 종목 카테고리를 페이지 단위로 조회합니다. 모바일 무한스크롤 기준 기본 size는 30입니다.")
     @GetMapping("/categories")
-    public ApiResponse<List<ExerciseCategoryResponse>> categories() {
-        return ApiResponse.ok(exerciseService.getCategories());
+    public ApiResponse<ExerciseCategoryListResponse> categories(@RequestParam(defaultValue = "0") int page,
+                                                                @RequestParam(defaultValue = "30") int size) {
+        return ApiResponse.ok(exerciseService.getCategories(page, size));
     }
 
     @Operation(summary = "운동 목록 조회", description = "운동 목록 화면에 필요한 그룹형 카드 목록을 페이지 단위로 조회합니다. 모바일 무한스크롤 기준 기본 size는 30이며, scope는 all, favorite, recent를 지원합니다.")

@@ -1,6 +1,7 @@
 package com.capstone.backend.exercise.service;
 
 import com.capstone.backend.exercise.dto.ExerciseCardResponse;
+import com.capstone.backend.exercise.dto.ExerciseCategoryListResponse;
 import com.capstone.backend.exercise.dto.ExerciseCategoryResponse;
 import com.capstone.backend.exercise.dto.ExerciseDetailResponse;
 import com.capstone.backend.exercise.dto.ExerciseFavoriteResponse;
@@ -52,10 +53,31 @@ public class ExerciseService {
     }
 
     @Transactional(readOnly = true)
-    public List<ExerciseCategoryResponse> getCategories() {
-        return exerciseRepository.findDistinctCategories().stream()
+    public ExerciseCategoryListResponse getCategories(int page, int size) {
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = clampSize(size);
+        List<ExerciseCategoryResponse> allCategories = exerciseRepository.findDistinctCategories().stream()
                 .map(ExerciseCategoryResponse::from)
                 .toList();
+        int totalCount = allCategories.size();
+        int totalPages = totalCount == 0 ? 0 : (int) Math.ceil((double) totalCount / normalizedSize);
+        int fromIndex = Math.min(normalizedPage * normalizedSize, totalCount);
+        int toIndex = Math.min(fromIndex + normalizedSize, totalCount);
+        List<ExerciseCategoryResponse> pageCategories = allCategories.subList(fromIndex, toIndex);
+        boolean first = normalizedPage == 0;
+        boolean last = totalPages == 0 || normalizedPage >= totalPages - 1;
+        boolean hasNext = !last;
+        return new ExerciseCategoryListResponse(
+                normalizedPage,
+                normalizedSize,
+                totalCount,
+                totalPages,
+                first,
+                last,
+                hasNext,
+                hasNext ? normalizedPage + 1 : null,
+                pageCategories
+        );
     }
 
     @Transactional(readOnly = true)

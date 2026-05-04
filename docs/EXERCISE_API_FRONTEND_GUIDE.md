@@ -230,11 +230,33 @@ GET /api/users/me/exercises/favorites?category=유산소
 
 `GET /api/exercises/categories`
 
-DB에 있는 운동 카테고리를 반환한다. `근력`은 화면 표시용으로 `헬스`를 같이 내려준다.
+DB에 있는 운동 카테고리를 페이지 단위로 반환한다. 기본 `size=30`이고 최대 100까지 받을 수 있다. `근력`은 화면 표시용으로 `헬스`를 같이 내려준다.
+
+```text
+GET /api/exercises/categories?page=0&size=30
+```
 
 ```json
 {
-  "category": "근력",
-  "categoryDisplayName": "헬스"
+  "success": true,
+  "code": "OK",
+  "message": "Request succeeded",
+  "timestamp": "2026-05-04T17:30:00+09:00",
+  "data": {
+    "page": 0,
+    "size": 30,
+    "totalCount": 6,
+    "totalPages": 1,
+    "first": true,
+    "last": true,
+    "hasNext": false,
+    "nextPage": null,
+    "categories": [
+      {
+        "category": "근력",
+        "categoryDisplayName": "헬스"
+      }
+    ]
+  }
 }
 ```

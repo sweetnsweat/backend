@@ -112,7 +112,8 @@ class MidtermDemoRehearsalIntegrationTest {
         mockMvc.perform(get("/api/exercises/categories")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()", greaterThanOrEqualTo(2)));
+                .andExpect(jsonPath("$.data.totalCount", greaterThanOrEqualTo(2)))
+                .andExpect(jsonPath("$.data.categories.length()", greaterThanOrEqualTo(2)));
 
         mockMvc.perform(get("/api/exercises")
                         .header("Authorization", "Bearer " + accessToken)

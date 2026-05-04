@@ -22,6 +22,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -94,6 +95,41 @@ class ExerciseControllerTest {
                 .andExpect(jsonPath("$.data.groups[0].exercises[0].liked").value(true))
                 .andExpect(jsonPath("$.data.groups[1].category").value("요가"))
                 .andExpect(jsonPath("$.data.groups[1].exercises[0].liked").value(false));
+    }
+
+    @Test
+    void exerciseCategoriesSupportPagingForInfiniteScroll() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        String accessToken = accessTokenFor("categoryPagingUser");
+        seedExercise("근력 운동", "근력", "초급", "맨몸", "category_strength", "3.0");
+        seedExercise("러닝 운동", "러닝", "초급", "러닝화", "category_running", "6.0");
+        seedExercise("수영 운동", "수영", "초급", "수영장", "category_swimming", "5.0");
+
+        mockMvc.perform(get("/api/exercises/categories")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .queryParam("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(2))
+                .andExpect(jsonPath("$.data.totalCount").value(3))
+                .andExpect(jsonPath("$.data.totalPages").value(2))
+                .andExpect(jsonPath("$.data.first").value(true))
+                .andExpect(jsonPath("$.data.last").value(false))
+                .andExpect(jsonPath("$.data.hasNext").value(true))
+                .andExpect(jsonPath("$.data.nextPage").value(1))
+                .andExpect(jsonPath("$.data.categories", hasSize(2)));
+
+        mockMvc.perform(get("/api/exercises/categories")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .queryParam("page", "1")
+                        .queryParam("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.size").value(2))
+                .andExpect(jsonPath("$.data.last").value(true))
+                .andExpect(jsonPath("$.data.hasNext").value(false))
+                .andExpect(jsonPath("$.data.nextPage").value(nullValue()))
+                .andExpect(jsonPath("$.data.categories", hasSize(1)));
     }
 
     @Test
