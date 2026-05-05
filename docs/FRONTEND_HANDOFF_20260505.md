@@ -100,6 +100,8 @@ POST /api/stories/play/next-chapter
 
 `POST /api/stories/play`, `GET /api/stories/play/history`는 프론트가 `user_id`를 보내지 않는다. 백엔드가 JWT 로그인 사용자 ID를 AI 서버 요청에 주입한다.
 
+AI 서버에는 프론트의 `Authorization` 헤더를 전달하지 않는다. 인증은 백엔드에서만 처리하고, AI 서버에는 필요한 사용자 식별값으로 `user_id`만 주입한다. 따라서 Swagger의 개별 API 파라미터에 `Authorization string (header)`가 따로 보이면 안 된다.
+
 스토리 퀘스트 프록시 3개는 현재 백엔드/프론트 실제 플로우에서 사용하지 않으므로 Swagger에서 숨긴다. 구현은 남겨두되, 필요성이 확정되기 전까지 프론트 연동 대상 API로 보지 않는다.
 
 AI 프록시 응답은 모두 백엔드 공통 응답 래퍼로 감싼다. Swagger 200 응답 예시는 실제 응답처럼 `data` 아래에 AI 서버 원본 응답이 들어가는 형태로 표시한다.

@@ -17,7 +17,6 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springdoc.core.annotations.ParameterObject;
@@ -25,7 +24,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -75,9 +73,8 @@ public class AiStoryProxyController {
     )
     @PostMapping("/stories/play")
     public ApiResponse<Object> playStory(@AuthenticationPrincipal AuthUser authUser,
-                                         @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
                                          @Valid @RequestBody AiStoryPlayRequest request) {
-        return ApiResponse.ok("AI 스토리 진행 응답을 조회했습니다.", aiProxyService.post("/stories/play", aiStoryRequestFactory.fromPlayRequest(request, authUser.userId()), authorization));
+        return ApiResponse.ok("AI 스토리 진행 응답을 조회했습니다.", aiProxyService.post("/stories/play", aiStoryRequestFactory.fromPlayRequest(request, authUser.userId())));
     }
 
     @Operation(summary = "AI 스토리 대화 히스토리 조회", description = "프론트 채팅 화면 복원용 API입니다. user_id는 요청에 넣지 않고 백엔드가 로그인 사용자 ID를 AI 서버 요청에 주입합니다.")
@@ -121,9 +118,8 @@ public class AiStoryProxyController {
     @Operation(summary = "AI 스토리 퀘스트 생성/조회", description = "AI 서버의 오늘 스토리 퀘스트 생성/조회 API를 호출합니다. user_id는 요청에 넣지 않고 백엔드가 로그인 사용자 ID를 AI 서버 요청에 주입합니다.")
     @GetMapping("/stories/quests/today")
     public ApiResponse<Object> todayStoryQuest(@AuthenticationPrincipal AuthUser authUser,
-                                               @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
                                                @Valid @ParameterObject @ModelAttribute AiStoryQuestTodayRequest request) {
-        return ApiResponse.ok("AI 스토리 퀘스트를 조회했습니다.", aiProxyService.get(aiStoryRequestFactory.storyQuestTodayPath(request, authUser.userId()), authorization));
+        return ApiResponse.ok("AI 스토리 퀘스트를 조회했습니다.", aiProxyService.get(aiStoryRequestFactory.storyQuestTodayPath(request, authUser.userId())));
     }
 
     @Hidden

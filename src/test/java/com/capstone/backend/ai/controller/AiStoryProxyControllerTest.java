@@ -99,7 +99,7 @@ class AiStoryProxyControllerTest {
                 "is_chapter_completed", false,
                 "is_story_completed", false
         );
-        when(aiProxyService.post(eq("/stories/play"), any(), any())).thenReturn(response);
+        when(aiProxyService.post(eq("/stories/play"), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/stories/play")
                         .header("Authorization", "Bearer " + accessToken)
@@ -122,7 +122,7 @@ class AiStoryProxyControllerTest {
                 .andExpect(jsonPath("$.data.is_story_completed").value(false));
 
         ArgumentCaptor<String> bodyCaptor = forClass(String.class);
-        verify(aiProxyService).post(eq("/stories/play"), bodyCaptor.capture(), eq("Bearer " + accessToken));
+        verify(aiProxyService).post(eq("/stories/play"), bodyCaptor.capture());
         Map<?, ?> forwardedBody = objectMapper.readValue(bodyCaptor.getValue(), Map.class);
         assertThat(forwardedBody.get("user_id")).isEqualTo(user.getId().intValue());
         assertThat(forwardedBody.get("scenario_id")).isEqualTo(4);
@@ -241,11 +241,11 @@ class AiStoryProxyControllerTest {
     }
 
     @Test
-    void storyQuestProxiesInjectAuthenticatedUserIdAndForwardAuthorizationWhenNeeded() throws Exception {
+    void storyQuestProxiesInjectAuthenticatedUserIdOnly() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         User user = userRepository.save(User.createLocalUser("aiQuestUser", "encoded-password", "aiQuestUser"));
         String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
-        when(aiProxyService.get(anyString(), any())).thenReturn(Map.of(
+        when(aiProxyService.get(eq("/api/quests/today?user_id=%d&scenario_id=4".formatted(user.getId())))).thenReturn(Map.of(
                 "quest_id", 10,
                 "scenario_id", 4,
                 "title", "오늘의 스토리 퀘스트"
@@ -276,10 +276,7 @@ class AiStoryProxyControllerTest {
                 .andExpect(jsonPath("$.message").value("AI 스토리 퀘스트를 조회했습니다."))
                 .andExpect(jsonPath("$.data.quest_id").value(10));
 
-        verify(aiProxyService).get(
-                "/api/quests/today?user_id=%d&scenario_id=4".formatted(user.getId()),
-                "Bearer " + accessToken
-        );
+        verify(aiProxyService).get("/api/quests/today?user_id=%d&scenario_id=4".formatted(user.getId()));
         verify(aiProxyService).get("/api/quests?user_id=%d&scenario_id=4&limit=50&offset=10".formatted(user.getId()));
         verify(aiProxyService).get("/api/quests/10");
     }
@@ -308,6 +305,11 @@ class AiStoryProxyControllerTest {
         assertThat(paths.containsKey("/api/stories/play/choose")).isFalse();
         assertThat(paths.containsKey("/api/stories/play/next-chapter")).isFalse();
 
+        Map<?, ?> playPath = (Map<?, ?>) paths.get("/api/stories/play");
+        Map<?, ?> playOperation = (Map<?, ?>) playPath.get("post");
+        java.util.List<?> playParameters = (java.util.List<?>) playOperation.get("parameters");
+        assertThat(playParameters == null ? java.util.List.of() : playParameters).isEmpty();
+
         Map<?, ?> historyPath = (Map<?, ?>) paths.get("/api/stories/play/history");
         Map<?, ?> getOperation = (Map<?, ?>) historyPath.get("get");
         java.util.List<?> parameters = (java.util.List<?>) getOperation.get("parameters");
@@ -326,7 +328,7 @@ class AiStoryProxyControllerTest {
     @Test
     void playStoryConvertsAiErrorToProblemDetail() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
-        when(aiProxyService.post(eq("/stories/play"), any(), any()))
+        when(aiProxyService.post(eq("/stories/play"), any()))
                 .thenThrow(new ApiException(HttpStatus.BAD_REQUEST, "AI_SERVER_ERROR", "scenario_id=999999 시나리오를 찾을 수 없습니다."));
 
         mockMvc.perform(post("/api/stories/play")

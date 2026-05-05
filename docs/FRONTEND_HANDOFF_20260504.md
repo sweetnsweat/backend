@@ -407,7 +407,7 @@ Authorization: Bearer {accessToken}
 - `GET /api/stories/quests`는 AI 서버의 `/api/quests`를 감싼다.
 - `GET /api/stories/quests/{questId}`는 AI 서버의 `/api/quests/{quest_id}`를 감싼다.
 - 백엔드는 `user_id`를 JWT 로그인 사용자 ID로 주입한다.
-- `today` 호출은 AI 서버가 외부 오늘 운동 퀘스트를 조회할 수 있도록 `Authorization` 헤더도 AI 서버로 전달한다.
+- AI 서버에는 프론트의 `Authorization` 헤더를 전달하지 않는다. 인증은 백엔드에서만 처리하고 AI 서버에는 `user_id`만 주입한다.
 
 AI 서버가 스토리 중 운동 퀘스트를 세계관 문장으로 래핑해야 할 때는 아래 백엔드 API를 사용한다. 캡스톤 데모 편의를 위해 이 API는 토큰 없이 `userId`만 받는다.
 

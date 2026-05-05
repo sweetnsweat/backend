@@ -7,12 +7,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.RestClient.RequestBodySpec;
@@ -31,30 +28,18 @@ public class AiProxyService {
     }
 
     public Object get(String path) {
-        return forward(HttpMethod.GET, path, null, null);
-    }
-
-    public Object get(String path, String authorization) {
-        return forward(HttpMethod.GET, path, null, authorization);
+        return forward(HttpMethod.GET, path, null);
     }
 
     public Object post(String path, String requestBody) {
-        return forward(HttpMethod.POST, path, requestBody, null);
+        return forward(HttpMethod.POST, path, requestBody);
     }
 
-    public Object post(String path, String requestBody, String authorization) {
-        return forward(HttpMethod.POST, path, requestBody, authorization);
-    }
-
-    private Object forward(HttpMethod method, String path, String requestBody, String authorization) {
+    private Object forward(HttpMethod method, String path, String requestBody) {
         RequestBodySpec requestSpec = restClient.method(method)
                 .uri(path)
                 .accept(MediaType.APPLICATION_JSON)
                 .contentType(MediaType.APPLICATION_JSON);
-
-        if (StringUtils.hasText(authorization)) {
-            requestSpec.header(HttpHeaders.AUTHORIZATION, authorization);
-        }
 
         if (requestBody != null) {
             requestSpec.body(requestBody);
