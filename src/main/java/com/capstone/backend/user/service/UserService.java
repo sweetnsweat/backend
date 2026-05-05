@@ -148,11 +148,10 @@ public class UserService {
         User user = findUser(userId);
         String nickname = normalize(request.nickname());
         String email = normalize(request.email());
-        String phone = normalize(request.phone());
-        validateAnyUpdate(nickname, email, phone);
-        validateUniqueContactAndNickname(user, nickname, email, phone);
+        validateAnyUpdate(nickname, email);
+        validateUniqueAccountInfo(user, nickname, email);
 
-        user.updateAccountInfo(nickname, email, phone);
+        user.updateAccountInfo(nickname, email, null);
         return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
     }
 
@@ -339,7 +338,7 @@ public class UserService {
         return streak;
     }
 
-    private void validateUniqueContactAndNickname(User user, String nickname, String email, String phone) {
+    private void validateUniqueAccountInfo(User user, String nickname, String email) {
         if (nickname != null
                 && !nickname.equals(user.getNickname())
                 && userRepository.existsByNicknameAndIdNot(nickname, user.getId())) {
@@ -349,11 +348,6 @@ public class UserService {
                 && !email.equals(user.getEmail())
                 && userRepository.existsByEmailAndIdNot(email, user.getId())) {
             throw new ApiException(HttpStatus.CONFLICT, "EMAIL_ALREADY_EXISTS", "이미 등록된 이메일입니다.");
-        }
-        if (phone != null
-                && !phone.equals(user.getPhone())
-                && userRepository.existsByPhoneAndIdNot(phone, user.getId())) {
-            throw new ApiException(HttpStatus.CONFLICT, "PHONE_ALREADY_EXISTS", "이미 등록된 휴대전화 번호입니다.");
         }
     }
 

@@ -1,13 +1,15 @@
 package com.capstone.backend.auth.service;
 
 import com.capstone.backend.auth.dto.FindLoginIdRequest;
-import com.capstone.backend.auth.dto.FindLoginIdResponse;
 import com.capstone.backend.auth.dto.LoginRequest;
 import com.capstone.backend.auth.dto.LoginResponse;
-import com.capstone.backend.auth.dto.ResetPasswordRequest;
+import com.capstone.backend.auth.dto.PasswordResetConfirmRequest;
+import com.capstone.backend.auth.dto.PasswordResetRequest;
 import com.capstone.backend.auth.dto.SignupRequest;
 import com.capstone.backend.auth.dto.UserProfileResponse;
+import com.capstone.backend.auth.entity.PasswordResetToken;
 import com.capstone.backend.auth.entity.RefreshToken;
+import com.capstone.backend.auth.repository.PasswordResetTokenRepository;
 import com.capstone.backend.auth.repository.RefreshTokenRepository;
 import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.auth.security.JwtTokenService;
@@ -23,7 +25,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -49,6 +51,9 @@ class AuthServiceTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Mock
+    private PasswordResetTokenRepository passwordResetTokenRepository;
+
+    @Mock
     private ConditionLogRepository conditionLogRepository;
 
     @Mock
@@ -60,12 +65,25 @@ class AuthServiceTest {
     @Mock
     private JwtTokenService jwtTokenService;
 
-    @InjectMocks
+    @Mock
+    private AuthMailService authMailService;
+
     private AuthService authService;
 
     @BeforeEach
     void setup() {
-        authService = new AuthService(userRepository, refreshTokenRepository, conditionLogRepository, walletRepository, passwordEncoder, jwtTokenService);
+        authService = new AuthService(
+                userRepository,
+                refreshTokenRepository,
+                passwordResetTokenRepository,
+                conditionLogRepository,
+                walletRepository,
+                passwordEncoder,
+                jwtTokenService,
+                authMailService,
+                30,
+                "sweetnsweat://password-reset?token=%s"
+        );
     }
 
     @Test
@@ -106,6 +124,35 @@ class AuthServiceTest {
         assertEquals(HttpStatus.CONFLICT, exception.getStatus());
         assertEquals("LOGIN_ID_ALREADY_EXISTS", exception.getCode());
         verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void checkNicknameReturnsAvailableWhenNicknameDoesNotExist() {
+        when(userRepository.existsByNickname("Demo Nick")).thenReturn(false);
+
+        var response = authService.checkNickname("  Demo Nick  ");
+
+        assertEquals("Demo Nick", response.nickname());
+        assertEquals(true, response.available());
+        assertEquals(false, response.duplicated());
+    }
+
+    @Test
+    void checkNicknameReturnsDuplicatedWhenNicknameExists() {
+        when(userRepository.existsByNickname("Demo Nick")).thenReturn(true);
+
+        var response = authService.checkNickname("Demo Nick");
+
+        assertEquals(false, response.available());
+        assertEquals(true, response.duplicated());
+    }
+
+    @Test
+    void checkNicknameFailsWhenNicknameIsBlank() {
+        ApiException exception = assertThrows(ApiException.class, () -> authService.checkNickname(" "));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+        assertEquals("NICKNAME_REQUIRED", exception.getCode());
     }
 
     @Test
@@ -161,26 +208,40 @@ class AuthServiceTest {
         ReflectionTestUtils.setField(user, "email", "demo@example.com");
         when(userRepository.findFirstByEmail("demo@example.com")).thenReturn(Optional.of(user));
 
-        FindLoginIdResponse response = authService.findLoginId(new FindLoginIdRequest("demo@example.com"));
+        authService.sendLoginIdEmail(new FindLoginIdRequest("demo@example.com"));
 
-        assertEquals("demoUser", response.loginId());
-        assertEquals("Demo Nick", response.nickname());
-        assertEquals("email", response.matchedBy());
+        verify(authMailService).sendLoginId("demo@example.com", "Demo Nick", "demoUser");
     }
 
     @Test
-    void resetPasswordChangesPasswordAndRevokesRefreshTokens() {
+    void requestPasswordResetSavesTokenAndSendsEmail() {
         User user = createUser(1L, "demoUser", "old-encoded-password", "Demo Nick", "active");
         ReflectionTestUtils.setField(user, "email", "demo@example.com");
-        RefreshToken refreshToken = RefreshToken.issue(user, "refresh-hash", Instant.now().plusSeconds(7200));
 
-        when(userRepository.findByLoginId("demoUser")).thenReturn(Optional.of(user));
+        when(userRepository.findFirstByEmail("demo@example.com")).thenReturn(Optional.of(user));
+        when(jwtTokenService.hashToken(anyString())).thenReturn("reset-hash");
+
+        authService.requestPasswordReset(new PasswordResetRequest("demo@example.com"));
+
+        verify(passwordResetTokenRepository).save(any(PasswordResetToken.class));
+        verify(authMailService).sendPasswordReset(eq("demo@example.com"), eq("Demo Nick"), anyString(), anyString(), eq(30L));
+    }
+
+    @Test
+    void confirmPasswordResetChangesPasswordAndRevokesRefreshTokens() {
+        User user = createUser(1L, "demoUser", "old-encoded-password", "Demo Nick", "active");
+        RefreshToken refreshToken = RefreshToken.issue(user, "refresh-hash", Instant.now().plusSeconds(7200));
+        PasswordResetToken resetToken = PasswordResetToken.issue(user, "reset-hash", Instant.now().plusSeconds(1800));
+
+        when(jwtTokenService.hashToken("raw-reset-token")).thenReturn("reset-hash");
+        when(passwordResetTokenRepository.findByTokenHash("reset-hash")).thenReturn(Optional.of(resetToken));
         when(passwordEncoder.encode("newPassword123")).thenReturn("new-encoded-password");
         when(refreshTokenRepository.findByUser_IdAndRevokedAtIsNull(1L)).thenReturn(List.of(refreshToken));
 
-        authService.resetPassword(new ResetPasswordRequest("demoUser", "demo@example.com", "newPassword123"));
+        authService.confirmPasswordReset(new PasswordResetConfirmRequest("raw-reset-token", "newPassword123"));
 
         assertEquals("new-encoded-password", user.getPasswordHash());
+        assertEquals(true, resetToken.isUsed());
         verify(jwtTokenService).deleteRefreshTokenHash("refresh-hash");
         verify(refreshTokenRepository).saveAll(any());
     }

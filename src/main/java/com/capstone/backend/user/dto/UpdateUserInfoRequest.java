@@ -12,9 +12,6 @@ public record UpdateUserInfoRequest(
                 regexp = "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
                 message = "이메일 형식이 올바르지 않습니다."
         )
-        String email,
-
-        @Size(max = 30, message = "휴대전화 번호는 30자 이하여야 합니다.")
-        String phone
+        String email
 ) {
 }

@@ -130,7 +130,7 @@ class UserControllerTest {
     }
 
     @Test
-    void updateUserInfoChangesNicknameEmailAndPhone() throws Exception {
+    void updateUserInfoChangesNicknameAndEmail() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
 
         User user = userRepository.save(User.createLocalUser("updateInfoUser", "encoded-password", "Before Nick"));
@@ -142,15 +142,13 @@ class UserControllerTest {
                         .content("""
                                 {
                                   "nickname": "After Nick",
-                                  "email": "after@example.com",
-                                  "phone": "01099998888"
+                                  "email": "after@example.com"
                                 }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("사용자 정보가 수정되었습니다."))
                 .andExpect(jsonPath("$.data.nickname").value("After Nick"))
-                .andExpect(jsonPath("$.data.email").value("after@example.com"))
-                .andExpect(jsonPath("$.data.phone").value("01099998888"));
+                .andExpect(jsonPath("$.data.email").value("after@example.com"));
     }
 
     @Test

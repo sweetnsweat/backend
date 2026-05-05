@@ -1,10 +1,11 @@
 package com.capstone.backend.auth.controller;
 
 import com.capstone.backend.auth.dto.FindLoginIdRequest;
-import com.capstone.backend.auth.dto.FindLoginIdResponse;
 import com.capstone.backend.auth.dto.LoginRequest;
 import com.capstone.backend.auth.dto.LoginResponse;
-import com.capstone.backend.auth.dto.ResetPasswordRequest;
+import com.capstone.backend.auth.dto.NicknameAvailabilityResponse;
+import com.capstone.backend.auth.dto.PasswordResetConfirmRequest;
+import com.capstone.backend.auth.dto.PasswordResetRequest;
 import com.capstone.backend.auth.dto.SignupRequest;
 import com.capstone.backend.auth.dto.UserProfileResponse;
 import com.capstone.backend.auth.security.AuthUser;
@@ -17,9 +18,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -42,22 +45,36 @@ public class AuthController {
         return ApiResponse.created("회원가입이 완료되었습니다.", response);
     }
 
+    @Operation(summary = "닉네임 중복 체크", description = "회원가입 전에 닉네임 사용 가능 여부를 확인합니다.")
+    @GetMapping("/nickname/check")
+    public ApiResponse<NicknameAvailabilityResponse> checkNickname(@RequestParam(required = false) String nickname) {
+        return ApiResponse.ok("닉네임 사용 가능 여부를 조회했습니다.", authService.checkNickname(nickname));
+    }
+
     @Operation(summary = "로그인", description = "아이디와 비밀번호를 검증하고 JWT access token과 refresh token을 발급합니다.")
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return ApiResponse.ok("로그인에 성공했습니다.", authService.login(request));
     }
 
-    @Operation(summary = "아이디 찾기", description = "가입 시 등록한 이메일로 로그인 아이디를 조회합니다.")
+    @Operation(summary = "아이디 찾기 메일 발송", description = "가입 시 등록한 이메일로 로그인 아이디 안내 메일을 발송합니다.")
     @PostMapping("/find-login-id")
-    public ApiResponse<FindLoginIdResponse> findLoginId(@Valid @RequestBody FindLoginIdRequest request) {
-        return ApiResponse.ok("아이디를 조회했습니다.", authService.findLoginId(request));
+    public ApiResponse<Void> findLoginId(@Valid @RequestBody FindLoginIdRequest request) {
+        authService.sendLoginIdEmail(request);
+        return ApiResponse.ok("아이디 안내 메일을 발송했습니다.");
     }
 
-    @Operation(summary = "비밀번호 재설정", description = "로그인 아이디와 가입 시 등록한 이메일이 일치하면 새 비밀번호로 변경합니다.")
-    @PostMapping("/password/reset")
-    public ApiResponse<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
-        authService.resetPassword(request);
+    @Operation(summary = "비밀번호 재설정 메일 발송", description = "가입 시 등록한 이메일로 비밀번호 재설정 토큰과 링크를 발송합니다.")
+    @PostMapping("/password-reset/request")
+    public ApiResponse<Void> requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {
+        authService.requestPasswordReset(request);
+        return ApiResponse.ok("비밀번호 재설정 메일을 발송했습니다.");
+    }
+
+    @Operation(summary = "비밀번호 재설정 확정", description = "메일로 받은 비밀번호 재설정 토큰을 검증하고 새 비밀번호로 변경합니다.")
+    @PostMapping("/password-reset/confirm")
+    public ApiResponse<Void> confirmPasswordReset(@Valid @RequestBody PasswordResetConfirmRequest request) {
+        authService.confirmPasswordReset(request);
         return ApiResponse.ok("비밀번호가 재설정되었습니다.");
     }
 
