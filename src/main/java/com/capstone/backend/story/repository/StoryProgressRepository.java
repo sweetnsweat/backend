@@ -14,6 +14,37 @@ public interface StoryProgressRepository extends JpaRepository<StoryProgress, In
     Optional<StoryProgress> findTopByScenario_IdAndUserKeyOrderByUpdatedAtDesc(Integer scenarioId, String userKey);
 
     @Query("""
+            select progress
+            from StoryProgress progress
+            join fetch progress.scenario scenario
+            where progress.userKey = :userKey
+              and scenario.active = true
+            order by progress.updatedAt desc, progress.id desc
+            """)
+    List<StoryProgress> findActiveChatsByUserKey(@Param("userKey") String userKey, Pageable pageable);
+
+    @Query("""
+            select progress
+            from StoryProgress progress
+            join fetch progress.scenario scenario
+            where progress.scenario.id = :scenarioId
+              and progress.userKey = :userKey
+              and scenario.active = true
+            order by progress.updatedAt desc, progress.id desc
+            """)
+    List<StoryProgress> findActiveChatByScenarioIdAndUserKey(@Param("scenarioId") Integer scenarioId,
+                                                             @Param("userKey") String userKey,
+                                                             Pageable pageable);
+
+    @Query("""
+            select count(progress)
+            from StoryProgress progress
+            where progress.userKey = :userKey
+              and progress.scenario.active = true
+            """)
+    long countActiveChatsByUserKey(@Param("userKey") String userKey);
+
+    @Query("""
             select count(distinct progress.userKey)
             from StoryProgress progress
             where progress.scenario.id = :scenarioId

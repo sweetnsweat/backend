@@ -31,6 +31,15 @@ public class StoryProgress {
     @Column(name = "status", length = 50)
     private String status;
 
+    @Column(name = "current_chapter_num")
+    private Integer currentChapterNum;
+
+    @Column(name = "phase", length = 50)
+    private String phase;
+
+    @Column(name = "last_output", columnDefinition = "text")
+    private String lastOutput;
+
     @Column(name = "created_at")
     private Instant createdAt;
 
@@ -54,6 +63,18 @@ public class StoryProgress {
 
     public String getStatus() {
         return status;
+    }
+
+    public Integer getCurrentChapterNum() {
+        return currentChapterNum;
+    }
+
+    public String getPhase() {
+        return phase;
+    }
+
+    public String getLastOutput() {
+        return lastOutput;
     }
 
     public Instant getCreatedAt() {
