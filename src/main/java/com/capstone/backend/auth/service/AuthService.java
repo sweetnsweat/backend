@@ -4,13 +4,10 @@ import com.capstone.backend.auth.dto.FindLoginIdRequest;
 import com.capstone.backend.auth.dto.LoginRequest;
 import com.capstone.backend.auth.dto.LoginResponse;
 import com.capstone.backend.auth.dto.NicknameAvailabilityResponse;
-import com.capstone.backend.auth.dto.PasswordResetConfirmRequest;
 import com.capstone.backend.auth.dto.PasswordResetRequest;
 import com.capstone.backend.auth.dto.SignupRequest;
 import com.capstone.backend.auth.dto.UserProfileResponse;
-import com.capstone.backend.auth.entity.PasswordResetToken;
 import com.capstone.backend.auth.entity.RefreshToken;
-import com.capstone.backend.auth.repository.PasswordResetTokenRepository;
 import com.capstone.backend.auth.repository.RefreshTokenRepository;
 import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.auth.security.JwtTokenService;
@@ -22,9 +19,7 @@ import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -35,36 +30,29 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
-    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final ConditionLogRepository conditionLogRepository;
     private final WalletRepository walletRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
     private final AuthMailService authMailService;
-    private final long passwordResetTokenMinutes;
-    private final String passwordResetLinkTemplate;
     private final SecureRandom secureRandom = new SecureRandom();
+    private static final char[] TEMP_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789".toCharArray();
+    private static final int TEMP_PASSWORD_LENGTH = 10;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
-                       PasswordResetTokenRepository passwordResetTokenRepository,
                        ConditionLogRepository conditionLogRepository,
                        WalletRepository walletRepository,
                        PasswordEncoder passwordEncoder,
                        JwtTokenService jwtTokenService,
-                       AuthMailService authMailService,
-                       @Value("${app.auth.password-reset-token-minutes:30}") long passwordResetTokenMinutes,
-                       @Value("${app.auth.password-reset-link-template:sweetnsweat://password-reset?token=%s}") String passwordResetLinkTemplate) {
+                       AuthMailService authMailService) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
-        this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.conditionLogRepository = conditionLogRepository;
         this.walletRepository = walletRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
         this.authMailService = authMailService;
-        this.passwordResetTokenMinutes = passwordResetTokenMinutes;
-        this.passwordResetLinkTemplate = passwordResetLinkTemplate;
     }
 
     @Transactional
@@ -127,28 +115,11 @@ public class AuthService {
 
         User user = userRepository.findFirstByEmail(email)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "일치하는 계정을 찾을 수 없습니다."));
-        String token = issuePasswordResetToken(user);
-        String resetLink = passwordResetLink(token);
-        authMailService.sendPasswordReset(user.getEmail(), user.getNickname(), token, resetLink, passwordResetTokenMinutes);
-    }
 
-    @Transactional
-    public void confirmPasswordReset(PasswordResetConfirmRequest request) {
-        String tokenHash = jwtTokenService.hashToken(request.token());
-        PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenHash(tokenHash)
-                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PASSWORD_RESET_TOKEN", "비밀번호 재설정 토큰이 올바르지 않습니다."));
-        Instant now = KoreanTime.nowInstant();
-        if (resetToken.isUsed()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "PASSWORD_RESET_TOKEN_USED", "이미 사용된 비밀번호 재설정 토큰입니다.");
-        }
-        if (resetToken.isExpired(now)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "PASSWORD_RESET_TOKEN_EXPIRED", "비밀번호 재설정 토큰이 만료되었습니다.");
-        }
-
-        User user = resetToken.getUser();
-        user.changePassword(passwordEncoder.encode(request.newPassword()));
-        resetToken.markUsed(now);
+        String temporaryPassword = issueTemporaryPassword();
+        user.changePassword(passwordEncoder.encode(temporaryPassword));
         revokeAllRefreshTokens(user.getId());
+        authMailService.sendTemporaryPassword(user.getEmail(), user.getNickname(), temporaryPassword);
     }
 
     @Transactional
@@ -218,21 +189,12 @@ public class AuthService {
                 .orElse(0);
     }
 
-    private String issuePasswordResetToken(User user) {
-        byte[] randomBytes = new byte[32];
-        secureRandom.nextBytes(randomBytes);
-        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
-        String tokenHash = jwtTokenService.hashToken(token);
-        Instant expiresAt = KoreanTime.nowInstant().plusSeconds(passwordResetTokenMinutes * 60);
-        passwordResetTokenRepository.save(PasswordResetToken.issue(user, tokenHash, expiresAt));
-        return token;
-    }
-
-    private String passwordResetLink(String token) {
-        if (passwordResetLinkTemplate == null || passwordResetLinkTemplate.isBlank()) {
-            return token;
+    private String issueTemporaryPassword() {
+        StringBuilder temporaryPassword = new StringBuilder(TEMP_PASSWORD_LENGTH);
+        for (int i = 0; i < TEMP_PASSWORD_LENGTH; i++) {
+            temporaryPassword.append(TEMP_PASSWORD_CHARS[secureRandom.nextInt(TEMP_PASSWORD_CHARS.length)]);
         }
-        return passwordResetLinkTemplate.formatted(token);
+        return temporaryPassword.toString();
     }
 
     private String normalize(String value) {

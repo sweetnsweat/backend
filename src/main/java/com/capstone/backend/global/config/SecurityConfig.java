@@ -42,7 +42,6 @@ public class SecurityConfig {
                                 "/api/auth/login",
                                 "/api/auth/find-login-id",
                                 "/api/auth/password-reset/request",
-                                "/api/auth/password-reset/confirm",
                                 "/api/quests/today/by-user",
                                 "/dev/logs",
                                 "/swagger-ui/**",

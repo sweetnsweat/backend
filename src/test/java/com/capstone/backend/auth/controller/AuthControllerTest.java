@@ -34,7 +34,6 @@ class AuthControllerTest {
 
     @BeforeEach
     void cleanup() {
-        jdbcTemplate.update("delete from password_reset_tokens");
         jdbcTemplate.update("delete from refresh_tokens");
         jdbcTemplate.update("delete from users");
     }

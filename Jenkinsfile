@@ -23,8 +23,6 @@ pipeline {
         DB_USERNAME = 'postgres'
         AI_BASE_URL = 'http://capstone-ai:8000'
         MEDIA_BASE_URL = 'http://100.89.171.113:8000'
-        PASSWORD_RESET_TOKEN_MINUTES = '30'
-        PASSWORD_RESET_LINK_TEMPLATE = 'sweetnsweat://password-reset?token=%s'
         MAIL_HOST = 'smtp.naver.com'
         MAIL_PORT = '465'
         MAIL_USERNAME = '4pril17@naver.com'
@@ -82,8 +80,6 @@ pipeline {
                           -e REDIS_PORT="${REDIS_PORT}" \
                           -e AI_BASE_URL="${AI_BASE_URL}" \
                           -e MEDIA_BASE_URL="${MEDIA_BASE_URL}" \
-                          -e PASSWORD_RESET_TOKEN_MINUTES="${PASSWORD_RESET_TOKEN_MINUTES}" \
-                          -e PASSWORD_RESET_LINK_TEMPLATE="${PASSWORD_RESET_LINK_TEMPLATE}" \
                           -e MAIL_HOST="${MAIL_HOST}" \
                           -e MAIL_PORT="${MAIL_PORT}" \
                           -e MAIL_USERNAME="${MAIL_USERNAME}" \

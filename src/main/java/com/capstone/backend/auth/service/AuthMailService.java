@@ -41,22 +41,21 @@ public class AuthMailService {
         );
     }
 
-    public void sendPasswordReset(String to, String nickname, String token, String resetLink, long expiresMinutes) {
+    public void sendTemporaryPassword(String to, String nickname, String temporaryPassword) {
         send(
                 to,
-                "[sweet & sweat] 비밀번호 재설정 안내",
+                "[sweet & sweat] 임시 비밀번호 안내",
                 """
                         안녕하세요, %s님.
 
-                        아래 링크 또는 토큰으로 비밀번호를 재설정해 주세요.
+                        요청하신 sweet & sweat 임시 비밀번호는 아래와 같습니다.
 
-                        재설정 링크: %s
-                        재설정 토큰: %s
+                        임시 비밀번호: %s
 
-                        유효 시간: %d분
+                        로그인 후 마이페이지에서 비밀번호를 변경해 주세요.
 
                         본인이 요청하지 않았다면 이 메일을 무시해 주세요.
-                        """.formatted(nickname, resetLink, token, expiresMinutes)
+                        """.formatted(nickname, temporaryPassword)
         );
     }
 

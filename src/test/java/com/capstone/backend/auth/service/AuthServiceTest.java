@@ -3,13 +3,10 @@ package com.capstone.backend.auth.service;
 import com.capstone.backend.auth.dto.FindLoginIdRequest;
 import com.capstone.backend.auth.dto.LoginRequest;
 import com.capstone.backend.auth.dto.LoginResponse;
-import com.capstone.backend.auth.dto.PasswordResetConfirmRequest;
 import com.capstone.backend.auth.dto.PasswordResetRequest;
 import com.capstone.backend.auth.dto.SignupRequest;
 import com.capstone.backend.auth.dto.UserProfileResponse;
-import com.capstone.backend.auth.entity.PasswordResetToken;
 import com.capstone.backend.auth.entity.RefreshToken;
-import com.capstone.backend.auth.repository.PasswordResetTokenRepository;
 import com.capstone.backend.auth.repository.RefreshTokenRepository;
 import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.auth.security.JwtTokenService;
@@ -51,9 +48,6 @@ class AuthServiceTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Mock
-    private PasswordResetTokenRepository passwordResetTokenRepository;
-
-    @Mock
     private ConditionLogRepository conditionLogRepository;
 
     @Mock
@@ -75,14 +69,11 @@ class AuthServiceTest {
         authService = new AuthService(
                 userRepository,
                 refreshTokenRepository,
-                passwordResetTokenRepository,
                 conditionLogRepository,
                 walletRepository,
                 passwordEncoder,
                 jwtTokenService,
-                authMailService,
-                30,
-                "sweetnsweat://password-reset?token=%s"
+                authMailService
         );
     }
 
@@ -214,34 +205,19 @@ class AuthServiceTest {
     }
 
     @Test
-    void requestPasswordResetSavesTokenAndSendsEmail() {
+    void requestPasswordResetIssuesTemporaryPasswordAndRevokesRefreshTokens() {
         User user = createUser(1L, "demoUser", "old-encoded-password", "Demo Nick", "active");
+        RefreshToken refreshToken = RefreshToken.issue(user, "refresh-hash", Instant.now().plusSeconds(7200));
         ReflectionTestUtils.setField(user, "email", "demo@example.com");
 
         when(userRepository.findFirstByEmail("demo@example.com")).thenReturn(Optional.of(user));
-        when(jwtTokenService.hashToken(anyString())).thenReturn("reset-hash");
+        when(passwordEncoder.encode(anyString())).thenReturn("temporary-encoded-password");
+        when(refreshTokenRepository.findByUser_IdAndRevokedAtIsNull(1L)).thenReturn(List.of(refreshToken));
 
         authService.requestPasswordReset(new PasswordResetRequest("demo@example.com"));
 
-        verify(passwordResetTokenRepository).save(any(PasswordResetToken.class));
-        verify(authMailService).sendPasswordReset(eq("demo@example.com"), eq("Demo Nick"), anyString(), anyString(), eq(30L));
-    }
-
-    @Test
-    void confirmPasswordResetChangesPasswordAndRevokesRefreshTokens() {
-        User user = createUser(1L, "demoUser", "old-encoded-password", "Demo Nick", "active");
-        RefreshToken refreshToken = RefreshToken.issue(user, "refresh-hash", Instant.now().plusSeconds(7200));
-        PasswordResetToken resetToken = PasswordResetToken.issue(user, "reset-hash", Instant.now().plusSeconds(1800));
-
-        when(jwtTokenService.hashToken("raw-reset-token")).thenReturn("reset-hash");
-        when(passwordResetTokenRepository.findByTokenHash("reset-hash")).thenReturn(Optional.of(resetToken));
-        when(passwordEncoder.encode("newPassword123")).thenReturn("new-encoded-password");
-        when(refreshTokenRepository.findByUser_IdAndRevokedAtIsNull(1L)).thenReturn(List.of(refreshToken));
-
-        authService.confirmPasswordReset(new PasswordResetConfirmRequest("raw-reset-token", "newPassword123"));
-
-        assertEquals("new-encoded-password", user.getPasswordHash());
-        assertEquals(true, resetToken.isUsed());
+        assertEquals("temporary-encoded-password", user.getPasswordHash());
+        verify(authMailService).sendTemporaryPassword(eq("demo@example.com"), eq("Demo Nick"), anyString());
         verify(jwtTokenService).deleteRefreshTokenHash("refresh-hash");
         verify(refreshTokenRepository).saveAll(any());
     }

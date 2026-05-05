@@ -4,7 +4,6 @@ import com.capstone.backend.auth.dto.FindLoginIdRequest;
 import com.capstone.backend.auth.dto.LoginRequest;
 import com.capstone.backend.auth.dto.LoginResponse;
 import com.capstone.backend.auth.dto.NicknameAvailabilityResponse;
-import com.capstone.backend.auth.dto.PasswordResetConfirmRequest;
 import com.capstone.backend.auth.dto.PasswordResetRequest;
 import com.capstone.backend.auth.dto.SignupRequest;
 import com.capstone.backend.auth.dto.UserProfileResponse;
@@ -64,18 +63,11 @@ public class AuthController {
         return ApiResponse.ok("아이디 안내 메일을 발송했습니다.");
     }
 
-    @Operation(summary = "비밀번호 재설정 메일 발송", description = "가입 시 등록한 이메일로 비밀번호 재설정 토큰과 링크를 발송합니다.")
+    @Operation(summary = "임시 비밀번호 메일 발송", description = "가입 시 등록한 이메일로 임시 비밀번호를 발송하고, 기존 비밀번호를 즉시 임시 비밀번호로 변경합니다.")
     @PostMapping("/password-reset/request")
     public ApiResponse<Void> requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {
         authService.requestPasswordReset(request);
-        return ApiResponse.ok("비밀번호 재설정 메일을 발송했습니다.");
-    }
-
-    @Operation(summary = "비밀번호 재설정 확정", description = "메일로 받은 비밀번호 재설정 토큰을 검증하고 새 비밀번호로 변경합니다.")
-    @PostMapping("/password-reset/confirm")
-    public ApiResponse<Void> confirmPasswordReset(@Valid @RequestBody PasswordResetConfirmRequest request) {
-        authService.confirmPasswordReset(request);
-        return ApiResponse.ok("비밀번호가 재설정되었습니다.");
+        return ApiResponse.ok("임시 비밀번호를 이메일로 발송했습니다.");
     }
 
     @Operation(summary = "로그아웃", description = "현재 access token을 검증하고 사용자의 활성 refresh token을 폐기합니다.")
