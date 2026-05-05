@@ -85,6 +85,11 @@ public record AiStoryGenerateRequest(
         @Size(max = 3000, message = "결말 방향은 최대 3000자까지 입력할 수 있습니다.")
         String endingDirection,
 
+        @Schema(description = "세계관 선택 화면 대표 캐릭터 이름. 비우면 is_representative=true 캐릭터를 우선 사용합니다.", example = "리안")
+        @JsonProperty("representative_character_name")
+        @Size(max = 100, message = "대표 캐릭터 이름은 최대 100자까지 입력할 수 있습니다.")
+        String representativeCharacterName,
+
         @Schema(description = "예상 챕터 수. 기본값은 AI 서버 기준 5이며, 허용 범위는 1~30입니다.", example = "5")
         @JsonProperty("chapter_count")
         @Min(value = 1, message = "챕터 수는 1 이상이어야 합니다.")
@@ -125,7 +130,11 @@ public record AiStoryGenerateRequest(
             @Schema(description = "특별 설정", example = "플레이어가 위험해질 때 감정이 크게 흔들린다.")
             @JsonProperty("special_notes")
             @Size(max = 3000, message = "특별 설정은 최대 3000자까지 입력할 수 있습니다.")
-            String specialNotes
+            String specialNotes,
+
+            @Schema(description = "true면 세계관 선택 화면의 대표 캐릭터 후보로 저장합니다.", example = "true")
+            @JsonProperty("is_representative")
+            Boolean representative
     ) {
     }
 }

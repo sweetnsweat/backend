@@ -263,18 +263,23 @@ Authorization: Bearer {accessToken}
 
 ## AI 스토리 Swagger 노출 정리
 
-백엔드 Swagger에서 프론트가 직접 볼 AI 프록시 API는 아래 4개만 노출한다.
+백엔드 Swagger에서 프론트가 직접 볼 AI 프록시 API는 아래 엔드포인트다. 백엔드는 `user_id`를 JWT 로그인 사용자 ID로 주입하므로 프론트는 `user_id`를 보내지 않는다.
 
 ```http
 GET /api/ai/health
 POST /api/stories/generate
 POST /api/stories/play
 GET /api/stories/play/history
+GET /api/stories/scenarios
+GET /api/stories/scenarios/{scenarioId}
 ```
 
-아래 legacy 세부 플레이 API는 기존 호환을 위해 서버에는 남아 있지만 Swagger에서는 숨긴다. 신규 프론트는 사용하지 않는다.
+아래 legacy 세부 플레이 API와 미사용 스토리 퀘스트 proxy는 기존 호환을 위해 서버에는 남아 있지만 Swagger에서는 숨긴다. 신규 프론트는 사용하지 않는다.
 
 ```http
+GET /api/stories/quests/today
+GET /api/stories/quests
+GET /api/stories/quests/{questId}
 POST /api/stories/play/start
 POST /api/stories/play/continue
 POST /api/stories/play/choose
@@ -308,10 +313,12 @@ pacing_style
 required_events
 forbidden_elements
 ending_direction
+representative_character_name
 chapter_count
 characters[].relationship_to_player
 characters[].background
 characters[].special_notes
+characters[].is_representative
 ```
 
 예시:
@@ -332,6 +339,7 @@ characters[].special_notes
   "required_events": "황태자와의 첫 만남, 금지된 마법의 발현, 배신자의 등장",
   "forbidden_elements": "지나치게 코믹한 전개",
   "ending_direction": "플레이어가 스스로 운명을 선택하는 결말",
+  "representative_character_name": "리안",
   "chapter_count": 5,
   "characters": [
     {
@@ -340,11 +348,22 @@ characters[].special_notes
       "personality": "차갑고 신중하지만 플레이어에게만 약한 면을 보인다.",
       "relationship_to_player": "처음에는 경계하지만 점점 신뢰하게 되는 인물",
       "background": "제국의 정치적 음모 속에서 살아남은 후계자",
-      "special_notes": "플레이어가 위험해질 때 감정이 크게 흔들린다."
+      "special_notes": "플레이어가 위험해질 때 감정이 크게 흔들린다.",
+      "is_representative": true
     }
   ]
 }
 ```
+
+세계관 선택용 AI 시나리오 조회:
+
+```http
+GET /api/stories/scenarios
+GET /api/stories/scenarios/{scenarioId}
+Authorization: Bearer {accessToken}
+```
+
+응답은 AI 서버의 `ScenarioListItem`, `ScenarioDetailResponse`를 `ApiResponse.data`에 그대로 감싼다.
 
 `GET /api/stories/play/history`는 AI 서버의 대화 히스토리 조회 API를 백엔드가 감싼 것이다. AI 서버 원본은 `user_id`, `scenario_id`, `limit`, `offset`을 받지만, 백엔드는 `user_id`를 JWT 로그인 사용자 ID로 주입한다. 프론트는 `user_id`를 보내지 않는다.
 
@@ -374,6 +393,21 @@ Authorization: Bearer {accessToken}
   ]
 }
 ```
+
+스토리 퀘스트 proxy는 현재 백엔드/프론트 실제 플로우에서 사용하지 않으므로 Swagger에서 숨긴다. 구현은 남겨두되, 필요성이 확정되기 전까지 프론트 연동 대상 API로 보지 않는다.
+
+```http
+GET /api/stories/quests/today?scenario_id=4
+GET /api/stories/quests?scenario_id=4&limit=100&offset=0
+GET /api/stories/quests/{questId}
+Authorization: Bearer {accessToken}
+```
+
+- `GET /api/stories/quests/today`는 AI 서버의 `/api/quests/today`를 감싼다.
+- `GET /api/stories/quests`는 AI 서버의 `/api/quests`를 감싼다.
+- `GET /api/stories/quests/{questId}`는 AI 서버의 `/api/quests/{quest_id}`를 감싼다.
+- 백엔드는 `user_id`를 JWT 로그인 사용자 ID로 주입한다.
+- `today` 호출은 AI 서버가 외부 오늘 운동 퀘스트를 조회할 수 있도록 `Authorization` 헤더도 AI 서버로 전달한다.
 
 AI 서버가 스토리 중 운동 퀘스트를 세계관 문장으로 래핑해야 할 때는 아래 백엔드 API를 사용한다. 캡스톤 데모 편의를 위해 이 API는 토큰 없이 `userId`만 받는다.
 

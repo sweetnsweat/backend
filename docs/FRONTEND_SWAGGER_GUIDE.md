@@ -97,6 +97,8 @@ Bearer <accessToken>
 - `POST /api/auth/login`이 `accessToken`/`refreshToken`을 반환하는지
 - 보호 API 호출 시 Authorization 헤더 누락으로 401이 나는지(정상 동작 확인)
 - `POST /api/stories/play` 요청 Body가 문자열이 아니라 `scenario_id`, `user_message`, `choice_id`, `restart` 필드로 보이는지
+- `GET /api/stories/scenarios`, `GET /api/stories/scenarios/{scenarioId}`가 AI 세계관 조회 proxy로 보이는지
+- `GET /api/stories/quests/today`, `GET /api/stories/quests`, `GET /api/stories/quests/{questId}`는 미사용 AI 스토리 퀘스트 proxy이므로 Swagger에 보이지 않는지
 - `GET /api/users/me/exercises/favorites`가 즐겨찾기 운동 목록 조회 API로 보이는지
 - `GET /api/routines/today`가 오늘의 활성 루틴 세션 조회 API로 보이는지
 - `PUT /api/routines/{routineId}`와 `DELETE /api/routines/{routineId}`가 사용자 루틴 수정/삭제 API로 보이는지

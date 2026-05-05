@@ -3,6 +3,8 @@ package com.capstone.backend.ai.service;
 import com.capstone.backend.ai.dto.AiStoryGenerateRequest;
 import com.capstone.backend.ai.dto.AiStoryPlayHistoryRequest;
 import com.capstone.backend.ai.dto.AiStoryPlayRequest;
+import com.capstone.backend.ai.dto.AiStoryQuestListRequest;
+import com.capstone.backend.ai.dto.AiStoryQuestTodayRequest;
 import com.capstone.backend.global.exception.ApiException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -59,6 +61,36 @@ public class AiStoryRequestFactory {
                 .queryParam("limit", request.resolvedLimit())
                 .queryParam("offset", request.resolvedOffset())
                 .build()
+                .toUriString();
+    }
+
+    public String scenarioDetailPath(Long scenarioId) {
+        return UriComponentsBuilder.fromPath("/stories/scenarios/{scenarioId}")
+                .buildAndExpand(scenarioId)
+                .toUriString();
+    }
+
+    public String storyQuestTodayPath(AiStoryQuestTodayRequest request, Long userId) {
+        return UriComponentsBuilder.fromPath("/api/quests/today")
+                .queryParam("user_id", userId)
+                .queryParam("scenario_id", request.getScenarioId())
+                .build()
+                .toUriString();
+    }
+
+    public String storyQuestListPath(AiStoryQuestListRequest request, Long userId) {
+        return UriComponentsBuilder.fromPath("/api/quests")
+                .queryParam("user_id", userId)
+                .queryParam("scenario_id", request.getScenarioId())
+                .queryParam("limit", request.resolvedLimit())
+                .queryParam("offset", request.resolvedOffset())
+                .build()
+                .toUriString();
+    }
+
+    public String storyQuestDetailPath(Long questId) {
+        return UriComponentsBuilder.fromPath("/api/quests/{questId}")
+                .buildAndExpand(questId)
                 .toUriString();
     }
 
