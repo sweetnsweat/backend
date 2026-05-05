@@ -12,6 +12,7 @@ import com.capstone.backend.user.dto.UpdateProfileSettingsRequest;
 import com.capstone.backend.user.dto.UpdateUserInfoRequest;
 import com.capstone.backend.user.dto.WeeklyStatsResponse;
 import com.capstone.backend.user.service.UserService;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -41,6 +42,7 @@ public class UserController {
     }
 
     @Operation(summary = "마이페이지 조회", description = "프로필, 레벨/경험치, 보유 재화, 활성 루틴, 이번 주 운동 통계를 한 번에 조회합니다.")
+    @Hidden
     @GetMapping("/me/mypage")
     public ApiResponse<MyPageResponse> myPage(@AuthenticationPrincipal AuthUser authUser) {
         return ApiResponse.ok(userService.getMyPage(authUser.userId()));
@@ -61,6 +63,7 @@ public class UserController {
     }
 
     @Operation(summary = "프로필 설정", description = "마이페이지 프로필 카드에 표시할 닉네임과 프로필 이미지 URL을 설정합니다.")
+    @Hidden
     @PutMapping("/me/profile")
     public ApiResponse<UserProfileResponse> updateProfileSettings(@AuthenticationPrincipal AuthUser authUser,
                                                                   @Valid @RequestBody UpdateProfileSettingsRequest request) {

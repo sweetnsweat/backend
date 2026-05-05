@@ -14,6 +14,7 @@
 
 | 문서 | 용도 |
 | --- | --- |
+| `FRONTEND_HANDOFF_20260506.md` | 2026-05-06 기준 스토리 채팅 목록/입장 정보 API, 임시 비밀번호 계정 복구, 닉네임 중복 체크, 마이페이지/계정 수정 요약 |
 | `FRONTEND_HANDOFF_20260505.md` | 2026-05-05 기준 세계관 이미지 절대 URL, 세계관 카드 미리보기 API, AI 스토리 프록시 최신화, 개발 서버 테스트 데이터 요약 |
 | `FRONTEND_HANDOFF_20260504.md` | 2026-05-04 기준 홈 상단 세계관 슬라이드, 세계관 랭킹, 이번 주 활동 랭킹, 레벨/EXP/Gold 보상 정책, 즐겨찾기 조회, 오늘의 루틴 조회, 주간 통계 조회, 루틴 수정/삭제, 루틴 단위 퀘스트, 테스트 계정, 액세스 토큰 변경 요약 |
 | `REWARD_POLICY_GUIDE.md` | EXP, 레벨, Gold 지급 기준과 중복 지급 방지 구조 |
@@ -31,9 +32,10 @@
 
 ## 현재 프론트 우선 확인 순서
 
-1. `FRONTEND_HANDOFF_20260505.md`
-2. `FRONTEND_HANDOFF_20260504.md`
-3. `FRONTEND_HANDOFF_20260502.md`
-4. `FRONTEND_DEVELOPMENT_SUMMARY_20260501.md`
-5. 필요한 기능별 상세 문서
-6. Swagger UI 또는 `/v3/api-docs.yaml`
+1. `FRONTEND_HANDOFF_20260506.md`
+2. `FRONTEND_HANDOFF_20260505.md`
+3. `FRONTEND_HANDOFF_20260504.md`
+4. `FRONTEND_HANDOFF_20260502.md`
+5. `FRONTEND_DEVELOPMENT_SUMMARY_20260501.md`
+6. 필요한 기능별 상세 문서
+7. Swagger UI 또는 `/v3/api-docs.yaml`
