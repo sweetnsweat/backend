@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -28,18 +29,30 @@ public class AiProxyService {
     }
 
     public Object get(String path) {
-        return forward(HttpMethod.GET, path, null);
+        return get(path, null);
+    }
+
+    public Object get(String path, String authorizationHeader) {
+        return forward(HttpMethod.GET, path, null, authorizationHeader);
     }
 
     public Object post(String path, String requestBody) {
-        return forward(HttpMethod.POST, path, requestBody);
+        return post(path, requestBody, null);
     }
 
-    private Object forward(HttpMethod method, String path, String requestBody) {
+    public Object post(String path, String requestBody, String authorizationHeader) {
+        return forward(HttpMethod.POST, path, requestBody, authorizationHeader);
+    }
+
+    private Object forward(HttpMethod method, String path, String requestBody, String authorizationHeader) {
         RequestBodySpec requestSpec = restClient.method(method)
                 .uri(path)
                 .accept(MediaType.APPLICATION_JSON)
                 .contentType(MediaType.APPLICATION_JSON);
+
+        if (authorizationHeader != null && !authorizationHeader.isBlank()) {
+            requestSpec.header(HttpHeaders.AUTHORIZATION, authorizationHeader);
+        }
 
         if (requestBody != null) {
             requestSpec.body(requestBody);

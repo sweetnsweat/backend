@@ -73,16 +73,17 @@ class AiStoryProxyControllerTest {
     void healthProxiesAiRootEndpoint() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         Map<String, Object> response = Map.of("message", "story generation server is running");
-        when(aiProxyService.get("/")).thenReturn(response);
+        String accessToken = accessTokenFor("aiHealthUser");
+        when(aiProxyService.get("/", "Bearer " + accessToken)).thenReturn(response);
 
         mockMvc.perform(get("/api/ai/health")
-                        .header("Authorization", "Bearer " + accessTokenFor("aiHealthUser")))
+                        .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("AI 서버 상태 확인에 성공했습니다."))
                 .andExpect(jsonPath("$.data.message").value("story generation server is running"));
 
-        verify(aiProxyService).get("/");
+        verify(aiProxyService).get("/", "Bearer " + accessToken);
     }
 
     @Test
@@ -99,7 +100,7 @@ class AiStoryProxyControllerTest {
                 "is_chapter_completed", false,
                 "is_story_completed", false
         );
-        when(aiProxyService.post(eq("/stories/play"), any())).thenReturn(response);
+        when(aiProxyService.post(eq("/stories/play"), any(), eq("Bearer " + accessToken))).thenReturn(response);
 
         mockMvc.perform(post("/api/stories/play")
                         .header("Authorization", "Bearer " + accessToken)
@@ -122,7 +123,7 @@ class AiStoryProxyControllerTest {
                 .andExpect(jsonPath("$.data.is_story_completed").value(false));
 
         ArgumentCaptor<String> bodyCaptor = forClass(String.class);
-        verify(aiProxyService).post(eq("/stories/play"), bodyCaptor.capture());
+        verify(aiProxyService).post(eq("/stories/play"), bodyCaptor.capture(), eq("Bearer " + accessToken));
         Map<?, ?> forwardedBody = objectMapper.readValue(bodyCaptor.getValue(), Map.class);
         assertThat(forwardedBody.get("user_id")).isEqualTo(user.getId().intValue());
         assertThat(forwardedBody.get("scenario_id")).isEqualTo(4);
@@ -137,10 +138,11 @@ class AiStoryProxyControllerTest {
                 "title", "붉은 달의 계약",
                 "image_status", "pending"
         );
-        when(aiProxyService.post(eq("/stories/generate"), any())).thenReturn(response);
+        String accessToken = accessTokenFor("aiGenerateUser");
+        when(aiProxyService.post(eq("/stories/generate"), any(), eq("Bearer " + accessToken))).thenReturn(response);
 
         mockMvc.perform(post("/api/stories/generate")
-                        .header("Authorization", "Bearer " + accessTokenFor("aiGenerateUser"))
+                        .header("Authorization", "Bearer " + accessToken)
                         .contentType("application/json")
                         .content("""
                                 {
@@ -170,7 +172,7 @@ class AiStoryProxyControllerTest {
                 .andExpect(jsonPath("$.data.scenario_id").value(7));
 
         ArgumentCaptor<String> bodyCaptor = forClass(String.class);
-        verify(aiProxyService).post(eq("/stories/generate"), bodyCaptor.capture());
+        verify(aiProxyService).post(eq("/stories/generate"), bodyCaptor.capture(), eq("Bearer " + accessToken));
         Map<?, ?> forwardedBody = objectMapper.readValue(bodyCaptor.getValue(), Map.class);
         assertThat(forwardedBody.get("genre")).isEqualTo("로맨스 판타지");
         assertThat(forwardedBody.get("world_setting")).isEqualTo("마법과 귀족 정치가 공존하는 제국");
@@ -195,7 +197,7 @@ class AiStoryProxyControllerTest {
                         Map.of("role", "assistant", "character_name", "리안", "content", "여기가 어디인지 정말 모르는 건가?")
                 )
         );
-        when(aiProxyService.get(any())).thenReturn(response);
+        when(aiProxyService.get(any(), eq("Bearer " + accessToken))).thenReturn(response);
 
         mockMvc.perform(get("/api/stories/play/history")
                         .header("Authorization", "Bearer " + accessToken)
@@ -209,20 +211,20 @@ class AiStoryProxyControllerTest {
                 .andExpect(jsonPath("$.data.items[0].character_name").value("리안"));
 
         ArgumentCaptor<String> pathCaptor = forClass(String.class);
-        verify(aiProxyService).get(pathCaptor.capture());
+        verify(aiProxyService).get(pathCaptor.capture(), eq("Bearer " + accessToken));
         assertThat(pathCaptor.getValue()).isEqualTo("/stories/play/history?user_id=%d&scenario_id=4&limit=50&offset=10".formatted(user.getId()));
     }
 
     @Test
     void scenariosProxyForwardsAiScenarioEndpoints() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
-        when(aiProxyService.get("/stories/scenarios")).thenReturn(java.util.List.of(
+        String accessToken = accessTokenFor("aiScenarioUser");
+        when(aiProxyService.get("/stories/scenarios", "Bearer " + accessToken)).thenReturn(java.util.List.of(
                 Map.of("scenario_id", 4, "title", "월하검귀는 다시 웃지 않는다")
         ));
-        when(aiProxyService.get("/stories/scenarios/4")).thenReturn(
+        when(aiProxyService.get("/stories/scenarios/4", "Bearer " + accessToken)).thenReturn(
                 Map.of("scenario_id", 4, "title", "월하검귀는 다시 웃지 않는다")
         );
-        String accessToken = accessTokenFor("aiScenarioUser");
 
         mockMvc.perform(get("/api/stories/scenarios")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
@@ -236,8 +238,8 @@ class AiStoryProxyControllerTest {
                 .andExpect(jsonPath("$.message").value("AI 세계관 상세를 조회했습니다."))
                 .andExpect(jsonPath("$.data.scenario_id").value(4));
 
-        verify(aiProxyService).get("/stories/scenarios");
-        verify(aiProxyService).get("/stories/scenarios/4");
+        verify(aiProxyService).get("/stories/scenarios", "Bearer " + accessToken);
+        verify(aiProxyService).get("/stories/scenarios/4", "Bearer " + accessToken);
     }
 
     @Test
@@ -245,14 +247,14 @@ class AiStoryProxyControllerTest {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         User user = userRepository.save(User.createLocalUser("aiQuestUser", "encoded-password", "aiQuestUser"));
         String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
-        when(aiProxyService.get(eq("/api/quests/today?user_id=%d&scenario_id=4".formatted(user.getId())))).thenReturn(Map.of(
+        when(aiProxyService.get(eq("/api/quests/today?user_id=%d&scenario_id=4".formatted(user.getId())), eq("Bearer " + accessToken))).thenReturn(Map.of(
                 "quest_id", 10,
                 "scenario_id", 4,
                 "title", "오늘의 스토리 퀘스트"
         ));
-        when(aiProxyService.get(eq("/api/quests?user_id=%d&scenario_id=4&limit=50&offset=10".formatted(user.getId()))))
+        when(aiProxyService.get(eq("/api/quests?user_id=%d&scenario_id=4&limit=50&offset=10".formatted(user.getId())), eq("Bearer " + accessToken)))
                 .thenReturn(Map.of("items", java.util.List.of()));
-        when(aiProxyService.get(eq("/api/quests/10")))
+        when(aiProxyService.get(eq("/api/quests/10"), eq("Bearer " + accessToken)))
                 .thenReturn(Map.of("quest_id", 10));
 
         mockMvc.perform(get("/api/stories/quests/today")
@@ -276,9 +278,9 @@ class AiStoryProxyControllerTest {
                 .andExpect(jsonPath("$.message").value("AI 스토리 퀘스트를 조회했습니다."))
                 .andExpect(jsonPath("$.data.quest_id").value(10));
 
-        verify(aiProxyService).get("/api/quests/today?user_id=%d&scenario_id=4".formatted(user.getId()));
-        verify(aiProxyService).get("/api/quests?user_id=%d&scenario_id=4&limit=50&offset=10".formatted(user.getId()));
-        verify(aiProxyService).get("/api/quests/10");
+        verify(aiProxyService).get("/api/quests/today?user_id=%d&scenario_id=4".formatted(user.getId()), "Bearer " + accessToken);
+        verify(aiProxyService).get("/api/quests?user_id=%d&scenario_id=4&limit=50&offset=10".formatted(user.getId()), "Bearer " + accessToken);
+        verify(aiProxyService).get("/api/quests/10", "Bearer " + accessToken);
     }
 
     @Test
@@ -328,7 +330,7 @@ class AiStoryProxyControllerTest {
     @Test
     void playStoryConvertsAiErrorToProblemDetail() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
-        when(aiProxyService.post(eq("/stories/play"), any()))
+        when(aiProxyService.post(eq("/stories/play"), any(), any()))
                 .thenThrow(new ApiException(HttpStatus.BAD_REQUEST, "AI_SERVER_ERROR", "scenario_id=999999 시나리오를 찾을 수 없습니다."));
 
         mockMvc.perform(post("/api/stories/play")

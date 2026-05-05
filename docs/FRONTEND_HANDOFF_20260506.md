@@ -198,6 +198,7 @@ Content-Type: application/json
 
 - 프론트는 `user_id`를 보내지 않는다.
 - 백엔드가 JWT 사용자 ID를 AI 서버 요청에 주입한다.
+- 백엔드 AI 프록시는 프론트가 보낸 기존 `Authorization: Bearer {accessToken}` 헤더를 AI 서버 호출에도 그대로 전달한다.
 - 새로 시작하기는 AI 담당 기준에 맞춰 `restart: true`로 호출한다.
 - 기존 대화 이어하기는 `restart: false`로 호출한다.
 
