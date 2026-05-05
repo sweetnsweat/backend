@@ -204,3 +204,117 @@ Authorization: Bearer {admin123 accessToken}
 통과.
 
 개발 서버 배포 확인은 직전 배포 기준 `capstone-backend` 새 컨테이너 기동, `/api/health` 200, Swagger에 신규 API 노출까지 확인했다.
+
+## 7. 계정/프로필 API 보강
+
+FCM 푸시 발송은 이번 범위에서 제외했다. 아래 API는 계정 복구, 마이페이지 조회, 사용자 정보 수정, 프로필 설정까지만 다룬다.
+
+### 7.1 회원가입 선택 필드 추가
+
+`POST /api/auth/signup`
+
+기존 필수 필드는 유지하고, 아이디 찾기/비밀번호 재설정에 사용할 선택 필드가 추가됐다.
+
+```json
+{
+  "loginId": "demoUser",
+  "password": "password123",
+  "nickname": "데모유저",
+  "email": "demo@example.com"
+}
+```
+
+`email`은 선택값이다. 다만 아이디 찾기/비밀번호 재설정을 쓰려면 가입 또는 사용자 정보 수정에서 이메일이 저장되어 있어야 한다.
+
+### 7.2 아이디 찾기
+
+`POST /api/auth/find-login-id`
+
+이메일로 로그인 아이디를 조회한다.
+
+```json
+{
+  "email": "demo@example.com"
+}
+```
+
+응답:
+
+```json
+{
+  "loginId": "demoUser",
+  "nickname": "데모유저",
+  "matchedBy": "email"
+}
+```
+
+### 7.3 비밀번호 재설정
+
+`POST /api/auth/password/reset`
+
+로그인 아이디와 이메일이 기존 사용자 정보와 일치하면 새 비밀번호로 변경한다. 변경 성공 시 기존 refresh token은 폐기된다.
+
+```json
+{
+  "loginId": "demoUser",
+  "email": "demo@example.com",
+  "newPassword": "newPassword123"
+}
+```
+
+### 7.4 마이페이지 조회
+
+`GET /api/users/me/mypage`
+
+마이페이지 상단 프로필 카드와 이번 주 통계에 필요한 값을 한 번에 조회한다.
+
+주요 필드:
+
+```text
+id
+loginId
+nickname
+profileImageUrl
+level
+totalExp
+currentLevelExp
+nextLevelRequiredExp
+nextLevelRemainingExp
+balanceCurrency
+currentStreakDays
+activeRoutineId
+activeRoutineName
+onboardingCompleted
+todayConditionCompleted
+routineSetupRequired
+weeklyStats
+```
+
+`weeklyStats`는 기존 `GET /api/users/me/weekly-stats`와 같은 구조다.
+
+### 7.5 사용자 정보 수정
+
+`PUT /api/users/me`
+
+닉네임, 이메일, 휴대전화 번호를 수정한다. 세 필드 중 수정할 값만 보내면 된다.
+
+```json
+{
+  "nickname": "새닉네임",
+  "email": "new@example.com",
+  "phone": "01099998888"
+}
+```
+
+### 7.6 프로필 설정
+
+`PUT /api/users/me/profile`
+
+마이페이지 프로필 카드에 표시할 닉네임과 프로필 이미지 URL을 설정한다.
+
+```json
+{
+  "nickname": "프로필닉네임",
+  "profileImageUrl": "/media/assets/profile-demo.png"
+}
+```

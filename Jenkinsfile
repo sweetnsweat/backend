@@ -23,6 +23,14 @@ pipeline {
         DB_USERNAME = 'postgres'
         AI_BASE_URL = 'http://capstone-ai:8000'
         MEDIA_BASE_URL = 'http://100.89.171.113:8000'
+        MAIL_HOST = 'smtp.naver.com'
+        MAIL_PORT = '465'
+        MAIL_USERNAME = '4pril17@naver.com'
+        MAIL_FROM = '4pril17@naver.com'
+        MAIL_FROM_NAME = 'sweet & sweat'
+        MAIL_SMTP_AUTH = 'true'
+        MAIL_SMTP_SSL_ENABLE = 'true'
+        MAIL_SMTP_STARTTLS_ENABLE = 'false'
         VERIFY_BASE_URL = 'http://host.docker.internal:8080'
     }
 
@@ -72,6 +80,15 @@ pipeline {
                           -e REDIS_PORT="${REDIS_PORT}" \
                           -e AI_BASE_URL="${AI_BASE_URL}" \
                           -e MEDIA_BASE_URL="${MEDIA_BASE_URL}" \
+                          -e MAIL_HOST="${MAIL_HOST}" \
+                          -e MAIL_PORT="${MAIL_PORT}" \
+                          -e MAIL_USERNAME="${MAIL_USERNAME}" \
+                          -e MAIL_PASSWORD="${MAIL_PASSWORD:-}" \
+                          -e MAIL_FROM="${MAIL_FROM}" \
+                          -e MAIL_FROM_NAME="${MAIL_FROM_NAME}" \
+                          -e MAIL_SMTP_AUTH="${MAIL_SMTP_AUTH}" \
+                          -e MAIL_SMTP_SSL_ENABLE="${MAIL_SMTP_SSL_ENABLE}" \
+                          -e MAIL_SMTP_STARTTLS_ENABLE="${MAIL_SMTP_STARTTLS_ENABLE}" \
                           "${APP_IMAGE}"
                     '''
                 }

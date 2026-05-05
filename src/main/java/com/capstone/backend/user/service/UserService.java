@@ -7,6 +7,7 @@ import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.global.time.KoreanTime;
 import com.capstone.backend.quest.entity.UserQuest;
 import com.capstone.backend.quest.repository.UserQuestRepository;
+import com.capstone.backend.reward.policy.LevelPolicy;
 import com.capstone.backend.reward.repository.WalletRepository;
 import com.capstone.backend.routine.dto.RoutineDetailResponse;
 import com.capstone.backend.routine.dto.RoutineSummaryResponse;
@@ -16,8 +17,11 @@ import com.capstone.backend.routine.entity.RoutineSession;
 import com.capstone.backend.routine.repository.RoutineItemRepository;
 import com.capstone.backend.routine.repository.RoutineRepository;
 import com.capstone.backend.routine.repository.RoutineSessionRepository;
+import com.capstone.backend.user.dto.MyPageResponse;
 import com.capstone.backend.user.dto.OnboardingProfileRequest;
 import com.capstone.backend.user.dto.UpdateActiveRoutineRequest;
+import com.capstone.backend.user.dto.UpdateProfileSettingsRequest;
+import com.capstone.backend.user.dto.UpdateUserInfoRequest;
 import com.capstone.backend.user.dto.WeeklyStatsResponse;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
@@ -86,6 +90,33 @@ public class UserService {
         return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
     }
 
+    @Transactional(readOnly = true)
+    public MyPageResponse getMyPage(Long userId) {
+        User user = findUser(userId);
+        WeeklyStatsResponse weeklyStats = getWeeklyStats(userId);
+        int totalExp = user.getTotalExp();
+        Routine activeRoutine = user.getActiveRoutine();
+        return new MyPageResponse(
+                user.getId(),
+                user.getLoginId(),
+                user.getNickname(),
+                user.getProfileImageUrl(),
+                user.getLevel(),
+                totalExp,
+                LevelPolicy.currentLevelExp(totalExp),
+                LevelPolicy.nextLevelRequiredExp(totalExp),
+                LevelPolicy.nextLevelRemainingExp(totalExp),
+                balanceCurrency(user.getId()),
+                currentStreakDays(user.getId()),
+                activeRoutine == null ? null : activeRoutine.getId(),
+                activeRoutine == null ? null : activeRoutine.getName(),
+                user.isOnboardingCompleted(),
+                hasTodayCondition(user.getId()),
+                user.isOnboardingCompleted() && activeRoutine == null,
+                weeklyStats
+        );
+    }
+
     @Transactional
     public UserProfileResponse updateOnboardingProfile(Long userId, OnboardingProfileRequest request) {
         User user = userRepository.findById(userId)
@@ -109,6 +140,35 @@ public class UserService {
             createDefaultTodayConditionIfAbsent(user);
         }
 
+        return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
+    }
+
+    @Transactional
+    public UserProfileResponse updateUserInfo(Long userId, UpdateUserInfoRequest request) {
+        User user = findUser(userId);
+        String nickname = normalize(request.nickname());
+        String email = normalize(request.email());
+        String phone = normalize(request.phone());
+        validateAnyUpdate(nickname, email, phone);
+        validateUniqueContactAndNickname(user, nickname, email, phone);
+
+        user.updateAccountInfo(nickname, email, phone);
+        return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
+    }
+
+    @Transactional
+    public UserProfileResponse updateProfileSettings(Long userId, UpdateProfileSettingsRequest request) {
+        User user = findUser(userId);
+        String nickname = normalize(request.nickname());
+        String profileImageUrl = normalize(request.profileImageUrl());
+        validateAnyUpdate(nickname, profileImageUrl);
+        if (nickname != null
+                && !nickname.equals(user.getNickname())
+                && userRepository.existsByNicknameAndIdNot(nickname, user.getId())) {
+            throw new ApiException(HttpStatus.CONFLICT, "NICKNAME_ALREADY_EXISTS", "이미 사용 중인 닉네임입니다.");
+        }
+
+        user.updateProfileSettings(nickname, profileImageUrl);
         return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
     }
 
@@ -260,6 +320,58 @@ public class UserService {
             }
         }
         return max;
+    }
+
+    private int currentStreakDays(Long userId) {
+        LocalDate today = KoreanTime.today();
+        LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        Set<LocalDate> completedDates = new HashSet<>();
+        for (UserQuest quest : userQuestRepository.findCompletedStatsByUserIdAndQuestDateBetween(userId, weekStart, today)) {
+            completedDates.add(quest.getQuestDate());
+        }
+
+        int streak = 0;
+        LocalDate cursor = today;
+        while (!cursor.isBefore(weekStart) && completedDates.contains(cursor)) {
+            streak++;
+            cursor = cursor.minusDays(1);
+        }
+        return streak;
+    }
+
+    private void validateUniqueContactAndNickname(User user, String nickname, String email, String phone) {
+        if (nickname != null
+                && !nickname.equals(user.getNickname())
+                && userRepository.existsByNicknameAndIdNot(nickname, user.getId())) {
+            throw new ApiException(HttpStatus.CONFLICT, "NICKNAME_ALREADY_EXISTS", "이미 사용 중인 닉네임입니다.");
+        }
+        if (email != null
+                && !email.equals(user.getEmail())
+                && userRepository.existsByEmailAndIdNot(email, user.getId())) {
+            throw new ApiException(HttpStatus.CONFLICT, "EMAIL_ALREADY_EXISTS", "이미 등록된 이메일입니다.");
+        }
+        if (phone != null
+                && !phone.equals(user.getPhone())
+                && userRepository.existsByPhoneAndIdNot(phone, user.getId())) {
+            throw new ApiException(HttpStatus.CONFLICT, "PHONE_ALREADY_EXISTS", "이미 등록된 휴대전화 번호입니다.");
+        }
+    }
+
+    private void validateAnyUpdate(String... values) {
+        for (String value : values) {
+            if (value != null) {
+                return;
+            }
+        }
+        throw new ApiException(HttpStatus.BAD_REQUEST, "NO_UPDATE_FIELDS", "수정할 값을 하나 이상 입력해 주세요.");
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     private BigDecimal estimatedCalories(UserQuest quest, BigDecimal weightKg) {

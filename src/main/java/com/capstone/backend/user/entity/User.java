@@ -131,6 +131,42 @@ public class User {
         return user;
     }
 
+    public static User createLocalUser(String loginId,
+                                       String passwordHash,
+                                       String nickname,
+                                       String email,
+                                       String phone) {
+        User user = createLocalUser(loginId, passwordHash, nickname);
+        user.email = email;
+        user.phone = phone;
+        return user;
+    }
+
+    public void updateAccountInfo(String nickname, String email, String phone) {
+        if (nickname != null) {
+            this.nickname = nickname;
+        }
+        if (email != null) {
+            this.email = email;
+        }
+        if (phone != null) {
+            this.phone = phone;
+        }
+    }
+
+    public void updateProfileSettings(String nickname, String profileImageUrl) {
+        if (nickname != null) {
+            this.nickname = nickname;
+        }
+        if (profileImageUrl != null) {
+            this.profileImageUrl = profileImageUrl;
+        }
+    }
+
+    public void changePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
     public void updateExerciseProfile(String experienceLevel,
                                       String currentExerciseStatus,
                                       String fitnessGoal,

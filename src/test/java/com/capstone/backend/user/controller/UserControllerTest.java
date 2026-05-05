@@ -109,6 +109,73 @@ class UserControllerTest {
     }
 
     @Test
+    void myPageReturnsProfileLevelAndWeeklyStatsSummary() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+
+        User user = userRepository.save(User.createLocalUser("myPageUser", "encoded-password", "My Page User"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+
+        mockMvc.perform(get("/api/users/me/mypage")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(user.getId()))
+                .andExpect(jsonPath("$.data.loginId").value("myPageUser"))
+                .andExpect(jsonPath("$.data.nickname").value("My Page User"))
+                .andExpect(jsonPath("$.data.level").value(1))
+                .andExpect(jsonPath("$.data.totalExp").value(0))
+                .andExpect(jsonPath("$.data.balanceCurrency").value(0))
+                .andExpect(jsonPath("$.data.currentStreakDays").value(0))
+                .andExpect(jsonPath("$.data.weeklyStats.completedWorkoutCount").value(0))
+                .andExpect(jsonPath("$.data.weeklyStats.earnedExp").value(0));
+    }
+
+    @Test
+    void updateUserInfoChangesNicknameEmailAndPhone() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+
+        User user = userRepository.save(User.createLocalUser("updateInfoUser", "encoded-password", "Before Nick"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+
+        mockMvc.perform(put("/api/users/me")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "nickname": "After Nick",
+                                  "email": "after@example.com",
+                                  "phone": "01099998888"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("사용자 정보가 수정되었습니다."))
+                .andExpect(jsonPath("$.data.nickname").value("After Nick"))
+                .andExpect(jsonPath("$.data.email").value("after@example.com"))
+                .andExpect(jsonPath("$.data.phone").value("01099998888"));
+    }
+
+    @Test
+    void updateProfileSettingsChangesNicknameAndProfileImageUrl() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+
+        User user = userRepository.save(User.createLocalUser("profileSettingsUser", "encoded-password", "Before Profile"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+
+        mockMvc.perform(put("/api/users/me/profile")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "nickname": "Profile Nick",
+                                  "profileImageUrl": "/media/assets/profile-demo.png"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("프로필 설정이 저장되었습니다."))
+                .andExpect(jsonPath("$.data.nickname").value("Profile Nick"))
+                .andExpect(jsonPath("$.data.profileImageUrl").value("/media/assets/profile-demo.png"));
+    }
+
+    @Test
     void meReturnsTodayConditionCompletedWhenTodayConditionExists() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
 

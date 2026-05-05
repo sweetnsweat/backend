@@ -1,7 +1,10 @@
 package com.capstone.backend.auth.service;
 
+import com.capstone.backend.auth.dto.FindLoginIdRequest;
+import com.capstone.backend.auth.dto.FindLoginIdResponse;
 import com.capstone.backend.auth.dto.LoginRequest;
 import com.capstone.backend.auth.dto.LoginResponse;
+import com.capstone.backend.auth.dto.ResetPasswordRequest;
 import com.capstone.backend.auth.dto.SignupRequest;
 import com.capstone.backend.auth.dto.UserProfileResponse;
 import com.capstone.backend.auth.entity.RefreshToken;
@@ -67,10 +70,11 @@ class AuthServiceTest {
 
     @Test
     void signupSuccess() {
-        SignupRequest request = new SignupRequest("demoUser", "password123", "Demo Nick");
+        SignupRequest request = new SignupRequest("demoUser", "password123", "Demo Nick", "demo@example.com");
 
         when(userRepository.existsByLoginId("demoUser")).thenReturn(false);
         when(userRepository.existsByNickname("Demo Nick")).thenReturn(false);
+        when(userRepository.existsByEmail("demo@example.com")).thenReturn(false);
         when(passwordEncoder.encode("password123")).thenReturn("encoded-password");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
@@ -83,11 +87,13 @@ class AuthServiceTest {
         assertEquals(1L, response.id());
         assertEquals("demoUser", response.loginId());
         assertEquals("Demo Nick", response.nickname());
+        assertEquals("demo@example.com", response.email());
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(userCaptor.capture());
         assertEquals("demoUser", userCaptor.getValue().getLoginId());
         assertEquals("encoded-password", userCaptor.getValue().getPasswordHash());
+        assertEquals("demo@example.com", userCaptor.getValue().getEmail());
     }
 
     @Test
@@ -147,6 +153,36 @@ class AuthServiceTest {
 
         assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatus());
         assertEquals("INVALID_CREDENTIALS", exception.getCode());
+    }
+
+    @Test
+    void findLoginIdByEmail() {
+        User user = createUser(1L, "demoUser", "encoded-password", "Demo Nick", "active");
+        ReflectionTestUtils.setField(user, "email", "demo@example.com");
+        when(userRepository.findFirstByEmail("demo@example.com")).thenReturn(Optional.of(user));
+
+        FindLoginIdResponse response = authService.findLoginId(new FindLoginIdRequest("demo@example.com"));
+
+        assertEquals("demoUser", response.loginId());
+        assertEquals("Demo Nick", response.nickname());
+        assertEquals("email", response.matchedBy());
+    }
+
+    @Test
+    void resetPasswordChangesPasswordAndRevokesRefreshTokens() {
+        User user = createUser(1L, "demoUser", "old-encoded-password", "Demo Nick", "active");
+        ReflectionTestUtils.setField(user, "email", "demo@example.com");
+        RefreshToken refreshToken = RefreshToken.issue(user, "refresh-hash", Instant.now().plusSeconds(7200));
+
+        when(userRepository.findByLoginId("demoUser")).thenReturn(Optional.of(user));
+        when(passwordEncoder.encode("newPassword123")).thenReturn("new-encoded-password");
+        when(refreshTokenRepository.findByUser_IdAndRevokedAtIsNull(1L)).thenReturn(List.of(refreshToken));
+
+        authService.resetPassword(new ResetPasswordRequest("demoUser", "demo@example.com", "newPassword123"));
+
+        assertEquals("new-encoded-password", user.getPasswordHash());
+        verify(jwtTokenService).deleteRefreshTokenHash("refresh-hash");
+        verify(refreshTokenRepository).saveAll(any());
     }
 
     @Test

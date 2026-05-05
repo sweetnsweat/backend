@@ -1,0 +1,15 @@
+package com.capstone.backend.auth.dto;
+
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+public record FindLoginIdRequest(
+        @jakarta.validation.constraints.NotBlank(message = "이메일을 입력해 주세요.")
+        @Size(max = 255, message = "이메일은 255자 이하여야 합니다.")
+        @Pattern(
+                regexp = "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+                message = "이메일 형식이 올바르지 않습니다."
+        )
+        String email
+) {
+}

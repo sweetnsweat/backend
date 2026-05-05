@@ -2,6 +2,9 @@ package com.capstone.backend.auth.service;
 
 import com.capstone.backend.auth.dto.LoginRequest;
 import com.capstone.backend.auth.dto.LoginResponse;
+import com.capstone.backend.auth.dto.FindLoginIdRequest;
+import com.capstone.backend.auth.dto.FindLoginIdResponse;
+import com.capstone.backend.auth.dto.ResetPasswordRequest;
 import com.capstone.backend.auth.dto.SignupRequest;
 import com.capstone.backend.auth.dto.UserProfileResponse;
 import com.capstone.backend.auth.entity.RefreshToken;
@@ -53,15 +56,57 @@ public class AuthService {
         if (userRepository.existsByNickname(request.nickname())) {
             throw new ApiException(HttpStatus.CONFLICT, "NICKNAME_ALREADY_EXISTS", "Nickname already exists");
         }
+        String email = normalize(request.email());
+        if (email != null && userRepository.existsByEmail(email)) {
+            throw new ApiException(HttpStatus.CONFLICT, "EMAIL_ALREADY_EXISTS", "이미 등록된 이메일입니다.");
+        }
 
         User user = User.createLocalUser(
                 request.loginId(),
                 passwordEncoder.encode(request.password()),
-                request.nickname()
+                request.nickname(),
+                email,
+                null
         );
 
         User savedUser = userRepository.save(user);
         return UserProfileResponse.from(savedUser, false, 0);
+    }
+
+    @Transactional(readOnly = true)
+    public FindLoginIdResponse findLoginId(FindLoginIdRequest request) {
+        String email = normalize(request.email());
+        if (email == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "EMAIL_REQUIRED", "이메일을 입력해 주세요.");
+        }
+
+        User user = userRepository.findFirstByEmail(email)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "일치하는 계정을 찾을 수 없습니다."));
+
+        return new FindLoginIdResponse(
+                user.getLoginId(),
+                user.getNickname(),
+                "email"
+        );
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        String email = normalize(request.email());
+        if (email == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "EMAIL_REQUIRED", "이메일을 입력해 주세요.");
+        }
+
+        User user = userRepository.findByLoginId(request.loginId())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "일치하는 계정을 찾을 수 없습니다."));
+
+        boolean emailMatches = email != null && email.equals(user.getEmail());
+        if (!emailMatches) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "EMAIL_MISMATCH", "본인 확인 이메일이 일치하지 않습니다.");
+        }
+
+        user.changePassword(passwordEncoder.encode(request.newPassword()));
+        revokeAllRefreshTokens(user.getId());
     }
 
     @Transactional
@@ -129,5 +174,13 @@ public class AuthService {
         return walletRepository.findById(userId)
                 .map(wallet -> wallet.getBalanceCurrency())
                 .orElse(0);
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 }

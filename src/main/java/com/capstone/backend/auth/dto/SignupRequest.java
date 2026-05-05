@@ -1,6 +1,7 @@
 package com.capstone.backend.auth.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record SignupRequest(
@@ -14,6 +15,16 @@ public record SignupRequest(
 
         @NotBlank(message = "닉네임을 입력해 주세요.")
         @Size(min = 2, max = 50, message = "닉네임은 2~50자여야 합니다.")
-        String nickname
+        String nickname,
+
+        @Size(max = 255, message = "이메일은 255자 이하여야 합니다.")
+        @Pattern(
+                regexp = "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+                message = "이메일 형식이 올바르지 않습니다."
+        )
+        String email
 ) {
+    public SignupRequest(String loginId, String password, String nickname) {
+        this(loginId, password, nickname, null);
+    }
 }

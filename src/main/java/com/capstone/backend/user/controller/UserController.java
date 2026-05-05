@@ -5,8 +5,11 @@ import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.global.api.ApiResponse;
 import com.capstone.backend.routine.dto.RoutineDetailResponse;
 import com.capstone.backend.routine.dto.RoutineSummaryResponse;
+import com.capstone.backend.user.dto.MyPageResponse;
 import com.capstone.backend.user.dto.OnboardingProfileRequest;
 import com.capstone.backend.user.dto.UpdateActiveRoutineRequest;
+import com.capstone.backend.user.dto.UpdateProfileSettingsRequest;
+import com.capstone.backend.user.dto.UpdateUserInfoRequest;
 import com.capstone.backend.user.dto.WeeklyStatsResponse;
 import com.capstone.backend.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,11 +40,31 @@ public class UserController {
         return ApiResponse.ok(userService.getMyProfile(authUser.userId()));
     }
 
+    @Operation(summary = "마이페이지 조회", description = "프로필, 레벨/경험치, 보유 재화, 활성 루틴, 이번 주 운동 통계를 한 번에 조회합니다.")
+    @GetMapping("/me/mypage")
+    public ApiResponse<MyPageResponse> myPage(@AuthenticationPrincipal AuthUser authUser) {
+        return ApiResponse.ok(userService.getMyPage(authUser.userId()));
+    }
+
     @Operation(summary = "온보딩 프로필 저장", description = "최초 로그인 온보딩에서 입력한 신체 정보와 루틴 추천용 운동 성향을 저장합니다.")
     @PutMapping("/me/onboarding-profile")
     public ApiResponse<UserProfileResponse> updateOnboardingProfile(@AuthenticationPrincipal AuthUser authUser,
                                                                     @Valid @RequestBody OnboardingProfileRequest request) {
         return ApiResponse.ok("온보딩 프로필이 저장되었습니다.", userService.updateOnboardingProfile(authUser.userId(), request));
+    }
+
+    @Operation(summary = "사용자 정보 수정", description = "마이페이지에서 닉네임, 이메일, 휴대전화 번호 같은 계정 정보를 수정합니다.")
+    @PutMapping("/me")
+    public ApiResponse<UserProfileResponse> updateUserInfo(@AuthenticationPrincipal AuthUser authUser,
+                                                           @Valid @RequestBody UpdateUserInfoRequest request) {
+        return ApiResponse.ok("사용자 정보가 수정되었습니다.", userService.updateUserInfo(authUser.userId(), request));
+    }
+
+    @Operation(summary = "프로필 설정", description = "마이페이지 프로필 카드에 표시할 닉네임과 프로필 이미지 URL을 설정합니다.")
+    @PutMapping("/me/profile")
+    public ApiResponse<UserProfileResponse> updateProfileSettings(@AuthenticationPrincipal AuthUser authUser,
+                                                                  @Valid @RequestBody UpdateProfileSettingsRequest request) {
+        return ApiResponse.ok("프로필 설정이 저장되었습니다.", userService.updateProfileSettings(authUser.userId(), request));
     }
 
     @Operation(summary = "활성 운동 루틴 조회", description = "사용자가 현재 선택한 운동 루틴을 상세 조회합니다.")
