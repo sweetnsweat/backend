@@ -225,7 +225,6 @@ Content-Type: application/json
     "loginId": "demo",
     "nickname": "새닉네임",
     "email": "demo@example.com",
-    "phone": null,
     "profileImageUrl": null,
     "activeRoutineId": null,
     "routineSetupRequired": true
