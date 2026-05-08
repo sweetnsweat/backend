@@ -1,5 +1,6 @@
 package com.capstone.backend.auth.service;
 
+import com.capstone.backend.auth.dto.ChangePasswordRequest;
 import com.capstone.backend.auth.dto.FindLoginIdRequest;
 import com.capstone.backend.auth.dto.LoginRequest;
 import com.capstone.backend.auth.dto.LoginResponse;
@@ -120,6 +121,19 @@ public class AuthService {
         user.changePassword(passwordEncoder.encode(temporaryPassword));
         revokeAllRefreshTokens(user.getId());
         authMailService.sendTemporaryPassword(user.getEmail(), user.getNickname(), temporaryPassword);
+    }
+
+    @Transactional
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "일치하는 계정을 찾을 수 없습니다."));
+
+        if (user.getPasswordHash() == null || !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_CURRENT_PASSWORD", "현재 비밀번호가 일치하지 않습니다.");
+        }
+
+        user.changePassword(passwordEncoder.encode(request.newPassword()));
+        revokeAllRefreshTokens(user.getId());
     }
 
     @Transactional

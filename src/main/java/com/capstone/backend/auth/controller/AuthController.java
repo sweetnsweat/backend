@@ -1,5 +1,6 @@
 package com.capstone.backend.auth.controller;
 
+import com.capstone.backend.auth.dto.ChangePasswordRequest;
 import com.capstone.backend.auth.dto.FindLoginIdRequest;
 import com.capstone.backend.auth.dto.LoginRequest;
 import com.capstone.backend.auth.dto.LoginResponse;
@@ -19,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -68,6 +70,18 @@ public class AuthController {
     public ApiResponse<Void> requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {
         authService.requestPasswordReset(request);
         return ApiResponse.ok("임시 비밀번호를 이메일로 발송했습니다.");
+    }
+
+    @Operation(summary = "비밀번호 변경", description = "현재 로그인한 사용자의 현재 비밀번호를 확인한 뒤 새 비밀번호로 변경합니다.")
+    @PutMapping("/password")
+    public ApiResponse<Void> changePassword(Authentication authentication,
+                                            @Valid @RequestBody ChangePasswordRequest request) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof AuthUser authUser)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Authentication required");
+        }
+
+        authService.changePassword(authUser.userId(), request);
+        return ApiResponse.ok("비밀번호가 변경되었습니다.");
     }
 
     @Operation(summary = "로그아웃", description = "현재 access token을 검증하고 사용자의 활성 refresh token을 폐기합니다.")

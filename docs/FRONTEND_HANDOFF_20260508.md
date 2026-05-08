@@ -9,6 +9,7 @@
 - 상점 목록에서 보유 여부 표시
 - 보유한 이미지 아이템을 프로필 이미지로 장착
 - 닉네임 단독 변경 API 추가
+- 비밀번호 변경 API 추가
 - AI 스토리 Swagger 예시 응답을 실제 프론트 사용 필드 기준으로 보강
 
 브랜치:
@@ -239,7 +240,52 @@ Content-Type: application/json
 - 닉네임은 2~50자여야 한다.
 - 중복 닉네임이면 `NICKNAME_ALREADY_EXISTS`로 실패한다.
 
-## 5. AI 스토리 Swagger 응답 예시 개선
+## 5. 비밀번호 변경
+
+```http
+PUT /api/auth/password
+Authorization: Bearer {accessToken}
+Content-Type: application/json
+```
+
+요청:
+
+```json
+{
+  "currentPassword": "oldPassword123",
+  "newPassword": "newPassword123"
+}
+```
+
+성공 응답:
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "비밀번호가 변경되었습니다.",
+  "data": null
+}
+```
+
+처리 기준:
+
+- 로그인한 사용자만 호출할 수 있다.
+- 현재 비밀번호가 맞는지 확인한 뒤 새 비밀번호로 변경한다.
+- 새 비밀번호는 회원가입과 동일하게 8~72자여야 한다.
+- 변경 성공 시 기존 refresh token은 폐기한다.
+- 현재 access token은 즉시 블랙리스트 처리하지 않는다. 프론트는 변경 성공 후 로그인 화면으로 보내는 방식이 가장 단순하다.
+
+현재 비밀번호 불일치:
+
+```json
+{
+  "code": "INVALID_CURRENT_PASSWORD",
+  "detail": "현재 비밀번호가 일치하지 않습니다."
+}
+```
+
+## 6. AI 스토리 Swagger 응답 예시 개선
 
 Springdoc 생성 Swagger의 AI 스토리 예시 응답을 프론트에서 실제로 사용하는 필드 중심으로 정리했다.
 
@@ -330,6 +376,7 @@ GET /api/ai/stories/play/history
 ```text
 src/main/java/com/capstone/backend/shop/controller/ShopController.java
 src/main/java/com/capstone/backend/user/controller/UserController.java
+src/main/java/com/capstone/backend/auth/controller/AuthController.java
 src/main/java/com/capstone/backend/ai/controller/AiStorySwaggerExamples.java
 ```
 
@@ -338,6 +385,7 @@ src/main/java/com/capstone/backend/ai/controller/AiStorySwaggerExamples.java
 ```text
 src/main/java/com/capstone/backend/shop/service/ShopService.java
 src/main/java/com/capstone/backend/user/service/UserService.java
+src/main/java/com/capstone/backend/auth/service/AuthService.java
 ```
 
 엔티티:
@@ -365,6 +413,7 @@ src/main/java/com/capstone/backend/reward/entity/WalletTransaction.java
 
 ```text
 src/main/java/com/capstone/backend/user/dto/UpdateNicknameRequest.java
+src/main/java/com/capstone/backend/auth/dto/ChangePasswordRequest.java
 ```
 
 테스트:
@@ -372,6 +421,8 @@ src/main/java/com/capstone/backend/user/dto/UpdateNicknameRequest.java
 ```text
 src/test/java/com/capstone/backend/shop/controller/ShopControllerTest.java
 src/test/java/com/capstone/backend/user/controller/UserControllerTest.java
+src/test/java/com/capstone/backend/auth/controller/AuthControllerTest.java
+src/test/java/com/capstone/backend/auth/service/AuthServiceTest.java
 src/test/java/com/capstone/backend/ai/controller/AiStoryProxyControllerTest.java
 ```
 
@@ -398,6 +449,9 @@ src/test/java/com/capstone/backend/ai/controller/AiStoryProxyControllerTest.java
 - 닉네임 단독 변경 성공
 - 중복 닉네임 변경 실패
 - 빈 닉네임 변경 실패
+- 비밀번호 변경 성공
+- 현재 비밀번호 불일치 시 변경 실패
+- 비밀번호 변경 성공 시 refresh token 폐기
 - AI 스토리 Swagger 예시 응답에 `workout_quest`, `character_image_url` 포함
 
 ## 아직 남은 범위

@@ -1,5 +1,6 @@
 package com.capstone.backend.auth.service;
 
+import com.capstone.backend.auth.dto.ChangePasswordRequest;
 import com.capstone.backend.auth.dto.FindLoginIdRequest;
 import com.capstone.backend.auth.dto.LoginRequest;
 import com.capstone.backend.auth.dto.LoginResponse;
@@ -220,6 +221,39 @@ class AuthServiceTest {
         verify(authMailService).sendTemporaryPassword(eq("demo@example.com"), eq("Demo Nick"), anyString());
         verify(jwtTokenService).deleteRefreshTokenHash("refresh-hash");
         verify(refreshTokenRepository).saveAll(any());
+    }
+
+    @Test
+    void changePasswordUpdatesPasswordAndRevokesRefreshTokens() {
+        User user = createUser(1L, "demoUser", "old-encoded-password", "Demo Nick", "active");
+        RefreshToken refreshToken = RefreshToken.issue(user, "refresh-hash", Instant.now().plusSeconds(7200));
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("oldPassword123", "old-encoded-password")).thenReturn(true);
+        when(passwordEncoder.encode("newPassword123")).thenReturn("new-encoded-password");
+        when(refreshTokenRepository.findByUser_IdAndRevokedAtIsNull(1L)).thenReturn(List.of(refreshToken));
+
+        authService.changePassword(1L, new ChangePasswordRequest("oldPassword123", "newPassword123"));
+
+        assertEquals("new-encoded-password", user.getPasswordHash());
+        verify(jwtTokenService).deleteRefreshTokenHash("refresh-hash");
+        verify(refreshTokenRepository).saveAll(any());
+    }
+
+    @Test
+    void changePasswordFailsWhenCurrentPasswordDoesNotMatch() {
+        User user = createUser(1L, "demoUser", "old-encoded-password", "Demo Nick", "active");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrongPassword123", "old-encoded-password")).thenReturn(false);
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> authService.changePassword(1L, new ChangePasswordRequest("wrongPassword123", "newPassword123")));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+        assertEquals("INVALID_CURRENT_PASSWORD", exception.getCode());
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(refreshTokenRepository, never()).findByUser_IdAndRevokedAtIsNull(any());
     }
 
     @Test
