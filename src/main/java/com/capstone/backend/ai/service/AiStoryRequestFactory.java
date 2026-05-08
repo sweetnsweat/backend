@@ -3,6 +3,7 @@ package com.capstone.backend.ai.service;
 import com.capstone.backend.ai.dto.AiStoryGenerateRequest;
 import com.capstone.backend.ai.dto.AiStoryPlayHistoryRequest;
 import com.capstone.backend.ai.dto.AiStoryPlayRequest;
+import com.capstone.backend.ai.dto.AiStoryPlayStartRequest;
 import com.capstone.backend.ai.dto.AiStoryQuestListRequest;
 import com.capstone.backend.ai.dto.AiStoryQuestTodayRequest;
 import com.capstone.backend.global.exception.ApiException;
@@ -47,6 +48,13 @@ public class AiStoryRequestFactory {
         if (request.restart() != null) {
             payload.put("restart", request.restart());
         }
+        return writeJson(payload);
+    }
+
+    public String fromStartRequest(AiStoryPlayStartRequest request, Long userId) {
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("user_id", userId);
+        payload.put("scenario_id", request.scenarioId());
         return writeJson(payload);
     }
 

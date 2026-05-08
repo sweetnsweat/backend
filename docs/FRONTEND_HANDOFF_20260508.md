@@ -316,7 +316,15 @@ GET /api/stories/play/history
 
 `POST /api/stories/play`는 일반 진행 응답 예시다. 최신 AI 서버 응답 기준으로 `opening_summary`, `opening_characters`, `scene_state`, `scenario_id`는 통합 진행 Swagger 예시에서 제외했다.
 
-`POST /api/stories/play/start`는 Swagger 노출 대상이다. start 응답 예시에는 첫 진입용 필드인 `opening_summary`, `opening_characters`를 포함한다.
+`POST /api/stories/play/start`는 Swagger 노출 대상이다. 요청 Body는 문자열이 아니라 아래 object 형태로 표시된다. 백엔드가 JWT에서 로그인 사용자 ID를 꺼내 AI 서버 요청에 `user_id`로 주입하므로 프론트는 `user_id`를 보내지 않는다.
+
+```json
+{
+  "scenario_id": 2
+}
+```
+
+start 응답 예시에는 첫 진입용 필드인 `opening_summary`, `opening_characters`를 포함한다.
 
 히스토리 응답 예시에도 캐릭터 표시용 필드를 추가했다.
 
@@ -458,7 +466,7 @@ src/test/java/com/capstone/backend/ai/controller/AiStoryProxyControllerTest.java
 - 현재 비밀번호 불일치 시 변경 실패
 - 비밀번호 변경 성공 시 refresh token 폐기
 - AI 스토리 Swagger 예시 응답에 `workout_quest`, `character_image_url` 포함
-- `POST /api/stories/play/start` Swagger 노출 및 start 전용 응답 예시 포함
+- `POST /api/stories/play/start` Swagger 노출 및 start 전용 요청/응답 예시 포함
 
 ## 아직 남은 범위
 

@@ -131,6 +131,40 @@ class AiStoryProxyControllerTest {
     }
 
     @Test
+    void startStoryUsesTypedRequestAndInjectsAuthenticatedUserId() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User user = userRepository.save(User.createLocalUser("aiStartUser", "encoded-password", "aiStartUser"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+        Map<String, Object> response = Map.of(
+                "chapter_num", 1,
+                "phase", "DETAIL",
+                "opening_summary", "제국의 변방 신전에서 눈을 뜬다."
+        );
+        when(aiProxyService.post(eq("/stories/play/start"), any(), eq("Bearer " + accessToken))).thenReturn(response);
+
+        mockMvc.perform(post("/api/stories/play/start")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "user_id": 999999,
+                                  "scenario_id": 4
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("AI 스토리를 처음부터 시작했습니다."))
+                .andExpect(jsonPath("$.data.chapter_num").value(1))
+                .andExpect(jsonPath("$.data.opening_summary").value("제국의 변방 신전에서 눈을 뜬다."));
+
+        ArgumentCaptor<String> bodyCaptor = forClass(String.class);
+        verify(aiProxyService).post(eq("/stories/play/start"), bodyCaptor.capture(), eq("Bearer " + accessToken));
+        Map<?, ?> forwardedBody = objectMapper.readValue(bodyCaptor.getValue(), Map.class);
+        assertThat(forwardedBody.get("user_id")).isEqualTo(user.getId().intValue());
+        assertThat(forwardedBody.get("scenario_id")).isEqualTo(4);
+    }
+
+    @Test
     void generateStoryUsesTypedDtoAndForwardsAiStoryTemplateInputShape() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         Map<String, Object> response = Map.of(
@@ -311,6 +345,16 @@ class AiStoryProxyControllerTest {
         Map<?, ?> playOperation = (Map<?, ?>) playPath.get("post");
         java.util.List<?> playParameters = (java.util.List<?>) playOperation.get("parameters");
         assertThat(playParameters == null ? java.util.List.of() : playParameters).isEmpty();
+
+        Map<?, ?> startPath = (Map<?, ?>) paths.get("/api/stories/play/start");
+        Map<?, ?> startOperation = (Map<?, ?>) startPath.get("post");
+        Map<?, ?> startRequestBody = (Map<?, ?>) startOperation.get("requestBody");
+        Map<?, ?> startContent = (Map<?, ?>) startRequestBody.get("content");
+        Map<?, ?> startJsonContent = (Map<?, ?>) startContent.get("application/json");
+        Map<?, ?> startSchema = (Map<?, ?>) startJsonContent.get("schema");
+        assertThat(String.valueOf(startSchema.get("$ref"))).endsWith("/AiStoryPlayStartRequest");
+        Map<?, ?> startExample = (Map<?, ?>) startJsonContent.get("example");
+        assertThat(startExample.get("scenario_id")).isEqualTo(2);
 
         Map<?, ?> historyPath = (Map<?, ?>) paths.get("/api/stories/play/history");
         Map<?, ?> getOperation = (Map<?, ?>) historyPath.get("get");

@@ -115,6 +115,12 @@ final class AiStorySwaggerExamples {
             }
             """;
 
+    static final String START_REQUEST = """
+            {
+              "scenario_id": 2
+            }
+            """;
+
     static final String START_RESPONSE = """
             {
               "success": true,

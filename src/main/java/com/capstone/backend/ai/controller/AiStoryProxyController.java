@@ -3,6 +3,7 @@ package com.capstone.backend.ai.controller;
 import com.capstone.backend.ai.dto.AiStoryGenerateRequest;
 import com.capstone.backend.ai.dto.AiStoryPlayHistoryRequest;
 import com.capstone.backend.ai.dto.AiStoryPlayRequest;
+import com.capstone.backend.ai.dto.AiStoryPlayStartRequest;
 import com.capstone.backend.ai.dto.AiStoryQuestListRequest;
 import com.capstone.backend.ai.dto.AiStoryQuestTodayRequest;
 import com.capstone.backend.ai.service.AiProxyService;
@@ -173,6 +174,10 @@ public class AiStoryProxyController {
     }
 
     @Operation(summary = "AI 스토리 처음부터 시작", description = "기존 진행 상태를 리셋하고 1챕터 처음부터 시작합니다. user_id는 백엔드가 로그인 사용자 ID로 주입합니다.")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            required = true,
+            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, examples = @ExampleObject(value = AiStorySwaggerExamples.START_REQUEST))
+    )
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "AI 스토리 처음부터 시작 성공",
@@ -180,11 +185,11 @@ public class AiStoryProxyController {
     )
     @PostMapping("/stories/play/start")
     public ApiResponse<Object> startStory(@AuthenticationPrincipal AuthUser authUser,
-                                          @RequestBody String request,
+                                          @Valid @RequestBody AiStoryPlayStartRequest request,
                                           HttpServletRequest servletRequest) {
         return ApiResponse.ok("AI 스토리를 처음부터 시작했습니다.", aiProxyService.post(
                 "/stories/play/start",
-                aiStoryRequestFactory.withAuthenticatedUserId(request, authUser.userId()),
+                aiStoryRequestFactory.fromStartRequest(request, authUser.userId()),
                 authorizationHeader(servletRequest)
         ));
     }
