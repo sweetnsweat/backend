@@ -302,7 +302,7 @@ class AiStoryProxyControllerTest {
         assertThat(paths.containsKey("/api/stories/quests/today")).isFalse();
         assertThat(paths.containsKey("/api/stories/quests")).isFalse();
         assertThat(paths.containsKey("/api/stories/quests/{questId}")).isFalse();
-        assertThat(paths.containsKey("/api/stories/play/start")).isFalse();
+        assertThat(paths.containsKey("/api/stories/play/start")).isTrue();
         assertThat(paths.containsKey("/api/stories/play/continue")).isFalse();
         assertThat(paths.containsKey("/api/stories/play/choose")).isFalse();
         assertThat(paths.containsKey("/api/stories/play/next-chapter")).isFalse();
@@ -324,6 +324,8 @@ class AiStoryProxyControllerTest {
         assertThat(apiDocsJson).contains("AI 스토리 진행 응답을 조회했습니다.");
         assertThat(apiDocsJson).contains("workout_quest");
         assertThat(apiDocsJson).contains("character_image_url");
+        assertThat(apiDocsJson).contains("AI 스토리를 처음부터 시작했습니다.");
+        assertThat(apiDocsJson).contains("opening_characters");
         assertThat(apiDocsJson).contains("AI 세계관 목록을 조회했습니다.");
         assertThat(apiDocsJson).contains("representative_character");
     }

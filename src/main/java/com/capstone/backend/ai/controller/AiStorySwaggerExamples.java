@@ -115,6 +115,55 @@ final class AiStorySwaggerExamples {
             }
             """;
 
+    static final String START_RESPONSE = """
+            {
+              "success": true,
+              "code": "OK",
+              "message": "AI 스토리를 처음부터 시작했습니다.",
+              "timestamp": "2026-05-05T18:40:00+09:00",
+              "data": {
+                "server_time": "2026-05-06T10:40:00+09:00",
+                "chapter_num": 1,
+                "phase": "DETAIL",
+                "unit_index": 1,
+                "total_units": 4,
+                "narration": "낯선 신전의 공기가 폐부 깊숙이 스며든다...",
+                "opening_summary": "제국의 변방 신전에서 눈을 뜬 당신은 자신이 왜 이곳에 남겨졌는지 알지 못한다. 바깥에서는 오래 숨겨진 예언을 둘러싼 기척이 움직이고, 낯선 인물이 당신의 침묵을 깨뜨리려 다가온다.",
+                "opening_characters": [
+                  {
+                    "character_name": "리안",
+                    "name": "리안",
+                    "description": "제국의 황태자. 신전의 이상한 침묵을 확인하기 위해 이곳에 왔으며, 당신을 경계하면서도 쉽게 외면하지 못한다.",
+                    "image_url": "/media/assets/character_lian.png",
+                    "character_image_url": "/media/assets/character_lian.png",
+                    "character_title": "차가운 황태자",
+                    "representativeCharacterTitle": "차가운 황태자"
+                  }
+                ],
+                "dialogue": [
+                  {
+                    "character_name": "리안",
+                    "name": "리안",
+                    "dialogue": "당신, 여기가 어디인지 정말 모르는 건가?",
+                    "image_url": "/media/assets/character_lian.png",
+                    "character_image_url": "/media/assets/character_lian.png",
+                    "character_title": "차가운 황태자",
+                    "representativeCharacterTitle": "차가운 황태자"
+                  }
+                ],
+                "question_text": "지금은 어떻게 반응할까?",
+                "choices": [
+                  {
+                    "choice_id": 900111,
+                    "choice_order": 1,
+                    "choice_text": "지금 여기가 어디인지 조심스럽게 묻는다.",
+                    "choice_kind": "minor"
+                  }
+                ]
+              }
+            }
+            """;
+
     static final String HISTORY_RESPONSE = """
             {
               "success": true,
