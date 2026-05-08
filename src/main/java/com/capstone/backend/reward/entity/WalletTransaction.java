@@ -19,6 +19,7 @@ import java.time.Instant;
 public class WalletTransaction {
 
     public static final String TX_TYPE_QUEST_REWARD = "quest_reward";
+    public static final String TX_TYPE_PURCHASE = "purchase";
     public static final String REF_TYPE_USER_QUEST = "user_quest";
 
     @Id
@@ -60,6 +61,16 @@ public class WalletTransaction {
         transaction.amount = amount;
         transaction.refType = REF_TYPE_USER_QUEST;
         transaction.refId = questId;
+        transaction.memo = memo;
+        return transaction;
+    }
+
+    public static WalletTransaction purchase(User user, int amount, Long itemId, String memo) {
+        WalletTransaction transaction = new WalletTransaction();
+        transaction.user = user;
+        transaction.txType = TX_TYPE_PURCHASE;
+        transaction.amount = -Math.abs(amount);
+        transaction.itemId = itemId;
         transaction.memo = memo;
         return transaction;
     }

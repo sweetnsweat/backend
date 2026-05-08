@@ -78,54 +78,39 @@ final class AiStorySwaggerExamples {
               "message": "AI 스토리 진행 응답을 조회했습니다.",
               "timestamp": "2026-05-05T18:40:00+09:00",
               "data": {
+                "server_time": "2026-05-06T10:40:00+09:00",
                 "chapter_num": 1,
+                "phase": "DETAIL",
+                "unit_index": 1,
+                "total_units": 4,
+                "narration": "낯선 신전의 공기가 폐부 깊숙이 스며든다...",
+                "dialogue": [
+                  {
+                    "character_name": "리안",
+                    "name": "리안",
+                    "dialogue": "당신, 여기가 어디인지 정말 모르는 건가?",
+                    "image_url": "/media/assets/character_lian.png",
+                    "character_image_url": "/media/assets/character_lian.png",
+                    "character_title": "차가운 황태자",
+                    "representativeCharacterTitle": "차가운 황태자"
+                  }
+                ],
+                "question_text": "지금은 어떻게 반응할까?",
                 "choices": [
                   {
                     "choice_id": 900111,
-                    "choice_kind": "minor",
                     "choice_order": 1,
-                    "choice_text": "지금 여기가 어디인지 조심스럽게 묻는다."
+                    "choice_text": "지금 여기가 어디인지 조심스럽게 묻는다.",
+                    "choice_kind": "minor"
                   }
                 ],
-                "dialogue": [
-                  {
-                    "character_image_url": "/media/assets/character_lian.png",
-                    "character_name": "리안",
-                    "dialogue": "당신, 여기가 어디인지 정말 모르는 건가?",
-                    "name": "리안",
-                    "representativeCharacterTitle": "차가운 황태자"
-                  }
-                ],
+                "workout_quest_id": null,
+                "quest_api_url": null,
+                "workout_quest": null,
                 "is_chapter_completed": false,
                 "is_story_completed": false,
-                "narration": "낯선 신전의 공기가 폐부 깊숙이 스며든다...",
-                "opening_characters": [
-                  {
-                    "character_image_url": "/media/assets/character_lian.png",
-                    "character_name": "리안",
-                    "description": "제국의 황태자. 신전의 이상한 침묵을 확인하기 위해 이곳에 왔으며, 당신을 경계하면서도 쉽게 외면하지 못한다.",
-                    "name": "리안",
-                    "representativeCharacterTitle": "차가운 황태자"
-                  }
-                ],
-                "opening_summary": "제국의 변방 신전에서 눈을 뜬 당신은 자신이 왜 이곳에 남겨졌는지 알지 못한다. 바깥에서는 오래 숨겨진 예언을 둘러싼 기척이 움직이고, 낯선 인물이 당신의 침묵을 깨뜨리려 다가온다.",
-                "phase": "DETAIL",
-                "question_text": "이 낯선 환경에서 나는 어떻게 행동할까?",
-                "scenario_id": 2,
-                "scene_state": {
-                  "active_characters": [
-                    "리안"
-                  ],
-                  "current_goal": "눈앞의 인물과 현재 상황을 파악한다.",
-                  "current_location": "변방 신전",
-                  "forbidden_repeats": [],
-                  "known_facts": [
-                    "플레이어는 낯선 장소에서 깨어났다."
-                  ]
-                },
-                "server_time": "2026-04-30T14:58:33+09:00",
-                "total_units": 4,
-                "unit_index": 1
+                "ending_type": null,
+                "ending_text": null
               }
             }
             """;
@@ -148,6 +133,12 @@ final class AiStorySwaggerExamples {
                   {
                     "role": "assistant",
                     "character_name": "리안",
+                    "name": "리안",
+                    "image_url": "/media/assets/character_lian.png",
+                    "character_image_url": "/media/assets/character_lian.png",
+                    "character_title": "차가운 황태자",
+                    "representativeCharacterTitle": "차가운 황태자",
+                    "character_type": "황태자",
                     "content": "당신, 여기가 어디인지 정말 모르는 건가?",
                     "quest_id": null,
                     "workout_quest": null

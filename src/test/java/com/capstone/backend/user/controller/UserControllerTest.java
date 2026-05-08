@@ -54,6 +54,7 @@ class UserControllerTest {
     void cleanup() {
         jdbcTemplate.update("delete from user_quests");
         jdbcTemplate.update("delete from user_exp_logs");
+        jdbcTemplate.update("delete from user_items");
         jdbcTemplate.update("delete from wallet_transactions");
         jdbcTemplate.update("delete from wallets");
         jdbcTemplate.update("delete from user_favorite_exercises");
@@ -149,6 +150,66 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.message").value("사용자 정보가 수정되었습니다."))
                 .andExpect(jsonPath("$.data.nickname").value("After Nick"))
                 .andExpect(jsonPath("$.data.email").value("after@example.com"));
+    }
+
+    @Test
+    void updateNicknameChangesOnlyNickname() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+
+        User user = userRepository.save(User.createLocalUser("nicknameUpdateUser", "encoded-password", "Before Nick", "before@example.com", null));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+
+        mockMvc.perform(put("/api/users/me/nickname")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "nickname": "After Nick"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("닉네임이 변경되었습니다."))
+                .andExpect(jsonPath("$.data.nickname").value("After Nick"))
+                .andExpect(jsonPath("$.data.email").value("before@example.com"));
+    }
+
+    @Test
+    void updateNicknameRejectsDuplicateNickname() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+
+        userRepository.save(User.createLocalUser("nicknameOwner", "encoded-password", "Taken Nick"));
+        User user = userRepository.save(User.createLocalUser("nicknameDuplicateUser", "encoded-password", "Before Nick"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+
+        mockMvc.perform(put("/api/users/me/nickname")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "nickname": "Taken Nick"
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("NICKNAME_ALREADY_EXISTS"));
+    }
+
+    @Test
+    void updateNicknameRejectsBlankNickname() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+
+        User user = userRepository.save(User.createLocalUser("nicknameBlankUser", "encoded-password", "Before Nick"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+
+        mockMvc.perform(put("/api/users/me/nickname")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "nickname": " "
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
     @Test

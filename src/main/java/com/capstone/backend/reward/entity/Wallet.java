@@ -50,6 +50,13 @@ public class Wallet {
         this.balanceCurrency = getBalanceCurrency() + amount;
     }
 
+    public void debit(int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        this.balanceCurrency = getBalanceCurrency() - amount;
+    }
+
     @PrePersist
     @PreUpdate
     void onUpdate() {

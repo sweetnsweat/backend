@@ -20,6 +20,7 @@ import com.capstone.backend.routine.repository.RoutineSessionRepository;
 import com.capstone.backend.user.dto.MyPageResponse;
 import com.capstone.backend.user.dto.OnboardingProfileRequest;
 import com.capstone.backend.user.dto.UpdateActiveRoutineRequest;
+import com.capstone.backend.user.dto.UpdateNicknameRequest;
 import com.capstone.backend.user.dto.UpdateProfileSettingsRequest;
 import com.capstone.backend.user.dto.UpdateUserInfoRequest;
 import com.capstone.backend.user.dto.WeeklyStatsResponse;
@@ -152,6 +153,17 @@ public class UserService {
         validateUniqueAccountInfo(user, nickname, email);
 
         user.updateAccountInfo(nickname, email, null);
+        return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
+    }
+
+    @Transactional
+    public UserProfileResponse updateNickname(Long userId, UpdateNicknameRequest request) {
+        User user = findUser(userId);
+        String nickname = normalize(request.nickname());
+        validateAnyUpdate(nickname);
+        validateUniqueAccountInfo(user, nickname, null);
+
+        user.updateAccountInfo(nickname, null, null);
         return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
     }
 

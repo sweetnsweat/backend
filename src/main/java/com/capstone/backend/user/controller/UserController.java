@@ -8,6 +8,7 @@ import com.capstone.backend.routine.dto.RoutineSummaryResponse;
 import com.capstone.backend.user.dto.MyPageResponse;
 import com.capstone.backend.user.dto.OnboardingProfileRequest;
 import com.capstone.backend.user.dto.UpdateActiveRoutineRequest;
+import com.capstone.backend.user.dto.UpdateNicknameRequest;
 import com.capstone.backend.user.dto.UpdateProfileSettingsRequest;
 import com.capstone.backend.user.dto.UpdateUserInfoRequest;
 import com.capstone.backend.user.dto.WeeklyStatsResponse;
@@ -60,6 +61,13 @@ public class UserController {
     public ApiResponse<UserProfileResponse> updateUserInfo(@AuthenticationPrincipal AuthUser authUser,
                                                            @Valid @RequestBody UpdateUserInfoRequest request) {
         return ApiResponse.ok("사용자 정보가 수정되었습니다.", userService.updateUserInfo(authUser.userId(), request));
+    }
+
+    @Operation(summary = "닉네임 변경", description = "현재 로그인한 사용자의 닉네임만 변경합니다.")
+    @PutMapping("/me/nickname")
+    public ApiResponse<UserProfileResponse> updateNickname(@AuthenticationPrincipal AuthUser authUser,
+                                                           @Valid @RequestBody UpdateNicknameRequest request) {
+        return ApiResponse.ok("닉네임이 변경되었습니다.", userService.updateNickname(authUser.userId(), request));
     }
 
     @Operation(summary = "프로필 설정", description = "마이페이지 프로필 카드에 표시할 닉네임과 프로필 이미지 URL을 설정합니다.")

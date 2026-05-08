@@ -322,7 +322,8 @@ class AiStoryProxyControllerTest {
         assertThat(parameterNames).contains("scenario_id", "limit", "offset");
         assertThat(parameterNames).doesNotContain("user_id");
         assertThat(apiDocsJson).contains("AI 스토리 진행 응답을 조회했습니다.");
-        assertThat(apiDocsJson).contains("opening_characters");
+        assertThat(apiDocsJson).contains("workout_quest");
+        assertThat(apiDocsJson).contains("character_image_url");
         assertThat(apiDocsJson).contains("AI 세계관 목록을 조회했습니다.");
         assertThat(apiDocsJson).contains("representative_character");
     }
