@@ -31,6 +31,10 @@ pipeline {
         MAIL_SMTP_AUTH = 'true'
         MAIL_SMTP_SSL_ENABLE = 'true'
         MAIL_SMTP_STARTTLS_ENABLE = 'false'
+        FIREBASE_ENABLED = 'true'
+        FIREBASE_PROJECT_ID = 'sweetnsweat-9c052'
+        FIREBASE_SERVICE_ACCOUNT_HOST_PATH = '/home/dy/secrets/firebase-service-account.json'
+        FIREBASE_SERVICE_ACCOUNT_CONTAINER_PATH = '/run/secrets/firebase-service-account.json'
         VERIFY_BASE_URL = 'http://host.docker.internal:8080'
     }
 
@@ -60,6 +64,11 @@ pipeline {
                         docker rm -f "${REDIS_CONTAINER}" >/dev/null 2>&1 || true
                         docker rm -f "${APP_CONTAINER}" >/dev/null 2>&1 || true
 
+                        if [ ! -f "${FIREBASE_SERVICE_ACCOUNT_HOST_PATH}" ]; then
+                          echo "Firebase service account not found: ${FIREBASE_SERVICE_ACCOUNT_HOST_PATH}"
+                          exit 1
+                        fi
+
                         docker run -d \
                           --name "${REDIS_CONTAINER}" \
                           --network "${DOCKER_NETWORK}" \
@@ -72,6 +81,7 @@ pipeline {
                           --network "${DOCKER_NETWORK}" \
                           --restart unless-stopped \
                           -p "${APP_PORT}:8080" \
+                          -v "${FIREBASE_SERVICE_ACCOUNT_HOST_PATH}:${FIREBASE_SERVICE_ACCOUNT_CONTAINER_PATH}:ro" \
                           -e SERVER_PORT=8080 \
                           -e DB_URL="${DB_URL}" \
                           -e DB_USERNAME="${DB_USERNAME}" \
@@ -89,6 +99,9 @@ pipeline {
                           -e MAIL_SMTP_AUTH="${MAIL_SMTP_AUTH}" \
                           -e MAIL_SMTP_SSL_ENABLE="${MAIL_SMTP_SSL_ENABLE}" \
                           -e MAIL_SMTP_STARTTLS_ENABLE="${MAIL_SMTP_STARTTLS_ENABLE}" \
+                          -e FIREBASE_ENABLED="${FIREBASE_ENABLED}" \
+                          -e FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID}" \
+                          -e FIREBASE_SERVICE_ACCOUNT_PATH="${FIREBASE_SERVICE_ACCOUNT_CONTAINER_PATH}" \
                           "${APP_IMAGE}"
                     '''
                 }
