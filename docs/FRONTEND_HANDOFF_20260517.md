@@ -10,7 +10,7 @@ feat: update account profile edit request
 프론트 반영 대상:
 
 - 임시 비밀번호 메일 발송 요청에 `loginId` 추가
-- 사용자 정보 수정 요청에 `gender`, `heightCm`, `weightKg` 추가
+- 사용자 정보 수정 요청에 `gender`, `birthDate`, `heightCm`, `weightKg` 추가
 
 ## 1. 임시 비밀번호 메일 발송
 
@@ -71,7 +71,7 @@ Authorization: Bearer {accessToken}
 Content-Type: application/json
 ```
 
-닉네임, 이메일뿐 아니라 성별, 키, 몸무게도 같은 API에서 수정한다. 수정할 필드만 보내면 된다.
+닉네임, 이메일뿐 아니라 성별, 생년월일, 키, 몸무게도 같은 API에서 수정한다. 수정할 필드만 보내면 된다.
 
 요청:
 
@@ -80,6 +80,7 @@ Content-Type: application/json
   "nickname": "새닉네임",
   "email": "new@example.com",
   "gender": "female",
+  "birthDate": "2002-05-20",
   "heightCm": 164.5,
   "weightKg": 58.2
 }
@@ -92,6 +93,7 @@ Content-Type: application/json
 | `nickname` | X | 2~50자 | 보낸 경우 닉네임 중복 검사 |
 | `email` | X | 이메일 형식, 최대 255자 | 빈 문자열은 수정 안 함 처리 |
 | `gender` | X | `male`, `female`, `prefer_not_to_say` | 빈 문자열은 수정 안 함 처리 |
+| `birthDate` | X | `YYYY-MM-DD`, 오늘보다 과거 날짜 | 생년월일 |
 | `heightCm` | X | 50.0~250.0 | cm 단위 |
 | `weightKg` | X | 20.0~300.0 | kg 단위 |
 
@@ -108,6 +110,7 @@ Content-Type: application/json
     "nickname": "새닉네임",
     "email": "new@example.com",
     "gender": "female",
+    "birthDate": "2002-05-20",
     "heightCm": 164.5,
     "weightKg": 58.2,
     "profileImageUrl": null,
@@ -123,7 +126,7 @@ Content-Type: application/json
 
 - 요청 바디에 수정할 값이 하나도 없으면 실패한다.
 - 휴대폰 번호는 받지 않는다.
-- 생년월일, 운동 경험, 운동 목표, 선호 운동 유형은 이 API 수정 범위가 아니다.
+- 운동 경험, 운동 목표, 선호 운동 유형은 이 API 수정 범위가 아니다.
 - 프로필 이미지는 기존 `PUT /api/users/me/profile`을 사용한다.
 
 주요 실패:
@@ -131,6 +134,6 @@ Content-Type: application/json
 | status | code | case |
 | --- | --- | --- |
 | 400 | `NO_UPDATE_FIELDS` | 수정할 필드가 하나도 없음 |
-| 400 | `VALIDATION_ERROR` | 성별 값 오류, 키/몸무게 범위 오류, 이메일 형식 오류 등 |
+| 400 | `VALIDATION_ERROR` | 성별 값 오류, 생년월일 미래 날짜, 키/몸무게 범위 오류, 이메일 형식 오류 등 |
 | 409 | `NICKNAME_ALREADY_EXISTS` | 이미 사용 중인 닉네임 |
 | 409 | `EMAIL_ALREADY_EXISTS` | 이미 등록된 이메일 |

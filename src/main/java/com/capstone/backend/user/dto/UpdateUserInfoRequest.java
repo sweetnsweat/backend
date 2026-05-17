@@ -3,9 +3,11 @@ package com.capstone.backend.user.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Schema(description = "사용자 정보 수정 요청")
 public record UpdateUserInfoRequest(
@@ -24,6 +26,10 @@ public record UpdateUserInfoRequest(
         @Schema(description = "성별. 남성 male, 여성 female, 응답 안 함 prefer_not_to_say", example = "female")
         @Pattern(regexp = "^$|male|female|prefer_not_to_say", message = "성별 값이 올바르지 않습니다.")
         String gender,
+
+        @Schema(description = "생년월일. YYYY-MM-DD 형식이며 오늘보다 과거 날짜여야 합니다.", example = "2002-05-20")
+        @Past(message = "생년월일은 오늘보다 과거 날짜여야 합니다.")
+        LocalDate birthDate,
 
         @Schema(description = "키(cm). 50.0 이상 250.0 이하", example = "164.5")
         @DecimalMin(value = "50.0", message = "키는 50.0cm 이상이어야 합니다.")

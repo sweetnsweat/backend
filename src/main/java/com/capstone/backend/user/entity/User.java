@@ -163,9 +163,12 @@ public class User {
         }
     }
 
-    public void updateBodyProfile(String gender, BigDecimal heightCm, BigDecimal weightKg) {
+    public void updateBodyProfile(String gender, LocalDate birthDate, BigDecimal heightCm, BigDecimal weightKg) {
         if (gender != null) {
             this.gender = gender;
+        }
+        if (birthDate != null) {
+            this.birthDate = birthDate;
         }
         if (heightCm != null) {
             this.heightCm = heightCm;

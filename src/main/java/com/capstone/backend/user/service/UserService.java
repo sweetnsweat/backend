@@ -150,11 +150,11 @@ public class UserService {
         String nickname = normalize(request.nickname());
         String email = normalize(request.email());
         String gender = normalize(request.gender());
-        validateAnyUpdate(nickname, email, gender, request.heightCm(), request.weightKg());
+        validateAnyUpdate(nickname, email, gender, request.birthDate(), request.heightCm(), request.weightKg());
         validateUniqueAccountInfo(user, nickname, email);
 
         user.updateAccountInfo(nickname, email, null);
-        user.updateBodyProfile(gender, request.heightCm(), request.weightKg());
+        user.updateBodyProfile(gender, request.birthDate(), request.heightCm(), request.weightKg());
         return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
     }
 

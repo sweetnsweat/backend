@@ -145,6 +145,7 @@ class UserControllerTest {
                                   "nickname": "After Nick",
                                   "email": "after@example.com",
                                   "gender": "female",
+                                  "birthDate": "2002-05-20",
                                   "heightCm": 164.5,
                                   "weightKg": 58.2
                                 }
@@ -154,6 +155,7 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.nickname").value("After Nick"))
                 .andExpect(jsonPath("$.data.email").value("after@example.com"))
                 .andExpect(jsonPath("$.data.gender").value("female"))
+                .andExpect(jsonPath("$.data.birthDate").value("2002-05-20"))
                 .andExpect(jsonPath("$.data.heightCm").value(164.5))
                 .andExpect(jsonPath("$.data.weightKg").value(58.2));
     }
@@ -171,6 +173,7 @@ class UserControllerTest {
                         .content("""
                                 {
                                   "gender": "unknown",
+                                  "birthDate": "2999-01-01",
                                   "heightCm": 20,
                                   "weightKg": 10
                                 }
