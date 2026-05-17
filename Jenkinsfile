@@ -64,11 +64,6 @@ pipeline {
                         docker rm -f "${REDIS_CONTAINER}" >/dev/null 2>&1 || true
                         docker rm -f "${APP_CONTAINER}" >/dev/null 2>&1 || true
 
-                        if [ ! -f "${FIREBASE_SERVICE_ACCOUNT_HOST_PATH}" ]; then
-                          echo "Firebase service account not found: ${FIREBASE_SERVICE_ACCOUNT_HOST_PATH}"
-                          exit 1
-                        fi
-
                         docker run -d \
                           --name "${REDIS_CONTAINER}" \
                           --network "${DOCKER_NETWORK}" \
