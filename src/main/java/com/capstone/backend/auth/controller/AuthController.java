@@ -65,7 +65,7 @@ public class AuthController {
         return ApiResponse.ok("아이디 안내 메일을 발송했습니다.");
     }
 
-    @Operation(summary = "임시 비밀번호 메일 발송", description = "가입 시 등록한 이메일로 임시 비밀번호를 발송하고, 기존 비밀번호를 즉시 임시 비밀번호로 변경합니다.")
+    @Operation(summary = "임시 비밀번호 메일 발송", description = "로그인 아이디와 가입 이메일이 일치하는 계정에 임시 비밀번호를 발송하고, 기존 비밀번호를 즉시 임시 비밀번호로 변경합니다.")
     @PostMapping("/password-reset/request")
     public ApiResponse<Void> requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {
         authService.requestPasswordReset(request);

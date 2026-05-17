@@ -211,16 +211,31 @@ class AuthServiceTest {
         RefreshToken refreshToken = RefreshToken.issue(user, "refresh-hash", Instant.now().plusSeconds(7200));
         ReflectionTestUtils.setField(user, "email", "demo@example.com");
 
-        when(userRepository.findFirstByEmail("demo@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByLoginIdAndEmail("demoUser", "demo@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.encode(anyString())).thenReturn("temporary-encoded-password");
         when(refreshTokenRepository.findByUser_IdAndRevokedAtIsNull(1L)).thenReturn(List.of(refreshToken));
 
-        authService.requestPasswordReset(new PasswordResetRequest("demo@example.com"));
+        authService.requestPasswordReset(new PasswordResetRequest("demoUser", "demo@example.com"));
 
         assertEquals("temporary-encoded-password", user.getPasswordHash());
         verify(authMailService).sendTemporaryPassword(eq("demo@example.com"), eq("Demo Nick"), anyString());
         verify(jwtTokenService).deleteRefreshTokenHash("refresh-hash");
         verify(refreshTokenRepository).saveAll(any());
+    }
+
+    @Test
+    void requestPasswordResetFailsWhenLoginIdAndEmailDoNotMatch() {
+        when(userRepository.findByLoginIdAndEmail("demoUser", "other@example.com")).thenReturn(Optional.empty());
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> authService.requestPasswordReset(new PasswordResetRequest("demoUser", "other@example.com"))
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+        assertEquals("USER_NOT_FOUND", exception.getCode());
+        verify(authMailService, never()).sendTemporaryPassword(anyString(), anyString(), anyString());
+        verify(passwordEncoder, never()).encode(anyString());
     }
 
     @Test

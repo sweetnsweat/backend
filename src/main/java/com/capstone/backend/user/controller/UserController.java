@@ -56,7 +56,7 @@ public class UserController {
         return ApiResponse.ok("온보딩 프로필이 저장되었습니다.", userService.updateOnboardingProfile(authUser.userId(), request));
     }
 
-    @Operation(summary = "사용자 정보 수정", description = "마이페이지에서 닉네임과 이메일 같은 계정 정보를 수정합니다.")
+    @Operation(summary = "사용자 정보 수정", description = "마이페이지에서 닉네임, 이메일, 성별, 키, 몸무게를 수정합니다.")
     @PutMapping("/me")
     public ApiResponse<UserProfileResponse> updateUserInfo(@AuthenticationPrincipal AuthUser authUser,
                                                            @Valid @RequestBody UpdateUserInfoRequest request) {

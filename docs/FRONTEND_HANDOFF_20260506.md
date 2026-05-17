@@ -224,6 +224,7 @@ Content-Type: application/json
 
 ```json
 {
+  "loginId": "demoUser",
   "email": "demo@example.com"
 }
 ```
@@ -270,6 +271,7 @@ Content-Type: application/json
 동작:
 
 - 백엔드가 10자리 임시 비밀번호를 생성한다.
+- `loginId`와 `email`이 같은 계정에 등록된 정보인지 확인한다.
 - 기존 비밀번호는 즉시 임시 비밀번호로 변경된다.
 - 기존 refresh token은 폐기된다.
 - 메일에는 임시 비밀번호만 포함된다.
@@ -372,12 +374,15 @@ Authorization: Bearer {accessToken}
 Content-Type: application/json
 ```
 
-닉네임과 이메일만 수정한다. 휴대폰 번호는 받지 않는다.
+닉네임, 이메일, 성별, 키, 몸무게를 수정한다. 수정할 필드만 보내면 되고 휴대폰 번호는 받지 않는다.
 
 ```json
 {
   "nickname": "새닉네임",
-  "email": "new@example.com"
+  "email": "new@example.com",
+  "gender": "female",
+  "heightCm": 164.5,
+  "weightKg": 58.2
 }
 ```
 

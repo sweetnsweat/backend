@@ -131,7 +131,7 @@ class UserControllerTest {
     }
 
     @Test
-    void updateUserInfoChangesNicknameAndEmail() throws Exception {
+    void updateUserInfoChangesAccountAndBodyProfile() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
 
         User user = userRepository.save(User.createLocalUser("updateInfoUser", "encoded-password", "Before Nick"));
@@ -143,13 +143,40 @@ class UserControllerTest {
                         .content("""
                                 {
                                   "nickname": "After Nick",
-                                  "email": "after@example.com"
+                                  "email": "after@example.com",
+                                  "gender": "female",
+                                  "heightCm": 164.5,
+                                  "weightKg": 58.2
                                 }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("사용자 정보가 수정되었습니다."))
                 .andExpect(jsonPath("$.data.nickname").value("After Nick"))
-                .andExpect(jsonPath("$.data.email").value("after@example.com"));
+                .andExpect(jsonPath("$.data.email").value("after@example.com"))
+                .andExpect(jsonPath("$.data.gender").value("female"))
+                .andExpect(jsonPath("$.data.heightCm").value(164.5))
+                .andExpect(jsonPath("$.data.weightKg").value(58.2));
+    }
+
+    @Test
+    void updateUserInfoRejectsInvalidBodyProfile() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+
+        User user = userRepository.save(User.createLocalUser("invalidUpdateInfoUser", "encoded-password", "Before Nick"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+
+        mockMvc.perform(put("/api/users/me")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "gender": "unknown",
+                                  "heightCm": 20,
+                                  "weightKg": 10
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
     @Test

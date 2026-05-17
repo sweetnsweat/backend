@@ -109,12 +109,17 @@ public class AuthService {
 
     @Transactional
     public void requestPasswordReset(PasswordResetRequest request) {
+        String loginId = normalize(request.loginId());
+        if (loginId == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "LOGIN_ID_REQUIRED", "로그인 아이디를 입력해 주세요.");
+        }
+
         String email = normalize(request.email());
         if (email == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "EMAIL_REQUIRED", "이메일을 입력해 주세요.");
         }
 
-        User user = userRepository.findFirstByEmail(email)
+        User user = userRepository.findByLoginIdAndEmail(loginId, email)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "일치하는 계정을 찾을 수 없습니다."));
 
         String temporaryPassword = issueTemporaryPassword();

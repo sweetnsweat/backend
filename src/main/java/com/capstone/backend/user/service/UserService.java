@@ -149,10 +149,12 @@ public class UserService {
         User user = findUser(userId);
         String nickname = normalize(request.nickname());
         String email = normalize(request.email());
-        validateAnyUpdate(nickname, email);
+        String gender = normalize(request.gender());
+        validateAnyUpdate(nickname, email, gender, request.heightCm(), request.weightKg());
         validateUniqueAccountInfo(user, nickname, email);
 
         user.updateAccountInfo(nickname, email, null);
+        user.updateBodyProfile(gender, request.heightCm(), request.weightKg());
         return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
     }
 
@@ -363,8 +365,8 @@ public class UserService {
         }
     }
 
-    private void validateAnyUpdate(String... values) {
-        for (String value : values) {
+    private void validateAnyUpdate(Object... values) {
+        for (Object value : values) {
             if (value != null) {
                 return;
             }

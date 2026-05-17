@@ -163,6 +163,18 @@ public class User {
         }
     }
 
+    public void updateBodyProfile(String gender, BigDecimal heightCm, BigDecimal weightKg) {
+        if (gender != null) {
+            this.gender = gender;
+        }
+        if (heightCm != null) {
+            this.heightCm = heightCm;
+        }
+        if (weightKg != null) {
+            this.weightKg = weightKg;
+        }
+    }
+
     public void changePassword(String passwordHash) {
         this.passwordHash = passwordHash;
     }
