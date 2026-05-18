@@ -43,6 +43,51 @@ git pull --ff-only origin main
 
 Jenkins 배포는 `Jenkinsfile` 기준으로 `main` push 시 개발 서버 컨테이너를 재빌드한다. FCM 배포 쪽은 service account 파일을 컨테이너에 read-only mount하는 흐름이다.
 
+## Codespaces secrets 등록 상태
+
+2026-05-19 기준 GitHub repo `sweetnsweat/backend`의 Codespaces secrets에 아래 이름들이 등록되어 있다. 값은 GitHub secret으로만 저장되어 있고 레포에는 커밋하지 않는다.
+
+```text
+AI_BASE_URL
+API_REQUEST_LOGGING_ENABLED
+DB_PASSWORD
+DB_URL
+DB_USERNAME
+DEV_LOGS_ENABLED
+FIREBASE_ENABLED
+FIREBASE_PROJECT_ID
+JWT_ACCESS_TOKEN_SECONDS
+JWT_ISSUER
+JWT_REFRESH_TOKEN_SECONDS
+JWT_SECRET
+MEDIA_BASE_URL
+POSTGRES_PASSWORD
+REDIS_HOST
+REDIS_PORT
+SERVER_PORT
+```
+
+Codespaces 기본값은 Codespace 안에서 로컬 PostgreSQL/Redis를 띄워 개발하는 기준이다.
+
+- `POSTGRES_PASSWORD`와 `DB_PASSWORD`는 같은 랜덤 값으로 맞춰 두었다.
+- `DB_URL`은 `jdbc:postgresql://localhost:5432/postgres` 기준이다.
+- `REDIS_HOST`는 `localhost` 기준이다.
+- `AI_BASE_URL`, `MEDIA_BASE_URL`은 Codespace 내부에서 AI 서버를 같이 띄우는 전제로 `localhost:8000` 기준이다.
+- `FIREBASE_ENABLED=false`로 등록했다. Codespaces에는 Firebase service account JSON 파일이 없으므로 실제 FCM 발송은 개발 서버/Jenkins 설정을 사용한다.
+
+Codespaces에서 backend만 빠르게 띄울 때는 Postgres/Redis를 먼저 준비하고 다음 중 하나를 사용한다.
+
+```bash
+docker compose up -d postgres redis
+./gradlew bootRun
+```
+
+또는 backend까지 컨테이너로 실행한다.
+
+```bash
+docker compose up -d --build
+```
+
 ## 현재 구현된 백엔드 기능
 
 ### 인증/회원
