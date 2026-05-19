@@ -126,6 +126,32 @@ docker compose up -d postgres redis
 docker compose up -d --build
 ```
 
+## Codespaces DB dump 복원
+
+개발 서버 PostgreSQL 전체 dump를 아래 파일로 커밋해 두었다.
+
+```text
+db/codespaces/dev_server_postgres_full_20260519.sql.gz
+```
+
+이 dump는 개발 서버의 현재 DB 전체를 기준으로 한다. 사용자, refresh token, password reset token, push token, story play log 같은 개발 데이터도 포함되어 있다. 외부 공유용 seed가 아니라 private backend repo 안에서 Codespaces 재현용으로만 사용한다.
+
+Codespaces에서 로컬 Postgres 컨테이너를 띄운 뒤 복원한다.
+
+```bash
+docker compose up -d postgres redis
+gzip -cd db/codespaces/dev_server_postgres_full_20260519.sql.gz | docker exec -i postgres-db psql -U postgres -d postgres -v ON_ERROR_STOP=1
+```
+
+복원 확인:
+
+```bash
+docker exec postgres-db psql -U postgres -d postgres -Atc "select count(*) from users"
+docker exec postgres-db psql -U postgres -d postgres -Atc "select count(*) from scenarios"
+```
+
+주의: dump는 `--clean --if-exists` 옵션으로 생성되어 복원 시 기존 public schema 객체를 지우고 다시 만든다. Codespaces 로컬 DB에 보존해야 할 데이터가 있으면 먼저 별도 백업한다.
+
 ## 현재 구현된 백엔드 기능
 
 ### 인증/회원
