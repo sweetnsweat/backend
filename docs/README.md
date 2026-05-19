@@ -14,6 +14,7 @@
 
 | 문서 | 용도 |
 | --- | --- |
+| `CODESPACES_QUICKSTART.md` | 외부 컴퓨터에서 Codespaces로 백엔드 개발을 바로 시작하는 실행 순서 |
 | `CODESPACES_BACKEND_HANDOFF_20260519.md` | Codespaces에서 백엔드 작업을 이어갈 때 AI가 먼저 읽을 프로젝트/구현/남은 작업 맥락 |
 | `FRONTEND_HANDOFF_20260506.md` | 2026-05-06 기준 스토리 채팅 목록/입장 정보 API, 임시 비밀번호 계정 복구, 닉네임 중복 체크, 마이페이지/계정 수정 요약 |
 | `FRONTEND_HANDOFF_20260505.md` | 2026-05-05 기준 세계관 이미지 절대 URL, 세계관 카드 미리보기 API, AI 스토리 프록시 최신화, 개발 서버 테스트 데이터 요약 |
@@ -33,11 +34,12 @@
 
 ## 현재 프론트 우선 확인 순서
 
-1. `CODESPACES_BACKEND_HANDOFF_20260519.md`
-2. `FRONTEND_HANDOFF_20260506.md`
-3. `FRONTEND_HANDOFF_20260505.md`
-4. `FRONTEND_HANDOFF_20260504.md`
-5. `FRONTEND_HANDOFF_20260502.md`
-6. `FRONTEND_DEVELOPMENT_SUMMARY_20260501.md`
-7. 필요한 기능별 상세 문서
-8. Swagger UI 또는 `/v3/api-docs.yaml`
+1. `CODESPACES_QUICKSTART.md`
+2. `CODESPACES_BACKEND_HANDOFF_20260519.md`
+3. `FRONTEND_HANDOFF_20260506.md`
+4. `FRONTEND_HANDOFF_20260505.md`
+5. `FRONTEND_HANDOFF_20260504.md`
+6. `FRONTEND_HANDOFF_20260502.md`
+7. `FRONTEND_DEVELOPMENT_SUMMARY_20260501.md`
+8. 필요한 기능별 상세 문서
+9. Swagger UI 또는 `/v3/api-docs.yaml`
