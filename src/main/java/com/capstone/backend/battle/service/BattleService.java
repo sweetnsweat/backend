@@ -18,6 +18,7 @@ import com.capstone.backend.battle.repository.BattleParticipantRepository;
 import com.capstone.backend.battle.repository.BattleRepository;
 import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.global.time.KoreanTime;
+import com.capstone.backend.notification.service.NotificationService;
 import com.capstone.backend.quest.entity.UserQuest;
 import com.capstone.backend.quest.repository.UserQuestRepository;
 import com.capstone.backend.user.entity.User;
@@ -51,15 +52,18 @@ public class BattleService {
     private final BattleParticipantRepository battleParticipantRepository;
     private final UserQuestRepository userQuestRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public BattleService(BattleRepository battleRepository,
                          BattleParticipantRepository battleParticipantRepository,
                          UserQuestRepository userQuestRepository,
-                         UserRepository userRepository) {
+                         UserRepository userRepository,
+                         NotificationService notificationService) {
         this.battleRepository = battleRepository;
         this.battleParticipantRepository = battleParticipantRepository;
         this.userQuestRepository = userQuestRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional(readOnly = true)
@@ -101,10 +105,11 @@ public class BattleService {
                 period.startsAt(),
                 period.endsAt()
         ));
-        battleParticipantRepository.saveAll(List.of(
+        List<BattleParticipant> participants = battleParticipantRepository.saveAll(List.of(
                 BattleParticipant.join(battle, currentUser),
                 BattleParticipant.join(battle, opponent)
         ));
+        notificationService.sendBattleMatched(battle, participants);
         return toDetail(battle, userId);
     }
 
@@ -200,6 +205,7 @@ public class BattleService {
         first.finalizeResult(firstStats.totalScore(), firstResult);
         second.finalizeResult(secondStats.totalScore(), secondResult);
         battle.finalizeBattle(KoreanTime.nowInstant());
+        notificationService.sendBattleResultReady(battle, participants);
     }
 
     private BattleDetailResponse toDetail(Battle battle, Long currentUserId) {

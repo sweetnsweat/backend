@@ -37,6 +37,16 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("""
             select user
             from User user
+            where user.status = 'active'
+              and user.pushEnabled = true
+              and user.pushRoutineEnabled = true
+            order by user.id asc
+            """)
+    List<User> findWeeklyStatsPushCandidates();
+
+    @Query("""
+            select user
+            from User user
             where user.id <> :userId
               and user.status = 'active'
               and not exists (

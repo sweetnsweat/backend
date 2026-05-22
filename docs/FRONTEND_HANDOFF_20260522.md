@@ -601,7 +601,101 @@ type BattleDetail = {
 
 ---
 
-## 3. 프론트 구현 순서 권장
+## 3. FCM 1차 이벤트 알림
+
+FCM token 등록 흐름은 기존과 동일하다.
+
+```http
+POST /api/push-tokens
+Authorization: Bearer {accessToken}
+Content-Type: application/json
+```
+
+```json
+{
+  "token": "{fcmRegistrationToken}",
+  "platform": "android",
+  "deviceId": "{optionalDeviceId}"
+}
+```
+
+백엔드가 아래 3가지 이벤트를 자동 발송한다.
+
+| type | 발생 시점 | 프론트 이동 |
+| --- | --- | --- |
+| `BATTLE_MATCHED` | 새 배틀 매칭 생성 직후 | 배틀 상세/진행 화면 |
+| `BATTLE_RESULT_READY` | 배틀 결과가 최초 확정된 직후 | 배틀 결과 화면 |
+| `WEEKLY_STATS_READY` | 매주 월요일 오전 9시 KST | 주간 통계 화면 |
+
+### 공통 수신 처리
+
+프론트는 FCM `data.type` 기준으로 라우팅하면 된다.
+
+```ts
+type PushNotificationType =
+  | 'BATTLE_MATCHED'
+  | 'BATTLE_RESULT_READY'
+  | 'WEEKLY_STATS_READY';
+
+type PushNotificationData = {
+  type: PushNotificationType;
+  route: string;
+  battleId?: string;
+  battleMode?: 'DAILY' | 'WEEKLY';
+  result?: 'WIN' | 'LOSS' | 'DRAW' | 'PENDING';
+  weekStartDate?: string;
+  weekEndDate?: string;
+};
+```
+
+### 배틀 매칭 완료
+
+```json
+{
+  "type": "BATTLE_MATCHED",
+  "route": "battle/detail",
+  "battleId": "12",
+  "battleMode": "DAILY"
+}
+```
+
+새 배틀이 생성된 경우에만 발송된다. 이미 진행 중인 배틀을 다시 조회하는 경우에는 중복 발송되지 않는다.
+
+### 배틀 결과 확정
+
+```json
+{
+  "type": "BATTLE_RESULT_READY",
+  "route": "battle/result",
+  "battleId": "12",
+  "battleMode": "DAILY",
+  "result": "WIN"
+}
+```
+
+배틀 종료 시간이 지난 뒤 결과가 최초 확정되는 순간에만 발송된다. 이미 확정된 결과를 다시 조회하는 경우에는 중복 발송되지 않는다.
+
+### 주간 통계 준비 완료
+
+```json
+{
+  "type": "WEEKLY_STATS_READY",
+  "route": "stats/weekly",
+  "weekStartDate": "2026-05-11",
+  "weekEndDate": "2026-05-17"
+}
+```
+
+매주 월요일 오전 9시 KST에 지난주 월요일-일요일 통계를 기준으로 발송된다.
+
+알림 설정 기준:
+
+- 배틀 알림: `pushEnabled=true` and `pushCompetitionEnabled=true`
+- 주간 통계 알림: `pushEnabled=true` and `pushRoutineEnabled=true`
+
+---
+
+## 4. 프론트 구현 순서 권장
 
 1. `QuestService.completeQuest` 요청 타입에 `healthSamples` 추가
 2. 오늘 퀘스트 응답 타입에 `verificationWindow` 추가
@@ -611,10 +705,12 @@ type BattleDetail = {
 6. `BattleMatchingScreen`에서 `POST /api/battles/match` 연동
 7. `BattleScreen`에서 `GET /api/battles/{battleId}` 연동
 8. `BattleResultScreen`에서 `GET /api/battles/{battleId}/result` 연동
+9. FCM 수신 핸들러에서 `data.type`별 화면 이동 처리
 
-## 4. 주의사항
+## 5. 주의사항
 
 - 헬스 퀘스트 완료는 Health Connect 동기화 지연 때문에 같은 요청을 몇 분 뒤 재시도할 수 있게 만들어야 한다.
 - 배틀 점수는 퀘스트 EXP 기준이 아니라 활동량 기반 `TOTAL_SCORE` 기준이다.
 - 배틀 결과는 기간 종료 전에도 볼 수 있지만, 그때는 `finalized=false`라 최종 결과가 아니다.
 - 배틀 매칭 상대가 없는 경우는 정상 케이스로 보고 프론트에서 안내 문구를 보여주면 된다.
+- FCM은 앱 밖 사용자를 다시 진입시키는 용도다. 퀘스트 완료처럼 앱 안에서 즉시 결과를 보는 흐름은 원격 푸시 대상이 아니다.

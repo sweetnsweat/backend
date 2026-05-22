@@ -1,9 +1,13 @@
 package com.capstone.backend.battle.controller;
 
 import com.capstone.backend.auth.security.JwtTokenService;
+import com.capstone.backend.battle.entity.Battle;
+import com.capstone.backend.battle.entity.BattleParticipant;
 import com.capstone.backend.global.time.KoreanTime;
+import com.capstone.backend.notification.service.NotificationService;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
+import java.util.List;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -17,8 +21,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -42,6 +50,9 @@ class BattleControllerTest {
 
     @MockitoBean
     private StringRedisTemplate redisTemplate;
+
+    @MockitoBean
+    private NotificationService notificationService;
 
     @BeforeEach
     void cleanup() {
@@ -125,6 +136,7 @@ class BattleControllerTest {
 
         Integer battleCount = jdbcTemplate.queryForObject("select count(*) from battles", Integer.class);
         org.assertj.core.api.Assertions.assertThat(battleCount).isEqualTo(1);
+        verify(notificationService, times(1)).sendBattleMatched(any(Battle.class), anyList());
     }
 
     @Test
@@ -185,6 +197,13 @@ class BattleControllerTest {
                 .andExpect(jsonPath("$.data.battles[0].battleId").value(battleId))
                 .andExpect(jsonPath("$.data.battles[0].result").value("WIN"))
                 .andExpect(jsonPath("$.data.battles[0].opponent.userId").value(opponent.userId()));
+
+        mockMvc.perform(get("/api/battles/{battleId}/result", battleId)
+                        .header("Authorization", "Bearer " + me.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.finalized").value(true));
+
+        verify(notificationService, times(1)).sendBattleResultReady(any(Battle.class), anyList());
     }
 
     @Test

@@ -211,9 +211,14 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public WeeklyStatsResponse getWeeklyStats(Long userId) {
-        User user = findUser(userId);
         LocalDate today = KoreanTime.today();
         LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        return getWeeklyStatsForWeek(userId, weekStart);
+    }
+
+    @Transactional(readOnly = true)
+    public WeeklyStatsResponse getWeeklyStatsForWeek(Long userId, LocalDate weekStart) {
+        User user = findUser(userId);
         LocalDate weekEnd = weekStart.plusDays(6);
         List<UserQuest> completedQuests = userQuestRepository.findCompletedStatsByUserIdAndQuestDateBetween(
                 userId,
