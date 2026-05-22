@@ -31,6 +31,8 @@ import org.springframework.util.StringUtils;
 public class ShopService {
 
     private static final Set<String> IMAGE_EQUIPPABLE_TYPES = Set.of("profile", "skin");
+    private static final Set<String> CHARACTER_TYPES = Set.of("profile", "skin");
+    private static final Set<String> PASS_TYPES = Set.of("ticket", "pvp_badge", "gift", "consumable");
 
     private final ItemRepository itemRepository;
     private final UserItemRepository userItemRepository;
@@ -52,9 +54,9 @@ public class ShopService {
 
     @Transactional(readOnly = true)
     public ShopItemListResponse getItems(Long userId, String type) {
-        List<Item> items = StringUtils.hasText(type)
-                ? itemRepository.findByItemTypeAndActiveTrueOrderByIdAsc(type.trim())
-                : itemRepository.findByActiveTrueOrderByIdAsc();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다."));
+        List<Item> items = itemsByType(type);
         int balanceCurrency = walletRepository.findById(userId)
                 .map(Wallet::getBalanceCurrency)
                 .orElse(0);
@@ -65,10 +67,25 @@ public class ShopService {
                 .map(item -> ShopItemResponse.from(
                         item,
                         ownedQuantities.getOrDefault(item.getId(), 0),
-                        balanceCurrency
+                        balanceCurrency,
+                        user.getProfileImageUrl()
                 ))
                 .toList();
         return new ShopItemListResponse(itemResponses, balanceCurrency);
+    }
+
+    private List<Item> itemsByType(String type) {
+        if (!StringUtils.hasText(type)) {
+            return itemRepository.findByActiveTrueOrderByIdAsc();
+        }
+        String normalizedType = type.trim();
+        if ("character".equals(normalizedType)) {
+            return itemRepository.findByItemTypeInAndActiveTrueOrderByIdAsc(CHARACTER_TYPES);
+        }
+        if ("pass".equals(normalizedType)) {
+            return itemRepository.findByItemTypeInAndActiveTrueOrderByIdAsc(PASS_TYPES);
+        }
+        return itemRepository.findByItemTypeAndActiveTrueOrderByIdAsc(normalizedType);
     }
 
     @Transactional
