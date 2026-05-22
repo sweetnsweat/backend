@@ -33,8 +33,9 @@ public enum HealthMetricType {
         return switch (normalized) {
             case "STEP", "STEP_COUNT" -> STEPS;
             case "HEARTRATE", "HEART_RATE_BPM" -> HEART_RATE;
-            case "CALORIES", "TOTAL_CALORIES", "TOTAL_CALORIES_BURNED" -> TOTAL_CALORIES_BURNED;
-            case "EXERCISE", "WORKOUT", "WORKOUT_SESSION" -> EXERCISE_SESSION;
+            case "ACTIVECALORIESBURNED", "ACTIVE_CALORIES", "ACTIVE_CALORIES_BURNED" -> ACTIVE_CALORIES_BURNED;
+            case "CALORIES", "TOTALCALORIESBURNED", "TOTAL_CALORIES", "TOTAL_CALORIES_BURNED" -> TOTAL_CALORIES_BURNED;
+            case "EXERCISE", "EXERCISESESSION", "WORKOUT", "WORKOUT_SESSION" -> EXERCISE_SESSION;
             case "SLEEP" -> SLEEP_SESSION;
             case "VO2MAX", "VO2_MAX" -> VO2_MAX;
             default -> {

@@ -84,6 +84,9 @@ public class QuestService {
         boolean newlyCompleted = !UserQuest.STATUS_COMPLETED.equals(quest.getStatus());
         if (newlyCompleted) {
             HealthQuestProgress healthProgress = request == null ? null : healthQuestProgressEvaluator.evaluate(quest, request.healthSamples());
+            if (healthProgress != null && !healthProgress.verified()) {
+                throw new ApiException(HttpStatus.CONFLICT, "INSUFFICIENT_HEALTH_PROOF", "퀘스트 완료를 인정할 건강 데이터가 부족합니다.");
+            }
             Integer progressValue = healthProgress != null && healthProgress.progressValue() != null
                     ? healthProgress.progressValue()
                     : request == null ? null : request.progressValue();

@@ -4,6 +4,7 @@ import com.capstone.backend.quest.entity.UserQuest;
 import com.capstone.backend.routine.entity.Routine;
 import com.capstone.backend.routine.entity.RoutineSession;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -33,6 +34,7 @@ public record QuestResponse(
         Integer rewardExp,
         Integer rewardGold,
         Instant completedAt,
+        QuestVerificationWindowResponse verificationWindow,
         List<QuestExerciseResponse> exercises
 ) {
 
@@ -63,6 +65,10 @@ public record QuestResponse(
                 quest.getRewardExp(),
                 quest.getRewardCurrency(),
                 quest.getCompletedAt(),
+                new QuestVerificationWindowResponse(
+                        quest.getCreatedAt() == null ? null : quest.getCreatedAt().minus(Duration.ofMinutes(5)),
+                        null
+                ),
                 exercises
         );
     }

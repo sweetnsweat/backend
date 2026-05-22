@@ -19,6 +19,7 @@ public class HealthConnectDataAdapter implements PlatformHealthDataAdapter {
             case "BloodGlucose" -> HealthMetricType.BLOOD_GLUCOSE;
             case "BloodPressure" -> HealthMetricType.BLOOD_PRESSURE;
             case "BodyFat" -> HealthMetricType.BODY_FAT;
+            case "ActiveCaloriesBurned" -> HealthMetricType.ACTIVE_CALORIES_BURNED;
             case "Distance" -> HealthMetricType.DISTANCE;
             case "ExerciseSession" -> HealthMetricType.EXERCISE_SESSION;
             case "HeartRate" -> HealthMetricType.HEART_RATE;
