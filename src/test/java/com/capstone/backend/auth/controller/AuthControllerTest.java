@@ -47,6 +47,8 @@ class AuthControllerTest {
 
     @BeforeEach
     void cleanup() {
+        jdbcTemplate.update("delete from battle_participants");
+        jdbcTemplate.update("delete from battles");
         jdbcTemplate.update("delete from refresh_tokens");
         jdbcTemplate.update("delete from users");
     }
