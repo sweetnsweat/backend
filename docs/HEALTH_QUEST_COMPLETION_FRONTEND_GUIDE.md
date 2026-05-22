@@ -351,3 +351,49 @@ INSUFFICIENT_DATA healthSamples는 있었지만 기준 부족
 ```
 
 다만 프론트는 가능한 경우 항상 `healthSamples`를 같이 보내고, 최종 판정은 백엔드 응답을 기준으로 처리한다.
+
+## 개발/테스트용 완료 초기화
+
+같은 계정으로 같은 퀘스트 완료 플로우를 다시 테스트해야 하면 아래 API를 사용한다.
+
+```http
+POST /api/quests/{questId}/reset
+Authorization: Bearer {accessToken}
+```
+
+요청 바디는 없다. 현재 로그인한 사용자의 퀘스트만 초기화된다.
+
+초기화 결과:
+
+- `status=ISSUED`
+- `progressValue=0`
+- `completedAt=null`
+- `completionType=null`
+- `verificationStatus=null`
+- `battleEligible=null`
+- 해당 퀘스트 완료로 지급된 EXP 로그와 Gold 거래 내역 제거
+- 사용자 총 EXP와 지갑 잔액에서 해당 보상만큼 차감
+
+응답 예시:
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "퀘스트 완료 상태가 초기화되었습니다.",
+  "data": {
+    "id": 32,
+    "status": "ISSUED",
+    "completed": false,
+    "completionType": null,
+    "verificationStatus": null,
+    "battleEligible": null,
+    "progressValue": 0,
+    "rewardExp": 30,
+    "rewardGold": 15,
+    "completedAt": null
+  }
+}
+```
+
+이 API는 완료 버튼/Health Connect 연동 재테스트용이다. 이미 배틀 결과 확정에 사용한 퀘스트를 초기화하면 배틀 테스트 데이터와 맞지 않을 수 있으므로 배틀 검증 전 단계에서만 사용한다.

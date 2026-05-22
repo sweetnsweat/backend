@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -240,6 +241,27 @@ class QuestControllerTest {
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"));
 
         assertQuestCompletionReward(testUser.userId(), questId, 10, 5);
+
+        mockMvc.perform(post("/api/quests/{questId}/reset", questId)
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ISSUED"))
+                .andExpect(jsonPath("$.data.completed").value(false))
+                .andExpect(jsonPath("$.data.completionType").value(nullValue()))
+                .andExpect(jsonPath("$.data.verificationStatus").value(nullValue()))
+                .andExpect(jsonPath("$.data.battleEligible").value(nullValue()))
+                .andExpect(jsonPath("$.data.rewardExp").value(30))
+                .andExpect(jsonPath("$.data.rewardGold").value(15))
+                .andExpect(jsonPath("$.data.progressValue").value(0))
+                .andExpect(jsonPath("$.data.completedAt").value(nullValue()));
+
+        String resetStatus = jdbcTemplate.queryForObject("select status from user_quests where id = ?", String.class, questId);
+        String resetProofJson = jdbcTemplate.queryForObject("select proof_json from user_quests where id = ?", String.class, questId);
+        Integer resetProgressValue = jdbcTemplate.queryForObject("select progress_value from user_quests where id = ?", Integer.class, questId);
+        org.assertj.core.api.Assertions.assertThat(resetStatus).isEqualTo("issued");
+        org.assertj.core.api.Assertions.assertThat(resetProofJson).isEqualTo("{}");
+        org.assertj.core.api.Assertions.assertThat(resetProgressValue).isZero();
+        assertNoQuestCompletionReward(testUser.userId(), questId);
     }
 
     @Test
@@ -375,6 +397,52 @@ class QuestControllerTest {
         org.assertj.core.api.Assertions.assertThat(proofJson).contains("\"completionType\":\"MANUAL\"");
         org.assertj.core.api.Assertions.assertThat(proofJson).contains("\"verificationStatus\":\"INSUFFICIENT_DATA\"");
         org.assertj.core.api.Assertions.assertThat(proofJson).contains("\"battleEligible\":false");
+        assertQuestCompletionReward(testUser.userId(), questId, 10, 5);
+    }
+
+    @Test
+    void completeQuestFallsBackToManualWhenHealthSampleCannotBeParsed() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser testUser = onboardedUser("questBadHealthSampleUser");
+        Long routineId = seedRoutineWithSession(KoreanTime.today().getDayOfWeek().name());
+        jdbcTemplate.update("update users set active_routine_id = ? where id = ?", routineId, testUser.userId());
+        seedCondition(testUser.userId(), KoreanTime.today(), BigDecimal.valueOf(72.92), BigDecimal.valueOf(1.00));
+
+        mockMvc.perform(get("/api/quests/today")
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk());
+        Long questId = jdbcTemplate.queryForObject(
+                "select id from user_quests where user_id = ? and quest_date = ?",
+                Long.class,
+                testUser.userId(),
+                KoreanTime.today()
+        );
+
+        mockMvc.perform(patch("/api/quests/{questId}/complete", questId)
+                        .header("Authorization", "Bearer " + testUser.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "healthSamples": [
+                                    {
+                                      "type": "ExerciseSession",
+                                      "unit": "minutes",
+                                      "source": "health_connect",
+                                      "rawRecordType": "StrengthTraining"
+                                    }
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.completionType").value("MANUAL"))
+                .andExpect(jsonPath("$.data.verificationStatus").value("INSUFFICIENT_DATA"))
+                .andExpect(jsonPath("$.data.battleEligible").value(false))
+                .andExpect(jsonPath("$.data.rewardExp").value(10))
+                .andExpect(jsonPath("$.data.rewardGold").value(5));
+
+        String proofJson = jdbcTemplate.queryForObject("select proof_json from user_quests where id = ?", String.class, questId);
+        org.assertj.core.api.Assertions.assertThat(proofJson).contains("\"failureCode\":\"HEALTH_VALUE_REQUIRED\"");
         assertQuestCompletionReward(testUser.userId(), questId, 10, 5);
     }
 
@@ -587,6 +655,37 @@ class QuestControllerTest {
         org.assertj.core.api.Assertions.assertThat(totalExp).isEqualTo(expectedExp);
         org.assertj.core.api.Assertions.assertThat(level).isEqualTo(1);
         org.assertj.core.api.Assertions.assertThat(balanceCurrency).isEqualTo(expectedCurrency);
+    }
+
+    private void assertNoQuestCompletionReward(Long userId, Long questId) {
+        Integer expLogCount = jdbcTemplate.queryForObject("""
+                select count(*)
+                from user_exp_logs
+                where user_id = ? and ref_type = 'user_quest' and ref_id = ?
+                """, Integer.class, userId, questId);
+        Integer transactionCount = jdbcTemplate.queryForObject("""
+                select count(*)
+                from wallet_transactions
+                where user_id = ? and tx_type = 'quest_reward' and ref_type = 'user_quest' and ref_id = ?
+                """, Integer.class, userId, questId);
+        Integer totalExp = jdbcTemplate.queryForObject(
+                "select total_exp from users where id = ?",
+                Integer.class,
+                userId
+        );
+        Integer walletCount = jdbcTemplate.queryForObject(
+                "select count(*) from wallets where user_id = ?",
+                Integer.class,
+                userId
+        );
+        Integer balanceCurrency = walletCount == null || walletCount == 0
+                ? 0
+                : jdbcTemplate.queryForObject("select balance_currency from wallets where user_id = ?", Integer.class, userId);
+
+        org.assertj.core.api.Assertions.assertThat(expLogCount).isZero();
+        org.assertj.core.api.Assertions.assertThat(transactionCount).isZero();
+        org.assertj.core.api.Assertions.assertThat(totalExp).isZero();
+        org.assertj.core.api.Assertions.assertThat(balanceCurrency).isZero();
     }
 
     private Long insertAndReturnId(String sql, Object... params) {

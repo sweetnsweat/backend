@@ -230,6 +230,13 @@ public class UserQuest {
         this.proofJson = proofJson == null ? new LinkedHashMap<>() : new LinkedHashMap<>(proofJson);
     }
 
+    public void resetCompletion() {
+        this.progressValue = 0;
+        this.status = STATUS_ISSUED;
+        this.completedAt = null;
+        this.proofJson = new LinkedHashMap<>();
+    }
+
     public void expire() {
         if (!STATUS_COMPLETED.equals(this.status)) {
             this.status = STATUS_EXPIRED;

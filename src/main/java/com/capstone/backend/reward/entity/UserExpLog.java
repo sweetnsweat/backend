@@ -89,4 +89,8 @@ public class UserExpLog {
     void onCreate() {
         this.createdAt = KoreanTime.nowInstant();
     }
+
+    public Integer getAmount() {
+        return amount == null ? 0 : amount;
+    }
 }

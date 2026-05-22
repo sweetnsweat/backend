@@ -10,6 +10,7 @@ import com.capstone.backend.reward.repository.UserExpLogRepository;
 import com.capstone.backend.reward.repository.WalletRepository;
 import com.capstone.backend.reward.repository.WalletTransactionRepository;
 import com.capstone.backend.user.entity.User;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +44,12 @@ public class RewardService {
     public void issueBattleWinReward(User user, Long battleId, BattleReward reward) {
         issueBattleWinExp(user, battleId, reward.exp());
         issueBattleWinCurrency(user, battleId, reward.currency());
+    }
+
+    @Transactional
+    public void revokeQuestCompletionRewards(UserQuest quest) {
+        revokeQuestExp(quest);
+        revokeQuestCurrency(quest);
     }
 
     private void issueQuestExp(UserQuest quest) {
@@ -150,5 +157,37 @@ public class RewardService {
                 battleId,
                 "배틀 승리 골드 보상"
         ));
+    }
+
+    private void revokeQuestExp(UserQuest quest) {
+        Optional<UserExpLog> expLog = userExpLogRepository.findByUser_IdAndRefTypeAndRefId(
+                quest.getUser().getId(),
+                UserExpLog.REF_TYPE_USER_QUEST,
+                quest.getId()
+        );
+        if (expLog.isEmpty()) {
+            return;
+        }
+
+        User user = quest.getUser();
+        int afterTotalExp = Math.max(0, user.getTotalExp() - expLog.get().getAmount());
+        user.applyExperience(afterTotalExp, LevelPolicy.levelForTotalExp(afterTotalExp));
+        userExpLogRepository.delete(expLog.get());
+    }
+
+    private void revokeQuestCurrency(UserQuest quest) {
+        Optional<WalletTransaction> transaction = walletTransactionRepository.findByUser_IdAndTxTypeAndRefTypeAndRefId(
+                quest.getUser().getId(),
+                WalletTransaction.TX_TYPE_QUEST_REWARD,
+                WalletTransaction.REF_TYPE_USER_QUEST,
+                quest.getId()
+        );
+        if (transaction.isEmpty()) {
+            return;
+        }
+
+        walletRepository.findByUserId(quest.getUser().getId())
+                .ifPresent(wallet -> wallet.debit(Math.min(transaction.get().getAmount(), wallet.getBalanceCurrency())));
+        walletTransactionRepository.delete(transaction.get());
     }
 }

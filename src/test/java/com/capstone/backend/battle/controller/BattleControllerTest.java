@@ -344,7 +344,7 @@ class BattleControllerTest {
                 select count(*)
                 from wallet_transactions
                 where user_id = ?
-                  and tx_type = 'battle_reward'
+                  and tx_type = 'competition_reward'
                   and ref_type = 'battle_win'
                   and ref_id = ?
                 """, Integer.class, userId, battleId);

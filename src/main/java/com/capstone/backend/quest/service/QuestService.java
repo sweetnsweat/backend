@@ -90,7 +90,7 @@ public class QuestService {
         }
         boolean newlyCompleted = !UserQuest.STATUS_COMPLETED.equals(quest.getStatus());
         if (newlyCompleted) {
-            HealthQuestProgress healthProgress = request == null ? null : healthQuestProgressEvaluator.evaluate(quest, request.healthSamples());
+            HealthQuestProgress healthProgress = evaluateHealthProgress(quest, request);
             QuestCompletion completion = completionFor(quest, request, healthProgress);
             Integer progressValue = healthProgress != null && healthProgress.progressValue() != null
                     ? healthProgress.progressValue()
@@ -99,6 +99,37 @@ public class QuestService {
             rewardService.issueQuestCompletionRewards(quest, completion.rewardExp(), completion.rewardCurrency(), completion.rewardMemoPrefix());
         }
         return QuestResponse.from(quest, exercisesFromContext(quest));
+    }
+
+    @Transactional
+    public QuestResponse resetQuestCompletion(Long userId, Long questId) {
+        UserQuest quest = userQuestRepository.findByIdAndUser_Id(questId, userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "QUEST_NOT_FOUND", "퀘스트를 찾을 수 없습니다."));
+
+        if (UserQuest.STATUS_COMPLETED.equals(quest.getStatus())) {
+            rewardService.revokeQuestCompletionRewards(quest);
+        }
+        quest.resetCompletion();
+        return QuestResponse.from(quest, exercisesFromContext(quest));
+    }
+
+    private HealthQuestProgress evaluateHealthProgress(UserQuest quest, CompleteQuestRequest request) {
+        if (request == null) {
+            return null;
+        }
+        try {
+            return healthQuestProgressEvaluator.evaluate(quest, request.healthSamples());
+        } catch (RuntimeException exception) {
+            Map<String, Object> proof = new LinkedHashMap<>();
+            proof.put("source", "health_data");
+            proof.put("verified", false);
+            proof.put("reason", "건강 데이터 샘플을 처리할 수 없어 수동 완료로 처리했습니다.");
+            proof.put("failureType", exception.getClass().getSimpleName());
+            if (exception instanceof ApiException apiException) {
+                proof.put("failureCode", apiException.getCode());
+            }
+            return new HealthQuestProgress(null, proof, false);
+        }
     }
 
     private QuestCompletion completionFor(UserQuest quest, CompleteQuestRequest request, HealthQuestProgress healthProgress) {

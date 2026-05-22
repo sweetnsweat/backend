@@ -19,7 +19,7 @@ import java.time.Instant;
 public class WalletTransaction {
 
     public static final String TX_TYPE_QUEST_REWARD = "quest_reward";
-    public static final String TX_TYPE_BATTLE_REWARD = "battle_reward";
+    public static final String TX_TYPE_BATTLE_REWARD = "competition_reward";
     public static final String TX_TYPE_PURCHASE = "purchase";
     public static final String REF_TYPE_USER_QUEST = "user_quest";
     public static final String REF_TYPE_BATTLE_WIN = "battle_win";
@@ -91,5 +91,9 @@ public class WalletTransaction {
     @PrePersist
     void onCreate() {
         this.createdAt = KoreanTime.nowInstant();
+    }
+
+    public Integer getAmount() {
+        return amount == null ? 0 : amount;
     }
 }

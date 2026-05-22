@@ -14,6 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -64,5 +65,22 @@ public class QuestController {
                                                     @PathVariable Long questId,
                                                     @RequestBody(required = false) CompleteQuestRequest request) {
         return ApiResponse.ok("퀘스트가 완료되었습니다.", questService.completeQuest(authUser.userId(), questId, request));
+    }
+
+    @Operation(
+            summary = "퀘스트 완료 초기화",
+            description = """
+                    개발/테스트용 퀘스트 완료 초기화 API입니다. 현재 로그인한 사용자가 소유한 퀘스트만 초기화할 수 있습니다.
+
+                    - COMPLETED 퀘스트를 ISSUED 상태로 되돌립니다.
+                    - progressValue는 0, completedAt은 null, proofJson은 빈 객체로 초기화합니다.
+                    - 해당 퀘스트 완료로 지급된 EXP 로그와 Gold 거래 내역을 제거하고 사용자 EXP/지갑 잔액을 되돌립니다.
+                    - 이미 배틀 결과 확정에 사용한 퀘스트를 초기화하면 배틀 테스트 데이터와 맞지 않을 수 있으므로, 완료 API 재테스트 용도로만 사용해 주세요.
+                    """
+    )
+    @PostMapping("/{questId}/reset")
+    public ApiResponse<QuestResponse> resetQuestCompletion(@AuthenticationPrincipal AuthUser authUser,
+                                                           @PathVariable Long questId) {
+        return ApiResponse.ok("퀘스트 완료 상태가 초기화되었습니다.", questService.resetQuestCompletion(authUser.userId(), questId));
     }
 }

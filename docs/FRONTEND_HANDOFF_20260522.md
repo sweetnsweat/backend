@@ -962,18 +962,20 @@ type PushNotificationData = {
 1. `QuestService.completeQuest` 요청 타입에 `healthSamples` 추가
 2. 오늘 퀘스트 응답 타입에 `verificationWindow` 추가
 3. 완료 버튼 클릭 시 Health Connect 읽기 후 `healthSamples` 전송
-4. `BattleService.ts` 새로 추가
-5. `BattleLobbyScreen`에서 `GET /api/battles/me/summary` 연동
-6. `BattleMatchingScreen`에서 `POST /api/battles/match` 연동
-7. `BattleScreen`에서 `GET /api/battles/{battleId}` 연동
-8. `BattleResultScreen`에서 `GET /api/battles/{battleId}/result` 연동
-9. `ShopService.ts`에서 `GET /api/shop/items?type=character`, `GET /api/shop/items?type=pass` 연동
-10. `ShopScreen` 구매/장착 버튼을 `POST /api/shop/items/{itemId}/purchase`, `POST /api/shop/items/{itemId}/equip`에 연결
-11. FCM 수신 핸들러에서 `data.type`별 화면 이동 처리
+4. 같은 계정으로 완료 테스트를 다시 해야 하면 `POST /api/quests/{questId}/reset` 호출
+5. `BattleService.ts` 새로 추가
+6. `BattleLobbyScreen`에서 `GET /api/battles/me/summary` 연동
+7. `BattleMatchingScreen`에서 `POST /api/battles/match` 연동
+8. `BattleScreen`에서 `GET /api/battles/{battleId}` 연동
+9. `BattleResultScreen`에서 `GET /api/battles/{battleId}/result` 연동
+10. `ShopService.ts`에서 `GET /api/shop/items?type=character`, `GET /api/shop/items?type=pass` 연동
+11. `ShopScreen` 구매/장착 버튼을 `POST /api/shop/items/{itemId}/purchase`, `POST /api/shop/items/{itemId}/equip`에 연결
+12. FCM 수신 핸들러에서 `data.type`별 화면 이동 처리
 
 ## 6. 주의사항
 
 - 헬스 퀘스트 완료는 Health Connect 동기화 지연 때문에 같은 요청을 몇 분 뒤 재시도할 수 있게 만들어야 한다.
+- `POST /api/quests/{questId}/reset`은 개발/테스트용이다. 완료 상태, 완료 증거, 퀘스트 완료 보상을 되돌려 같은 계정으로 완료 API를 다시 테스트할 수 있다.
 - 배틀 점수는 퀘스트 EXP 기준이 아니라 활동량 기반 `TOTAL_SCORE` 기준이다.
 - 배틀 결과는 기간 종료 전에도 볼 수 있지만, 그때는 `finalized=false`라 최종 결과가 아니다.
 - 배틀 매칭 상대가 없는 경우는 정상 케이스로 보고 프론트에서 안내 문구를 보여주면 된다.
