@@ -85,6 +85,12 @@ Authorization: Bearer {accessToken}
 Content-Type: application/json
 ```
 
+기본 요청은 JSON이다. 건강 데이터를 아직 못 읽었으면 빈 JSON `{}`를 보내면 되고, 백엔드는 `MANUAL` 완료로 처리한다.
+
+모바일 클라이언트 호환을 위해 빈 `application/x-www-form-urlencoded` 요청도 받는다. 이 경우도 `MANUAL` 완료로 처리된다. 다만 신규 프론트 코드는 `Content-Type: application/json`으로 맞춘다.
+
+지원하지 않는 Content-Type은 `415 UNSUPPORTED_MEDIA_TYPE`으로 내려간다. 에러 응답에는 `code`, `path`, `contentType`, `supportedMediaTypes`가 포함된다.
+
 요청 타입:
 
 ```ts

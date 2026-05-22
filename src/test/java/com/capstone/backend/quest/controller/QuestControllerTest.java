@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -262,6 +263,69 @@ class QuestControllerTest {
         org.assertj.core.api.Assertions.assertThat(resetProofJson).isEqualTo("{}");
         org.assertj.core.api.Assertions.assertThat(resetProgressValue).isZero();
         assertNoQuestCompletionReward(testUser.userId(), questId);
+    }
+
+    @Test
+    void completeQuestAcceptsFormUrlEncodedEmptyRequestAsManualCompletion() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser testUser = onboardedUser("questFormCompleteUser");
+        Long routineId = seedRoutineWithSession(KoreanTime.today().plusDays(1).getDayOfWeek().name());
+        jdbcTemplate.update("update users set active_routine_id = ? where id = ?", routineId, testUser.userId());
+        seedCondition(testUser.userId(), KoreanTime.today(), BigDecimal.valueOf(72.92), BigDecimal.valueOf(1.00));
+
+        mockMvc.perform(get("/api/quests/today")
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk());
+        Long questId = jdbcTemplate.queryForObject(
+                "select id from user_quests where user_id = ? and quest_date = ?",
+                Long.class,
+                testUser.userId(),
+                KoreanTime.today()
+        );
+
+        mockMvc.perform(patch("/api/quests/{questId}/complete", questId)
+                        .header("Authorization", "Bearer " + testUser.accessToken())
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.completed").value(true))
+                .andExpect(jsonPath("$.data.completionType").value("MANUAL"))
+                .andExpect(jsonPath("$.data.verificationStatus").value("NOT_PROVIDED"))
+                .andExpect(jsonPath("$.data.battleEligible").value(false))
+                .andExpect(jsonPath("$.data.rewardExp").value(10))
+                .andExpect(jsonPath("$.data.rewardGold").value(5));
+
+        assertQuestCompletionReward(testUser.userId(), questId, 10, 5);
+    }
+
+    @Test
+    void completeQuestReturnsUnsupportedMediaTypeForUnsupportedContentType() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser testUser = onboardedUser("questUnsupportedContentTypeUser");
+        Long routineId = seedRoutineWithSession(KoreanTime.today().getDayOfWeek().name());
+        jdbcTemplate.update("update users set active_routine_id = ? where id = ?", routineId, testUser.userId());
+        seedCondition(testUser.userId(), KoreanTime.today(), BigDecimal.valueOf(72.92), BigDecimal.valueOf(1.00));
+
+        mockMvc.perform(get("/api/quests/today")
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk());
+        Long questId = jdbcTemplate.queryForObject(
+                "select id from user_quests where user_id = ? and quest_date = ?",
+                Long.class,
+                testUser.userId(),
+                KoreanTime.today()
+        );
+
+        mockMvc.perform(patch("/api/quests/{questId}/complete", questId)
+                        .header("Authorization", "Bearer " + testUser.accessToken())
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .content("done"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"))
+                .andExpect(jsonPath("$.detail").value("지원하지 않는 Content-Type입니다. JSON 요청은 Content-Type: application/json으로 보내 주세요."))
+                .andExpect(jsonPath("$.path").value("/api/quests/" + questId + "/complete"))
+                .andExpect(jsonPath("$.contentType").value("text/plain;charset=UTF-8"))
+                .andExpect(jsonPath("$.supportedMediaTypes").isArray());
     }
 
     @Test

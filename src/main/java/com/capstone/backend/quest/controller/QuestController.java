@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -65,6 +66,16 @@ public class QuestController {
                                                     @PathVariable Long questId,
                                                     @RequestBody(required = false) CompleteQuestRequest request) {
         return ApiResponse.ok("퀘스트가 완료되었습니다.", questService.completeQuest(authUser.userId(), questId, request));
+    }
+
+    @Operation(
+            summary = "퀘스트 완료 처리 - 폼 요청 호환",
+            description = "모바일 클라이언트가 빈 요청을 application/x-www-form-urlencoded로 보낸 경우를 호환 처리합니다. 건강 데이터가 없으므로 MANUAL 완료로 처리됩니다."
+    )
+    @PatchMapping(value = "/{questId}/complete", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public ApiResponse<QuestResponse> completeQuestForm(@AuthenticationPrincipal AuthUser authUser,
+                                                        @PathVariable Long questId) {
+        return ApiResponse.ok("퀘스트가 완료되었습니다.", questService.completeQuest(authUser.userId(), questId, null));
     }
 
     @Operation(

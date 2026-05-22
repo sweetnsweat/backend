@@ -140,6 +140,16 @@ Authorization: Bearer {accessToken}
 Content-Type: application/json
 ```
 
+프론트 기본 계약은 `Content-Type: application/json`이다. 건강 데이터를 아직 못 읽은 상태라도 빈 JSON `{}`로 보내면 `MANUAL` 완료로 처리된다.
+
+```json
+{}
+```
+
+개발 서버는 모바일 클라이언트 호환을 위해 빈 `application/x-www-form-urlencoded` 완료 요청도 받는다. 이 경우 건강 데이터가 없으므로 `MANUAL` 완료로 처리된다. 다만 신규 구현은 JSON으로 맞추는 것을 권장한다.
+
+지원하지 않는 Content-Type은 `415 UNSUPPORTED_MEDIA_TYPE`으로 응답한다. 응답에는 `code`, `path`, `contentType`, `supportedMediaTypes`가 포함되어 디버깅할 수 있다.
+
 근력/홈트 예시:
 
 ```json

@@ -16,6 +16,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -76,6 +77,29 @@ public class GlobalExceptionHandler {
                 "urn:problem:invalid-request-body",
                 request
         );
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ProblemDetail> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException exception,
+                                                                    HttpServletRequest request) {
+        log.warn("Unsupported media type path={} method={} contentType={} supported={}",
+                request.getRequestURI(),
+                request.getMethod(),
+                exception.getContentType(),
+                exception.getSupportedMediaTypes());
+        ProblemDetail problemDetail = buildProblemDetail(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                "UNSUPPORTED_MEDIA_TYPE",
+                "지원하지 않는 Content-Type입니다. JSON 요청은 Content-Type: application/json으로 보내 주세요.",
+                "Unsupported Media Type",
+                "urn:problem:unsupported-media-type",
+                request
+        );
+        problemDetail.setProperty("contentType", exception.getContentType() == null ? null : exception.getContentType().toString());
+        problemDetail.setProperty("supportedMediaTypes", exception.getSupportedMediaTypes().stream()
+                .map(Object::toString)
+                .toList());
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(problemDetail);
     }
 
     @ExceptionHandler(Exception.class)
