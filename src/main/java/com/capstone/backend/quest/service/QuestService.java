@@ -36,6 +36,13 @@ public class QuestService {
 
     private static final BigDecimal RECOVERY_THRESHOLD = BigDecimal.valueOf(0.80);
     private static final BigDecimal REDUCE_THRESHOLD = BigDecimal.valueOf(1.00);
+    private static final int MANUAL_COMPLETION_REWARD_EXP = 10;
+    private static final int MANUAL_COMPLETION_REWARD_CURRENCY = 5;
+    private static final String COMPLETION_TYPE_VERIFIED = "VERIFIED";
+    private static final String COMPLETION_TYPE_MANUAL = "MANUAL";
+    private static final String VERIFICATION_STATUS_VERIFIED = "VERIFIED";
+    private static final String VERIFICATION_STATUS_NOT_PROVIDED = "NOT_PROVIDED";
+    private static final String VERIFICATION_STATUS_INSUFFICIENT_DATA = "INSUFFICIENT_DATA";
 
     private final UserQuestRepository userQuestRepository;
     private final UserRepository userRepository;
@@ -84,19 +91,43 @@ public class QuestService {
         boolean newlyCompleted = !UserQuest.STATUS_COMPLETED.equals(quest.getStatus());
         if (newlyCompleted) {
             HealthQuestProgress healthProgress = request == null ? null : healthQuestProgressEvaluator.evaluate(quest, request.healthSamples());
-            if (healthProgress != null && !healthProgress.verified()) {
-                throw new ApiException(HttpStatus.CONFLICT, "INSUFFICIENT_HEALTH_PROOF", "퀘스트 완료를 인정할 건강 데이터가 부족합니다.");
-            }
+            QuestCompletion completion = completionFor(quest, request, healthProgress);
             Integer progressValue = healthProgress != null && healthProgress.progressValue() != null
                     ? healthProgress.progressValue()
                     : request == null ? null : request.progressValue();
-            Map<String, Object> proof = healthProgress != null
-                    ? healthProgress.proof()
-                    : request == null ? null : request.proof();
-            quest.complete(progressValue, proof);
-            rewardService.issueQuestCompletionRewards(quest);
+            quest.complete(progressValue, completion.proof());
+            rewardService.issueQuestCompletionRewards(quest, completion.rewardExp(), completion.rewardCurrency(), completion.rewardMemoPrefix());
         }
         return QuestResponse.from(quest, exercisesFromContext(quest));
+    }
+
+    private QuestCompletion completionFor(UserQuest quest, CompleteQuestRequest request, HealthQuestProgress healthProgress) {
+        if (healthProgress != null && healthProgress.verified()) {
+            Map<String, Object> proof = new LinkedHashMap<>(healthProgress.proof());
+            proof.put("completionType", COMPLETION_TYPE_VERIFIED);
+            proof.put("verificationStatus", VERIFICATION_STATUS_VERIFIED);
+            proof.put("battleEligible", true);
+            proof.put("rewardExp", quest.getRewardExp());
+            proof.put("rewardCurrency", quest.getRewardCurrency());
+            proof.put("rewardGold", quest.getRewardCurrency());
+            return new QuestCompletion(proof, quest.getRewardExp(), quest.getRewardCurrency(), "검증 퀘스트 완료");
+        }
+
+        Map<String, Object> proof = healthProgress == null
+                ? new LinkedHashMap<>()
+                : new LinkedHashMap<>(healthProgress.proof());
+        proof.putIfAbsent("source", "manual");
+        proof.put("verified", false);
+        proof.put("completionType", COMPLETION_TYPE_MANUAL);
+        proof.put("verificationStatus", healthProgress == null ? VERIFICATION_STATUS_NOT_PROVIDED : VERIFICATION_STATUS_INSUFFICIENT_DATA);
+        proof.put("battleEligible", false);
+        proof.put("rewardExp", MANUAL_COMPLETION_REWARD_EXP);
+        proof.put("rewardCurrency", MANUAL_COMPLETION_REWARD_CURRENCY);
+        proof.put("rewardGold", MANUAL_COMPLETION_REWARD_CURRENCY);
+        if (request != null && request.proof() != null && !request.proof().isEmpty()) {
+            proof.put("submittedProof", request.proof());
+        }
+        return new QuestCompletion(proof, MANUAL_COMPLETION_REWARD_EXP, MANUAL_COMPLETION_REWARD_CURRENCY, "수동 퀘스트 완료");
     }
 
     private QuestResponse returnExistingTodayQuest(UserQuest quest) {
@@ -312,5 +343,11 @@ public class QuestService {
 
     private String stringValue(Object value) {
         return value == null ? null : String.valueOf(value);
+    }
+
+    private record QuestCompletion(Map<String, Object> proof,
+                                   int rewardExp,
+                                   int rewardCurrency,
+                                   String rewardMemoPrefix) {
     }
 }

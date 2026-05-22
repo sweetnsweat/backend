@@ -346,8 +346,11 @@ public class BattleService {
                 period.startDate(),
                 period.endDate()
         );
-        int completedQuestCount = quests.size();
-        int routineQuestCount = (int) quests.stream()
+        List<UserQuest> battleEligibleQuests = quests.stream()
+                .filter(this::battleEligible)
+                .toList();
+        int completedQuestCount = battleEligibleQuests.size();
+        int routineQuestCount = (int) battleEligibleQuests.stream()
                 .filter(quest -> UserQuest.TYPE_ROUTINE.equals(quest.getQuestType()))
                 .count();
 
@@ -357,7 +360,7 @@ public class BattleService {
         int activeCalories = 0;
         int healthVerifiedQuestCount = 0;
 
-        for (UserQuest quest : quests) {
+        for (UserQuest quest : battleEligibleQuests) {
             Map<String, Object> proof = quest.getProofJson();
             if (Boolean.TRUE.equals(proof.get("verified"))) {
                 healthVerifiedQuestCount++;
@@ -379,6 +382,15 @@ public class BattleService {
                 + Math.round(steps * 0.01f)
                 + activeCalories * 2;
         return new BattleStats(totalScore, completedQuestCount, routineQuestCount, activeMinutes, steps, distanceMeters, activeCalories, healthVerifiedQuestCount);
+    }
+
+    private boolean battleEligible(UserQuest quest) {
+        Map<String, Object> proof = quest.getProofJson();
+        Object battleEligible = proof.get("battleEligible");
+        if (battleEligible instanceof Boolean value) {
+            return value;
+        }
+        return Boolean.TRUE.equals(proof.get("verified"));
     }
 
     private List<BattleMetricResponse> metrics(BattleStats myStats, BattleStats opponentStats) {

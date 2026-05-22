@@ -47,7 +47,18 @@ public class QuestController {
         return ApiResponse.ok("오늘 퀘스트를 조회했습니다.", questService.getTodayQuest(userId));
     }
 
-    @Operation(summary = "퀘스트 완료 처리", description = "오늘 받은 퀘스트를 완료 처리합니다. 이미 완료된 퀘스트는 같은 완료 상태를 다시 반환합니다.")
+    @Operation(
+            summary = "퀘스트 완료 처리",
+            description = """
+                    오늘 받은 퀘스트를 완료 처리합니다. 완료 버튼은 프론트에서 하나만 제공하고, 백엔드가 건강 데이터 검증 결과에 따라 완료 유형을 결정합니다.
+
+                    - healthSamples가 충분하면 VERIFIED 완료로 처리합니다.
+                    - healthSamples가 없거나 부족하면 MANUAL 완료로 처리합니다.
+                    - VERIFIED 완료는 기존 퀘스트 보상을 지급하고 battleEligible=true로 내려가며 배틀 점수에 반영됩니다.
+                    - MANUAL 완료는 EXP 10 / Gold 5 축소 보상을 지급하고 battleEligible=false로 내려가며 배틀 점수에는 반영되지 않습니다.
+                    - 이미 완료된 퀘스트는 추가 지급 없이 기존 완료 결과를 그대로 반환합니다.
+                    """
+    )
     @PatchMapping("/{questId}/complete")
     public ApiResponse<QuestResponse> completeQuest(@AuthenticationPrincipal AuthUser authUser,
                                                     @PathVariable Long questId,

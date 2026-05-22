@@ -22,7 +22,7 @@ GET /api/quests/today
 -> 완료 버튼 클릭
 -> Health Connect readRecords(startTime=verificationWindow.startTime, endTime=now)
 -> PATCH /api/quests/{questId}/complete with healthSamples
--> 성공 시 COMPLETED, 실패 시 INSUFFICIENT_HEALTH_PROOF
+-> 항상 COMPLETED 응답, 백엔드가 VERIFIED 또는 MANUAL로 분류
 ```
 
 ### 오늘 퀘스트 조회
@@ -104,6 +104,56 @@ type HealthMetricSampleRequest = {
   dataOrigin?: string;
   rawRecordType?: string;
 };
+```
+
+완료 버튼은 하나만 둔다. 프론트는 가능한 경우 Health Connect 데이터를 읽어서 `healthSamples`에 담아 보내고, 백엔드가 완료 유형을 결정한다.
+
+### 완료 응답 분기
+
+건강 데이터가 충분하면 `VERIFIED` 완료다. 기존 퀘스트 보상을 지급하고 배틀 점수에 반영된다.
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "퀘스트가 완료되었습니다.",
+  "data": {
+    "status": "COMPLETED",
+    "completed": true,
+    "completionType": "VERIFIED",
+    "verificationStatus": "VERIFIED",
+    "battleEligible": true,
+    "rewardExp": 30,
+    "rewardGold": 15
+  }
+}
+```
+
+건강 데이터가 없거나 부족하면 `MANUAL` 완료다. 습관 유지를 위해 완료는 인정하지만, 축소 보상만 지급하고 배틀 점수에는 반영하지 않는다.
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "퀘스트가 완료되었습니다.",
+  "data": {
+    "status": "COMPLETED",
+    "completed": true,
+    "completionType": "MANUAL",
+    "verificationStatus": "INSUFFICIENT_DATA",
+    "battleEligible": false,
+    "rewardExp": 10,
+    "rewardGold": 5
+  }
+}
+```
+
+`verificationStatus` 값:
+
+```text
+VERIFIED          건강 데이터 검증 성공
+NOT_PROVIDED      healthSamples 미전송
+INSUFFICIENT_DATA healthSamples는 있었지만 기준 부족
 ```
 
 권장 `type`:
@@ -208,30 +258,9 @@ Power
 | 근력/홈트 | `ExerciseSession`, `ActiveCaloriesBurned`, `HeartRate` |
 | 요가/스트레칭/회복 | `ExerciseSession` |
 
-### 실패 응답
-
-건강 데이터가 부족하면 완료/보상이 처리되지 않는다.
-
-```json
-{
-  "type": "about:blank",
-  "title": "Conflict",
-  "status": 409,
-  "detail": "퀘스트 완료를 인정할 건강 데이터가 부족합니다.",
-  "code": "INSUFFICIENT_HEALTH_PROOF",
-  "path": "/api/quests/12/complete"
-}
-```
-
-프론트 처리:
-
-- Health Connect 권한이 없으면 권한 요청 화면으로 유도
-- 데이터가 부족하면 "운동 데이터가 아직 동기화되지 않았어요. 잠시 후 다시 시도해 주세요." 표시
-- 재시도 버튼으로 같은 `questId`에 다시 완료 요청
-
 ### 기존 수동 완료 호환
 
-헬스 기반 완료가 기본이지만 기존 수동 완료 요청도 호환된다.
+헬스 기반 완료가 기본이지만 기존 수동 완료 요청도 호환된다. 이 경우 `completionType=MANUAL`, `battleEligible=false`로 처리된다.
 
 ```json
 {
@@ -250,16 +279,17 @@ Power
 
 점수 기준:
 
-- `DAILY`: KST 오늘 00:00부터 내일 00:00 직전까지의 완료 퀘스트와 헬스 데이터 증거 합산
-- `WEEKLY`: KST 월요일부터 일요일까지의 완료 퀘스트와 헬스 데이터 증거 합산
+- `DAILY`: KST 오늘 00:00부터 내일 00:00 직전까지의 `battleEligible=true` 완료 퀘스트와 헬스 데이터 증거 합산
+- `WEEKLY`: KST 월요일부터 일요일까지의 `battleEligible=true` 완료 퀘스트와 헬스 데이터 증거 합산
 - 승패 기준은 퀘스트 EXP가 아니라 `TOTAL_SCORE`다.
-- 완료 퀘스트는 기본 점수를 주고, Health Connect 검증으로 저장된 운동 시간/거리/걸음/활동 칼로리가 점수를 더 만든다.
+- `battleEligible=true`인 검증 완료 퀘스트만 기본 점수와 Health Connect 운동 지표가 배틀 점수에 반영된다.
+- `completionType=MANUAL`인 수동 완료 퀘스트는 배틀 점수와 랭킹에 반영하지 않는다.
 
 현재 배틀 점수 계산:
 
 ```text
 TOTAL_SCORE =
-  완료 퀘스트 수 * 100
+  배틀 반영 가능 완료 퀘스트 수 * 100
 + 헬스 검증 성공 퀘스트 수 * 50
 + 운동 시간(분) * 10
 + 이동 거리(m) * 0.03

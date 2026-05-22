@@ -6,6 +6,8 @@
 
 프론트는 백엔드가 내려준 검증 시간창에 맞춰 Health Connect 데이터를 읽고, `PATCH /api/quests/{questId}/complete` 요청의 `healthSamples`에 담아 보낸다. 백엔드는 운동 카테고리별 룰로 검증한 뒤 완료와 보상 지급 여부를 결정한다.
 
+완료 버튼은 하나만 둔다. 백엔드가 건강 데이터 검증 결과에 따라 `VERIFIED` 또는 `MANUAL` 완료로 자동 분류한다.
+
 ## 전체 흐름
 
 ```text
@@ -15,7 +17,8 @@ GET /api/quests/today
 -> 사용자가 완료 버튼 클릭
 -> Health Connect readRecords(startTime=verificationWindow.startTime, endTime=now)
 -> PATCH /api/quests/{questId}/complete with healthSamples
--> 성공 시 COMPLETED, 실패 시 INSUFFICIENT_HEALTH_PROOF
+-> COMPLETED 응답
+-> completionType이 VERIFIED면 배틀 반영, MANUAL이면 배틀 제외
 ```
 
 ## 오늘 퀘스트 조회
@@ -230,7 +233,7 @@ end = complete 요청 시각 + 2분
 
 - 퀘스트 발급 전에 한 운동은 대부분 제외된다.
 - 완료 버튼 이후의 미래 데이터는 인정되지 않는다.
-- Health Connect 동기화가 늦어서 데이터가 없으면 실패할 수 있다. 이 경우 몇 분 뒤 다시 완료 요청하면 된다.
+- Health Connect 동기화가 늦어서 데이터가 없으면 `MANUAL` 완료로 처리된다. 프론트는 응답의 `completionType`을 보고 안내 문구를 다르게 보여준다.
 - 긴 세션이 시간창에 일부만 걸치면 백엔드가 겹친 구간만 비율 계산한다.
 
 ## 운동 카테고리별 백엔드 판정 기준
@@ -247,9 +250,9 @@ end = complete 요청 시각 + 2분
 대략 목표의 80% 이상을 수행하면 완료 가능성이 높다.
 활동 칼로리는 보조 지표라 70% 이상부터 인정에 사용한다.
 
-## 성공 응답
+## 완료 응답
 
-완료 성공 시 기존 퀘스트 응답과 동일하게 내려간다.
+건강 데이터가 충분하면 `VERIFIED` 완료로 내려간다. 기존 퀘스트 보상을 지급하고 배틀 점수에 반영된다.
 
 ```json
 {
@@ -260,12 +263,45 @@ end = complete 요청 시각 + 2분
     "id": 12,
     "status": "COMPLETED",
     "completed": true,
+    "completionType": "VERIFIED",
+    "verificationStatus": "VERIFIED",
+    "battleEligible": true,
     "progressValue": 1,
     "rewardExp": 30,
     "rewardGold": 15,
     "completedAt": "2026-05-22T05:59:10Z"
   }
 }
+```
+
+건강 데이터가 없거나 기준에 부족하면 `MANUAL` 완료로 내려간다. 습관 유지를 위해 완료는 인정하지만 EXP 10 / Gold 5 축소 보상만 지급하고 배틀 점수에는 반영하지 않는다.
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "퀘스트가 완료되었습니다.",
+  "data": {
+    "id": 12,
+    "status": "COMPLETED",
+    "completed": true,
+    "completionType": "MANUAL",
+    "verificationStatus": "INSUFFICIENT_DATA",
+    "battleEligible": false,
+    "progressValue": 1,
+    "rewardExp": 10,
+    "rewardGold": 5,
+    "completedAt": "2026-05-22T05:59:10Z"
+  }
+}
+```
+
+`verificationStatus` 값:
+
+```text
+VERIFIED          건강 데이터 검증 성공
+NOT_PROVIDED      healthSamples 미전송
+INSUFFICIENT_DATA healthSamples는 있었지만 기준 부족
 ```
 
 백엔드는 내부적으로 `proof_json`에 아래 검증 결과를 저장한다.
@@ -283,28 +319,13 @@ end = complete 요청 시각 + 2분
 }
 ```
 
-현재 완료 응답에는 `proof_json`을 직접 내려주지 않는다.
-
-## 실패 응답
-
-건강 데이터가 부족하면 완료/보상이 처리되지 않는다.
-
-```json
-{
-  "type": "about:blank",
-  "title": "Conflict",
-  "status": 409,
-  "detail": "퀘스트 완료를 인정할 건강 데이터가 부족합니다.",
-  "code": "INSUFFICIENT_HEALTH_PROOF",
-  "path": "/api/quests/12/complete"
-}
-```
+현재 완료 응답에는 `proof_json`을 직접 내려주지 않고, 프론트 표시와 분기에 필요한 `completionType`, `verificationStatus`, `battleEligible`, `rewardExp`, `rewardGold`만 내려준다.
 
 프론트 처리 권장:
 
-- 사용자에게 "운동 데이터가 아직 동기화되지 않았어요. 잠시 후 다시 시도해 주세요." 표시
 - Health Connect 권한이 없으면 권한 요청 화면으로 유도
-- 데이터가 너무 적으면 퀘스트 화면에서 수동 완료 대신 재시도 버튼 제공
+- `completionType=VERIFIED`이면 "운동 데이터로 인증 완료됐어요." 표시
+- `completionType=MANUAL`이면 "운동 기록이 부족해 수동 완료로 처리됐어요. 배틀 점수에는 반영되지 않아요." 표시
 
 ## 구현 체크리스트
 
@@ -314,11 +335,11 @@ end = complete 요청 시각 + 2분
 4. 조회 결과를 `healthSamples` 배열로 변환
 5. `PATCH /api/quests/{questId}/complete` 호출
 6. `200`이면 완료 UI와 보상 UI 표시
-7. `409 INSUFFICIENT_HEALTH_PROOF`이면 Health Connect 동기화 대기/재시도 안내
+7. `data.completionType`, `data.battleEligible`, `data.rewardExp`, `data.rewardGold`로 인증/수동 완료 UI 분기
 
 ## 참고
 
-기존 수동 완료 요청은 아직 호환된다.
+기존 수동 완료 요청은 아직 호환된다. 이 경우 `completionType=MANUAL`, `verificationStatus=NOT_PROVIDED`, `battleEligible=false`로 처리된다.
 
 ```json
 {
@@ -329,4 +350,4 @@ end = complete 요청 시각 + 2분
 }
 ```
 
-다만 헬스 기반 완료 플로우에서는 `healthSamples`를 보내는 것을 기준으로 구현한다.
+다만 프론트는 가능한 경우 항상 `healthSamples`를 같이 보내고, 최종 판정은 백엔드 응답을 기준으로 처리한다.

@@ -140,6 +140,32 @@ class BattleControllerTest {
     }
 
     @Test
+    void matchIgnoresManualCompletedQuestsForBattleScore() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser me = testUser("battleManualMe", "수동완료");
+        TestUser opponent = testUser("battleManualOpponent", "상대");
+        LocalDate today = KoreanTime.today();
+        seedCompletedQuest(me.userId(), today, "routine", manualProofWithLargeMetrics());
+
+        mockMvc.perform(post("/api/battles/match")
+                        .header("Authorization", "Bearer " + me.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "mode": "DAILY"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.participants[0].userId").value(me.userId()))
+                .andExpect(jsonPath("$.data.participants[0].score").value(0))
+                .andExpect(jsonPath("$.data.participants[1].userId").value(opponent.userId()))
+                .andExpect(jsonPath("$.data.participants[1].score").value(0))
+                .andExpect(jsonPath("$.data.score.leadingUserId").doesNotExist())
+                .andExpect(jsonPath("$.data.metrics[5].metricKey").value("COMPLETED_QUESTS"))
+                .andExpect(jsonPath("$.data.metrics[5].myValue").value("0개"));
+    }
+
+    @Test
     void matchReturnsConflictWhenNoOpponentExists() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser me = testUser("battleSolo", "혼자");
@@ -346,6 +372,24 @@ class BattleControllerTest {
                   }
                 }
                 """.formatted(minutes, steps, distanceMeters, activeCalories);
+    }
+
+    private String manualProofWithLargeMetrics() {
+        return """
+                {
+                  "source": "manual",
+                  "verified": false,
+                  "completionType": "MANUAL",
+                  "verificationStatus": "NOT_PROVIDED",
+                  "battleEligible": false,
+                  "metrics": {
+                    "exerciseMinutes": 120,
+                    "steps": 30000,
+                    "distanceMeters": 30000,
+                    "activeCaloriesKcal": 1000
+                  }
+                }
+                """;
     }
 
     private record TestUser(Long userId, String accessToken) {

@@ -30,8 +30,13 @@ public class RewardService {
 
     @Transactional
     public void issueQuestCompletionRewards(UserQuest quest) {
-        issueQuestExp(quest);
-        issueQuestCurrency(quest);
+        issueQuestCompletionRewards(quest, quest.getRewardExp(), quest.getRewardCurrency(), "퀘스트 완료");
+    }
+
+    @Transactional
+    public void issueQuestCompletionRewards(UserQuest quest, int rewardExp, int rewardCurrency, String memoPrefix) {
+        issueQuestExp(quest, rewardExp, memoPrefix + " EXP 보상");
+        issueQuestCurrency(quest, rewardCurrency, memoPrefix + " 골드 보상");
     }
 
     @Transactional
@@ -41,7 +46,10 @@ public class RewardService {
     }
 
     private void issueQuestExp(UserQuest quest) {
-        int amount = quest.getRewardExp() == null ? 0 : quest.getRewardExp();
+        issueQuestExp(quest, quest.getRewardExp() == null ? 0 : quest.getRewardExp(), "퀘스트 완료 EXP 보상");
+    }
+
+    private void issueQuestExp(UserQuest quest, int amount, String memo) {
         if (amount <= 0 || userExpLogRepository.existsByUser_IdAndRefTypeAndRefId(
                 quest.getUser().getId(),
                 UserExpLog.REF_TYPE_USER_QUEST,
@@ -66,12 +74,15 @@ public class RewardService {
                 afterLevel,
                 UserExpLog.REF_TYPE_USER_QUEST,
                 quest.getId(),
-                "퀘스트 완료 EXP 보상"
+                memo
         ));
     }
 
     private void issueQuestCurrency(UserQuest quest) {
-        int amount = quest.getRewardCurrency() == null ? 0 : quest.getRewardCurrency();
+        issueQuestCurrency(quest, quest.getRewardCurrency() == null ? 0 : quest.getRewardCurrency(), "퀘스트 완료 골드 보상");
+    }
+
+    private void issueQuestCurrency(UserQuest quest, int amount, String memo) {
         if (amount <= 0 || walletTransactionRepository.existsByUser_IdAndTxTypeAndRefTypeAndRefId(
                 quest.getUser().getId(),
                 WalletTransaction.TX_TYPE_QUEST_REWARD,
@@ -88,7 +99,7 @@ public class RewardService {
                 quest.getUser(),
                 amount,
                 quest.getId(),
-                "퀘스트 완료 골드 보상"
+                memo
         ));
     }
 

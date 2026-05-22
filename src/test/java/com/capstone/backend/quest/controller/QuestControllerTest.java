@@ -213,11 +213,17 @@ class QuestControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.completed").value(true))
-                .andExpect(jsonPath("$.data.rewardExp").value(30))
-                .andExpect(jsonPath("$.data.rewardGold").value(15))
+                .andExpect(jsonPath("$.data.completionType").value("MANUAL"))
+                .andExpect(jsonPath("$.data.verificationStatus").value("NOT_PROVIDED"))
+                .andExpect(jsonPath("$.data.battleEligible").value(false))
+                .andExpect(jsonPath("$.data.rewardExp").value(10))
+                .andExpect(jsonPath("$.data.rewardGold").value(5))
                 .andExpect(jsonPath("$.data.progressValue").value(2));
 
-        assertQuestCompletionReward(testUser.userId(), questId, 30, 15);
+        String manualProofJson = jdbcTemplate.queryForObject("select proof_json from user_quests where id = ?", String.class, questId);
+        org.assertj.core.api.Assertions.assertThat(manualProofJson).contains("\"completionType\":\"MANUAL\"");
+        org.assertj.core.api.Assertions.assertThat(manualProofJson).contains("\"battleEligible\":false");
+        assertQuestCompletionReward(testUser.userId(), questId, 10, 5);
 
         mockMvc.perform(patch("/api/quests/{questId}/complete", questId)
                         .header("Authorization", "Bearer " + testUser.accessToken())
@@ -233,7 +239,7 @@ class QuestControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"));
 
-        assertQuestCompletionReward(testUser.userId(), questId, 30, 15);
+        assertQuestCompletionReward(testUser.userId(), questId, 10, 5);
     }
 
     @Test
@@ -301,6 +307,11 @@ class QuestControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.completed").value(true))
+                .andExpect(jsonPath("$.data.completionType").value("VERIFIED"))
+                .andExpect(jsonPath("$.data.verificationStatus").value("VERIFIED"))
+                .andExpect(jsonPath("$.data.battleEligible").value(true))
+                .andExpect(jsonPath("$.data.rewardExp").value(30))
+                .andExpect(jsonPath("$.data.rewardGold").value(15))
                 .andExpect(jsonPath("$.data.progressValue").value(1));
 
         String proofJson = jdbcTemplate.queryForObject("select proof_json from user_quests where id = ?", String.class, questId);
@@ -310,7 +321,7 @@ class QuestControllerTest {
     }
 
     @Test
-    void completeQuestRejectsHealthProofOutsideVerificationWindow() throws Exception {
+    void completeQuestFallsBackToManualWhenHealthProofIsInsufficient() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = onboardedUser("questOldHealthProofUser");
         Long routineId = seedRoutineWithSession(KoreanTime.today().getDayOfWeek().name());
@@ -347,13 +358,24 @@ class QuestControllerTest {
                                       "rawRecordType": "StrengthTraining"
                                     }
                                   ]
-                                }
-                                """.formatted(oldExerciseStart, oldExerciseEnd)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("INSUFFICIENT_HEALTH_PROOF"));
+                }
+                """.formatted(oldExerciseStart, oldExerciseEnd)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.completed").value(true))
+                .andExpect(jsonPath("$.data.completionType").value("MANUAL"))
+                .andExpect(jsonPath("$.data.verificationStatus").value("INSUFFICIENT_DATA"))
+                .andExpect(jsonPath("$.data.battleEligible").value(false))
+                .andExpect(jsonPath("$.data.rewardExp").value(10))
+                .andExpect(jsonPath("$.data.rewardGold").value(5));
 
         String status = jdbcTemplate.queryForObject("select status from user_quests where id = ?", String.class, questId);
-        org.assertj.core.api.Assertions.assertThat(status).isEqualTo("issued");
+        org.assertj.core.api.Assertions.assertThat(status).isEqualTo("completed");
+        String proofJson = jdbcTemplate.queryForObject("select proof_json from user_quests where id = ?", String.class, questId);
+        org.assertj.core.api.Assertions.assertThat(proofJson).contains("\"completionType\":\"MANUAL\"");
+        org.assertj.core.api.Assertions.assertThat(proofJson).contains("\"verificationStatus\":\"INSUFFICIENT_DATA\"");
+        org.assertj.core.api.Assertions.assertThat(proofJson).contains("\"battleEligible\":false");
+        assertQuestCompletionReward(testUser.userId(), questId, 10, 5);
     }
 
     @Test
