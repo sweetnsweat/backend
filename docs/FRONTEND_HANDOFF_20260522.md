@@ -469,6 +469,8 @@ Authorization: Bearer {accessToken}
     "finalized": true,
     "result": "WIN",
     "winnerUserId": 10,
+    "rewardExp": 30,
+    "rewardGold": 15,
     "myScore": 980,
     "opponentScore": 367,
     "participants": [],
@@ -491,11 +493,15 @@ DRAW
 - 기간 종료 전에도 호출 가능하며 현재 기준 결과를 내려준다.
 - 기간 종료 전이면 `finalized=false`.
 - 기간 종료 후 최초 결과 조회 시 서버가 결과를 확정하고 `finalized=true`.
+- 승리자에게만 보상이 지급된다. `DAILY` 승리 보상은 EXP 30 / Gold 15, `WEEKLY` 승리 보상은 EXP 100 / Gold 50이다.
+- 패배와 무승부는 보상이 없으며 `rewardExp=0`, `rewardGold=0`으로 내려간다.
+- 같은 배틀 승리 보상은 한 번만 지급된다. 결과를 다시 조회해도 중복 지급되지 않는다.
 
 모바일 적용:
 
 - `BattleResultScreen`의 `won: boolean` route param 제거 권장
 - 서버의 `result`로 승/패/무승부 UI 분기
+- 승리 화면에서는 `rewardExp`, `rewardGold`를 보상 표시값으로 사용
 
 ### 2.5 배틀 기록 조회
 

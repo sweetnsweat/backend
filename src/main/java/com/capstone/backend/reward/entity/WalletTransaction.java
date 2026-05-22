@@ -19,8 +19,10 @@ import java.time.Instant;
 public class WalletTransaction {
 
     public static final String TX_TYPE_QUEST_REWARD = "quest_reward";
+    public static final String TX_TYPE_BATTLE_REWARD = "battle_reward";
     public static final String TX_TYPE_PURCHASE = "purchase";
     public static final String REF_TYPE_USER_QUEST = "user_quest";
+    public static final String REF_TYPE_BATTLE_WIN = "battle_win";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -61,6 +63,17 @@ public class WalletTransaction {
         transaction.amount = amount;
         transaction.refType = REF_TYPE_USER_QUEST;
         transaction.refId = questId;
+        transaction.memo = memo;
+        return transaction;
+    }
+
+    public static WalletTransaction battleReward(User user, int amount, Long battleId, String memo) {
+        WalletTransaction transaction = new WalletTransaction();
+        transaction.user = user;
+        transaction.txType = TX_TYPE_BATTLE_REWARD;
+        transaction.amount = amount;
+        transaction.refType = REF_TYPE_BATTLE_WIN;
+        transaction.refId = battleId;
         transaction.memo = memo;
         return transaction;
     }

@@ -21,6 +21,9 @@ import com.capstone.backend.global.time.KoreanTime;
 import com.capstone.backend.notification.service.NotificationService;
 import com.capstone.backend.quest.entity.UserQuest;
 import com.capstone.backend.quest.repository.UserQuestRepository;
+import com.capstone.backend.reward.policy.BattleRewardPolicy;
+import com.capstone.backend.reward.policy.BattleRewardPolicy.BattleReward;
+import com.capstone.backend.reward.service.RewardService;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import java.math.BigDecimal;
@@ -53,17 +56,20 @@ public class BattleService {
     private final UserQuestRepository userQuestRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final RewardService rewardService;
 
     public BattleService(BattleRepository battleRepository,
                          BattleParticipantRepository battleParticipantRepository,
                          UserQuestRepository userQuestRepository,
                          UserRepository userRepository,
-                         NotificationService notificationService) {
+                         NotificationService notificationService,
+                         RewardService rewardService) {
         this.battleRepository = battleRepository;
         this.battleParticipantRepository = battleParticipantRepository;
         this.userQuestRepository = userQuestRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.rewardService = rewardService;
     }
 
     @Transactional(readOnly = true)
@@ -205,7 +211,15 @@ public class BattleService {
         first.finalizeResult(firstStats.totalScore(), firstResult);
         second.finalizeResult(secondStats.totalScore(), secondResult);
         battle.finalizeBattle(KoreanTime.nowInstant());
+        issueWinRewards(battle, participants);
         notificationService.sendBattleResultReady(battle, participants);
+    }
+
+    private void issueWinRewards(Battle battle, List<BattleParticipant> participants) {
+        BattleReward reward = BattleRewardPolicy.win(battle.getMode());
+        participants.stream()
+                .filter(participant -> BattleResult.WIN.equals(participant.getResult()))
+                .forEach(participant -> rewardService.issueBattleWinReward(participant.getUser(), battle.getId(), reward));
     }
 
     private BattleDetailResponse toDetail(Battle battle, Long currentUserId) {
@@ -234,6 +248,9 @@ public class BattleService {
         if (battle.isFinalized()) {
             result = snapshot.me().getResult();
         }
+        BattleReward reward = BattleRewardPolicy.win(battle.getMode());
+        int rewardExp = battle.isFinalized() && BattleResult.WIN.equals(result) ? reward.exp() : 0;
+        int rewardGold = battle.isFinalized() && BattleResult.WIN.equals(result) ? reward.currency() : 0;
 
         return new BattleResultResponse(
                 battle.getId(),
@@ -246,6 +263,8 @@ public class BattleService {
                 battle.isFinalized(),
                 result,
                 winnerUserId,
+                rewardExp,
+                rewardGold,
                 snapshot.myStats().totalScore(),
                 snapshot.opponentStats().totalScore(),
                 snapshot.participants(),

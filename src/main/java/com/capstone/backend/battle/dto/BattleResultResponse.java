@@ -18,6 +18,8 @@ public record BattleResultResponse(
         boolean finalized,
         BattleResult result,
         Long winnerUserId,
+        int rewardExp,
+        int rewardGold,
         Integer myScore,
         Integer opponentScore,
         List<BattleParticipantResponse> participants,

@@ -187,8 +187,16 @@ class BattleControllerTest {
                 .andExpect(jsonPath("$.data.finalized").value(true))
                 .andExpect(jsonPath("$.data.result").value("WIN"))
                 .andExpect(jsonPath("$.data.winnerUserId").value(me.userId()))
+                .andExpect(jsonPath("$.data.rewardExp").value(30))
+                .andExpect(jsonPath("$.data.rewardGold").value(15))
                 .andExpect(jsonPath("$.data.myScore").value(980))
                 .andExpect(jsonPath("$.data.opponentScore").value(367));
+
+        org.assertj.core.api.Assertions.assertThat(expRewardCount(me.userId(), battleId)).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(expRewardCount(opponent.userId(), battleId)).isZero();
+        org.assertj.core.api.Assertions.assertThat(currencyRewardCount(me.userId(), battleId)).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(currencyRewardCount(opponent.userId(), battleId)).isZero();
+        org.assertj.core.api.Assertions.assertThat(walletBalance(me.userId())).isEqualTo(15);
 
         mockMvc.perform(get("/api/battles/history")
                         .header("Authorization", "Bearer " + me.accessToken()))
@@ -201,9 +209,60 @@ class BattleControllerTest {
         mockMvc.perform(get("/api/battles/{battleId}/result", battleId)
                         .header("Authorization", "Bearer " + me.accessToken()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.finalized").value(true));
+                .andExpect(jsonPath("$.data.finalized").value(true))
+                .andExpect(jsonPath("$.data.rewardExp").value(30))
+                .andExpect(jsonPath("$.data.rewardGold").value(15));
+
+        mockMvc.perform(get("/api/battles/{battleId}/result", battleId)
+                        .header("Authorization", "Bearer " + opponent.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.finalized").value(true))
+                .andExpect(jsonPath("$.data.result").value("LOSS"))
+                .andExpect(jsonPath("$.data.rewardExp").value(0))
+                .andExpect(jsonPath("$.data.rewardGold").value(0));
+
+        org.assertj.core.api.Assertions.assertThat(expRewardCount(me.userId(), battleId)).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(currencyRewardCount(me.userId(), battleId)).isEqualTo(1);
 
         verify(notificationService, times(1)).sendBattleResultReady(any(Battle.class), anyList());
+    }
+
+    @Test
+    void drawBattleDoesNotIssueRewards() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser me = testUser("battleDrawMe", "무승부1");
+        TestUser opponent = testUser("battleDrawOpponent", "무승부2");
+        LocalDate today = KoreanTime.today();
+        seedCompletedQuest(me.userId(), today, "routine", healthProof(20, 1000, 1000, 100));
+        seedCompletedQuest(opponent.userId(), today, "routine", healthProof(20, 1000, 1000, 100));
+
+        mockMvc.perform(post("/api/battles/match")
+                        .header("Authorization", "Bearer " + me.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "mode": "DAILY"
+                                }
+                                """))
+                .andExpect(status().isOk());
+        Long battleId = jdbcTemplate.queryForObject("select id from battles", Long.class);
+        jdbcTemplate.update(
+                "update battles set ends_at = ? where id = ?",
+                Timestamp.from(KoreanTime.nowInstant().minus(Duration.ofMinutes(1))),
+                battleId
+        );
+
+        mockMvc.perform(get("/api/battles/{battleId}/result", battleId)
+                        .header("Authorization", "Bearer " + me.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.result").value("DRAW"))
+                .andExpect(jsonPath("$.data.rewardExp").value(0))
+                .andExpect(jsonPath("$.data.rewardGold").value(0));
+
+        org.assertj.core.api.Assertions.assertThat(expRewardCount(me.userId(), battleId)).isZero();
+        org.assertj.core.api.Assertions.assertThat(expRewardCount(opponent.userId(), battleId)).isZero();
+        org.assertj.core.api.Assertions.assertThat(currencyRewardCount(me.userId(), battleId)).isZero();
+        org.assertj.core.api.Assertions.assertThat(currencyRewardCount(opponent.userId(), battleId)).isZero();
     }
 
     @Test
@@ -242,6 +301,36 @@ class BattleControllerTest {
                 values (?, ?, ?, 'minutes', '배틀 테스트 퀘스트', '배틀 테스트용 완료 퀘스트입니다.', 10, 10, 'completed', false, 0, 0, CURRENT_TIMESTAMP, JSON '""" + escapedProofJson + """
                 ', JSON '{}', CURRENT_TIMESTAMP)
                 """, userId, questDate, questType);
+    }
+
+    private int expRewardCount(Long userId, Long battleId) {
+        return jdbcTemplate.queryForObject("""
+                select count(*)
+                from user_exp_logs
+                where user_id = ?
+                  and ref_type = 'battle_win'
+                  and ref_id = ?
+                """, Integer.class, userId, battleId);
+    }
+
+    private int currencyRewardCount(Long userId, Long battleId) {
+        return jdbcTemplate.queryForObject("""
+                select count(*)
+                from wallet_transactions
+                where user_id = ?
+                  and tx_type = 'battle_reward'
+                  and ref_type = 'battle_win'
+                  and ref_id = ?
+                """, Integer.class, userId, battleId);
+    }
+
+    private int walletBalance(Long userId) {
+        Integer balance = jdbcTemplate.queryForObject("""
+                select balance_currency
+                from wallets
+                where user_id = ?
+                """, Integer.class, userId);
+        return balance == null ? 0 : balance;
     }
 
     private String healthProof(int minutes, int steps, int distanceMeters, int activeCalories) {

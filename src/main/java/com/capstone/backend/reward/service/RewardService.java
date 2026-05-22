@@ -4,6 +4,7 @@ import com.capstone.backend.quest.entity.UserQuest;
 import com.capstone.backend.reward.entity.UserExpLog;
 import com.capstone.backend.reward.entity.Wallet;
 import com.capstone.backend.reward.entity.WalletTransaction;
+import com.capstone.backend.reward.policy.BattleRewardPolicy.BattleReward;
 import com.capstone.backend.reward.policy.LevelPolicy;
 import com.capstone.backend.reward.repository.UserExpLogRepository;
 import com.capstone.backend.reward.repository.WalletRepository;
@@ -31,6 +32,12 @@ public class RewardService {
     public void issueQuestCompletionRewards(UserQuest quest) {
         issueQuestExp(quest);
         issueQuestCurrency(quest);
+    }
+
+    @Transactional
+    public void issueBattleWinReward(User user, Long battleId, BattleReward reward) {
+        issueBattleWinExp(user, battleId, reward.exp());
+        issueBattleWinCurrency(user, battleId, reward.currency());
     }
 
     private void issueQuestExp(UserQuest quest) {
@@ -82,6 +89,55 @@ public class RewardService {
                 amount,
                 quest.getId(),
                 "퀘스트 완료 골드 보상"
+        ));
+    }
+
+    private void issueBattleWinExp(User user, Long battleId, int amount) {
+        if (amount <= 0 || userExpLogRepository.existsByUser_IdAndRefTypeAndRefId(
+                user.getId(),
+                UserExpLog.REF_TYPE_BATTLE_WIN,
+                battleId
+        )) {
+            return;
+        }
+
+        int beforeTotalExp = user.getTotalExp();
+        int beforeLevel = user.getLevel();
+        int afterTotalExp = beforeTotalExp + amount;
+        int afterLevel = LevelPolicy.levelForTotalExp(afterTotalExp);
+
+        user.applyExperience(afterTotalExp, afterLevel);
+        userExpLogRepository.save(UserExpLog.create(
+                user,
+                amount,
+                beforeTotalExp,
+                afterTotalExp,
+                beforeLevel,
+                afterLevel,
+                UserExpLog.REF_TYPE_BATTLE_WIN,
+                battleId,
+                "배틀 승리 EXP 보상"
+        ));
+    }
+
+    private void issueBattleWinCurrency(User user, Long battleId, int amount) {
+        if (amount <= 0 || walletTransactionRepository.existsByUser_IdAndTxTypeAndRefTypeAndRefId(
+                user.getId(),
+                WalletTransaction.TX_TYPE_BATTLE_REWARD,
+                WalletTransaction.REF_TYPE_BATTLE_WIN,
+                battleId
+        )) {
+            return;
+        }
+
+        Wallet wallet = walletRepository.findByUserId(user.getId())
+                .orElseGet(() -> walletRepository.save(Wallet.create(user)));
+        wallet.credit(amount);
+        walletTransactionRepository.save(WalletTransaction.battleReward(
+                user,
+                amount,
+                battleId,
+                "배틀 승리 골드 보상"
         ));
     }
 }

@@ -23,6 +23,7 @@ import java.time.Instant;
 public class UserExpLog {
 
     public static final String REF_TYPE_USER_QUEST = "user_quest";
+    public static final String REF_TYPE_BATTLE_WIN = "battle_win";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
