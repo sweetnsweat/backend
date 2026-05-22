@@ -33,6 +33,18 @@ public interface UserQuestRepository extends JpaRepository<UserQuest, Long> {
                                                                   @Param("endDate") LocalDate endDate);
 
     @Query("""
+            select quest
+            from UserQuest quest
+            where quest.user.id = :userId
+              and quest.questDate between :startDate and :endDate
+              and quest.status = 'completed'
+            order by quest.questDate asc
+            """)
+    List<UserQuest> findCompletedBattleQuests(@Param("userId") Long userId,
+                                              @Param("startDate") LocalDate startDate,
+                                              @Param("endDate") LocalDate endDate);
+
+    @Query("""
             select quest.user.id as userId,
                    quest.user.nickname as nickname,
                    coalesce(sum(quest.rewardExp), 0) as weeklyExp
@@ -63,4 +75,5 @@ public interface UserQuestRepository extends JpaRepository<UserQuest, Long> {
 
         Long getWeeklyExp();
     }
+
 }

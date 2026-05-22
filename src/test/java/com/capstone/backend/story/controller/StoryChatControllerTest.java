@@ -44,6 +44,8 @@ class StoryChatControllerTest {
         jdbcTemplate.update("delete from story_progress");
         jdbcTemplate.update("delete from character_profiles");
         jdbcTemplate.update("delete from scenarios");
+        jdbcTemplate.update("delete from battle_participants");
+        jdbcTemplate.update("delete from battles");
         jdbcTemplate.update("delete from user_quests");
         jdbcTemplate.update("delete from user_exp_logs");
         jdbcTemplate.update("delete from wallet_transactions");

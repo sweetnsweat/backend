@@ -9,6 +9,7 @@ import com.capstone.backend.quest.dto.QuestExerciseResponse;
 import com.capstone.backend.quest.dto.QuestResponse;
 import com.capstone.backend.quest.entity.UserQuest;
 import com.capstone.backend.quest.repository.UserQuestRepository;
+import com.capstone.backend.quest.service.HealthQuestProgressEvaluator.HealthQuestProgress;
 import com.capstone.backend.reward.policy.QuestRewardPolicy;
 import com.capstone.backend.reward.policy.QuestRewardPolicy.QuestReward;
 import com.capstone.backend.reward.service.RewardService;
@@ -41,17 +42,20 @@ public class QuestService {
     private final ConditionLogRepository conditionLogRepository;
     private final RoutineRepository routineRepository;
     private final RewardService rewardService;
+    private final HealthQuestProgressEvaluator healthQuestProgressEvaluator;
 
     public QuestService(UserQuestRepository userQuestRepository,
                         UserRepository userRepository,
                         ConditionLogRepository conditionLogRepository,
                         RoutineRepository routineRepository,
-                        RewardService rewardService) {
+                        RewardService rewardService,
+                        HealthQuestProgressEvaluator healthQuestProgressEvaluator) {
         this.userQuestRepository = userQuestRepository;
         this.userRepository = userRepository;
         this.conditionLogRepository = conditionLogRepository;
         this.routineRepository = routineRepository;
         this.rewardService = rewardService;
+        this.healthQuestProgressEvaluator = healthQuestProgressEvaluator;
     }
 
     @Transactional
@@ -79,8 +83,16 @@ public class QuestService {
         }
         boolean newlyCompleted = !UserQuest.STATUS_COMPLETED.equals(quest.getStatus());
         if (newlyCompleted) {
-            Integer progressValue = request == null ? null : request.progressValue();
-            Map<String, Object> proof = request == null ? null : request.proof();
+            HealthQuestProgress healthProgress = request == null ? null : healthQuestProgressEvaluator.evaluate(quest, request.healthSamples());
+            if (healthProgress != null && !healthProgress.verified()) {
+                throw new ApiException(HttpStatus.CONFLICT, "INSUFFICIENT_HEALTH_PROOF", "퀘스트 완료를 인정할 건강 데이터가 부족합니다.");
+            }
+            Integer progressValue = healthProgress != null && healthProgress.progressValue() != null
+                    ? healthProgress.progressValue()
+                    : request == null ? null : request.progressValue();
+            Map<String, Object> proof = healthProgress != null
+                    ? healthProgress.proof()
+                    : request == null ? null : request.proof();
             quest.complete(progressValue, proof);
             rewardService.issueQuestCompletionRewards(quest);
         }

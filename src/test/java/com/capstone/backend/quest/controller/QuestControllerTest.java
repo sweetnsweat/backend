@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -52,6 +53,8 @@ class QuestControllerTest {
 
     @BeforeEach
     void cleanup() {
+        jdbcTemplate.update("delete from battle_participants");
+        jdbcTemplate.update("delete from battles");
         jdbcTemplate.update("delete from user_quests");
         jdbcTemplate.update("delete from user_exp_logs");
         jdbcTemplate.update("delete from wallet_transactions");
@@ -231,6 +234,126 @@ class QuestControllerTest {
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"));
 
         assertQuestCompletionReward(testUser.userId(), questId, 30, 15);
+    }
+
+    @Test
+    void completeQuestAcceptsHealthProofInsideVerificationWindow() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser testUser = onboardedUser("questHealthProofUser");
+        Long routineId = seedRoutineWithSession(KoreanTime.today().getDayOfWeek().name());
+        jdbcTemplate.update("update users set active_routine_id = ? where id = ?", routineId, testUser.userId());
+        seedCondition(testUser.userId(), KoreanTime.today(), BigDecimal.valueOf(72.92), BigDecimal.valueOf(1.00));
+
+        mockMvc.perform(get("/api/quests/today")
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.verificationWindow.startTime").exists());
+        Long questId = jdbcTemplate.queryForObject(
+                "select id from user_quests where user_id = ? and quest_date = ?",
+                Long.class,
+                testUser.userId(),
+                KoreanTime.today()
+        );
+        Instant now = KoreanTime.nowInstant();
+        Instant questCreatedAt = now.minusSeconds(30 * 60L);
+        jdbcTemplate.update("update user_quests set created_at = ? where id = ?", questCreatedAt, questId);
+        Instant exerciseStart = now.minusSeconds(26 * 60L);
+
+        mockMvc.perform(patch("/api/quests/{questId}/complete", questId)
+                        .header("Authorization", "Bearer " + testUser.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "healthSamples": [
+                                    {
+                                      "type": "ExerciseSession",
+                                      "value": 26,
+                                      "unit": "minutes",
+                                      "startTime": "%s",
+                                      "endTime": "%s",
+                                      "source": "health_connect",
+                                      "dataOrigin": "com.sec.android.app.shealth",
+                                      "rawRecordType": "StrengthTraining"
+                                    },
+                                    {
+                                      "type": "ActiveCaloriesBurned",
+                                      "value": 160,
+                                      "unit": "kcal",
+                                      "startTime": "%s",
+                                      "endTime": "%s",
+                                      "source": "health_connect",
+                                      "dataOrigin": "com.sec.android.app.shealth",
+                                      "rawRecordType": "ActiveCaloriesBurned"
+                                    },
+                                    {
+                                      "type": "HeartRate",
+                                      "value": 128,
+                                      "unit": "bpm",
+                                      "startTime": "%s",
+                                      "endTime": "%s",
+                                      "source": "health_connect",
+                                      "dataOrigin": "com.sec.android.app.shealth",
+                                      "rawRecordType": "HeartRate"
+                                    }
+                                  ]
+                                }
+                                """.formatted(exerciseStart, now, exerciseStart, now, exerciseStart, now)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.completed").value(true))
+                .andExpect(jsonPath("$.data.progressValue").value(1));
+
+        String proofJson = jdbcTemplate.queryForObject("select proof_json from user_quests where id = ?", String.class, questId);
+        org.assertj.core.api.Assertions.assertThat(proofJson).contains("\"verified\":true");
+        org.assertj.core.api.Assertions.assertThat(proofJson).contains("\"rule\":\"strength_health_proof\"");
+        assertQuestCompletionReward(testUser.userId(), questId, 30, 15);
+    }
+
+    @Test
+    void completeQuestRejectsHealthProofOutsideVerificationWindow() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser testUser = onboardedUser("questOldHealthProofUser");
+        Long routineId = seedRoutineWithSession(KoreanTime.today().getDayOfWeek().name());
+        jdbcTemplate.update("update users set active_routine_id = ? where id = ?", routineId, testUser.userId());
+        seedCondition(testUser.userId(), KoreanTime.today(), BigDecimal.valueOf(72.92), BigDecimal.valueOf(1.00));
+
+        mockMvc.perform(get("/api/quests/today")
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk());
+        Long questId = jdbcTemplate.queryForObject(
+                "select id from user_quests where user_id = ? and quest_date = ?",
+                Long.class,
+                testUser.userId(),
+                KoreanTime.today()
+        );
+        Instant now = KoreanTime.nowInstant();
+        Instant oldExerciseStart = now.minusSeconds(90 * 60L);
+        Instant oldExerciseEnd = now.minusSeconds(60 * 60L);
+
+        mockMvc.perform(patch("/api/quests/{questId}/complete", questId)
+                        .header("Authorization", "Bearer " + testUser.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "healthSamples": [
+                                    {
+                                      "type": "ExerciseSession",
+                                      "value": 30,
+                                      "unit": "minutes",
+                                      "startTime": "%s",
+                                      "endTime": "%s",
+                                      "source": "health_connect",
+                                      "dataOrigin": "com.sec.android.app.shealth",
+                                      "rawRecordType": "StrengthTraining"
+                                    }
+                                  ]
+                                }
+                                """.formatted(oldExerciseStart, oldExerciseEnd)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INSUFFICIENT_HEALTH_PROOF"));
+
+        String status = jdbcTemplate.queryForObject("select status from user_quests where id = ?", String.class, questId);
+        org.assertj.core.api.Assertions.assertThat(status).isEqualTo("issued");
     }
 
     @Test
