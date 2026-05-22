@@ -308,6 +308,10 @@ public class UserQuest {
         return questContextJson == null ? Map.of() : Map.copyOf(questContextJson);
     }
 
+    public Map<String, Object> getProofJson() {
+        return proofJson == null ? Map.of() : Map.copyOf(proofJson);
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }

@@ -86,9 +86,9 @@ class BattleControllerTest {
         TestUser close = testUser("battleClose", "근접상대");
         TestUser far = testUser("battleFar", "먼상대");
         LocalDate today = KoreanTime.today();
-        seedCompletedQuest(me.userId(), today, "routine", 50);
-        seedCompletedQuest(close.userId(), today, "routine", 40);
-        seedCompletedQuest(far.userId(), today, "routine", 100);
+        seedCompletedQuest(me.userId(), today, "routine", healthProof(30, 4000, 3000, 200));
+        seedCompletedQuest(close.userId(), today, "routine", healthProof(25, 2500, 1800, 150));
+        seedCompletedQuest(far.userId(), today, "routine", healthProof(60, 9000, 9000, 500));
 
         mockMvc.perform(post("/api/battles/match")
                         .header("Authorization", "Bearer " + me.accessToken())
@@ -103,11 +103,12 @@ class BattleControllerTest {
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.data.participants.length()").value(2))
                 .andExpect(jsonPath("$.data.participants[0].userId").value(me.userId()))
-                .andExpect(jsonPath("$.data.participants[0].score").value(50))
+                .andExpect(jsonPath("$.data.participants[0].score").value(980))
                 .andExpect(jsonPath("$.data.participants[1].userId").value(close.userId()))
-                .andExpect(jsonPath("$.data.participants[1].score").value(40))
+                .andExpect(jsonPath("$.data.participants[1].score").value(779))
                 .andExpect(jsonPath("$.data.score.leadingUserId").value(me.userId()))
-                .andExpect(jsonPath("$.data.metrics[0].metricKey").value("TOTAL_EXP"));
+                .andExpect(jsonPath("$.data.metrics[0].metricKey").value("TOTAL_SCORE"))
+                .andExpect(jsonPath("$.data.metrics[1].metricKey").value("ACTIVE_MINUTES"));
 
         Long battleId = jdbcTemplate.queryForObject("select id from battles", Long.class);
 
@@ -149,8 +150,8 @@ class BattleControllerTest {
         TestUser me = testUser("battleWinner", "승자");
         TestUser opponent = testUser("battleLoser", "패자");
         LocalDate today = KoreanTime.today();
-        seedCompletedQuest(me.userId(), today, "routine", 80);
-        seedCompletedQuest(opponent.userId(), today, "off_day", 20);
+        seedCompletedQuest(me.userId(), today, "routine", healthProof(30, 4000, 3000, 200));
+        seedCompletedQuest(opponent.userId(), today, "off_day", healthProof(10, 800, 300, 50));
 
         mockMvc.perform(post("/api/battles/match")
                         .header("Authorization", "Bearer " + me.accessToken())
@@ -174,8 +175,8 @@ class BattleControllerTest {
                 .andExpect(jsonPath("$.data.finalized").value(true))
                 .andExpect(jsonPath("$.data.result").value("WIN"))
                 .andExpect(jsonPath("$.data.winnerUserId").value(me.userId()))
-                .andExpect(jsonPath("$.data.myScore").value(80))
-                .andExpect(jsonPath("$.data.opponentScore").value(20));
+                .andExpect(jsonPath("$.data.myScore").value(980))
+                .andExpect(jsonPath("$.data.opponentScore").value(367));
 
         mockMvc.perform(get("/api/battles/history")
                         .header("Authorization", "Bearer " + me.accessToken()))
@@ -198,7 +199,8 @@ class BattleControllerTest {
         return new TestUser(user.getId(), jwtTokenService.issueTokenPair(user).accessToken());
     }
 
-    private void seedCompletedQuest(Long userId, LocalDate questDate, String questType, int rewardExp) {
+    private void seedCompletedQuest(Long userId, LocalDate questDate, String questType, String proofJson) {
+        String escapedProofJson = proofJson.replace("'", "''");
         jdbcTemplate.update("""
                 insert into user_quests (
                     user_id,
@@ -218,8 +220,24 @@ class BattleControllerTest {
                     quest_context_json,
                     created_at
                 )
-                values (?, ?, ?, 'minutes', '배틀 테스트 퀘스트', '배틀 테스트용 완료 퀘스트입니다.', 10, 10, 'completed', false, 0, ?, CURRENT_TIMESTAMP, JSON '{}', JSON '{}', CURRENT_TIMESTAMP)
-                """, userId, questDate, questType, rewardExp);
+                values (?, ?, ?, 'minutes', '배틀 테스트 퀘스트', '배틀 테스트용 완료 퀘스트입니다.', 10, 10, 'completed', false, 0, 0, CURRENT_TIMESTAMP, JSON '""" + escapedProofJson + """
+                ', JSON '{}', CURRENT_TIMESTAMP)
+                """, userId, questDate, questType);
+    }
+
+    private String healthProof(int minutes, int steps, int distanceMeters, int activeCalories) {
+        return """
+                {
+                  "source": "health_data",
+                  "verified": true,
+                  "metrics": {
+                    "exerciseMinutes": %d,
+                    "steps": %d,
+                    "distanceMeters": %d,
+                    "activeCaloriesKcal": %d
+                  }
+                }
+                """.formatted(minutes, steps, distanceMeters, activeCalories);
     }
 
     private record TestUser(Long userId, String accessToken) {

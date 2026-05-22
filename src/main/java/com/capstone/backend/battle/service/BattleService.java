@@ -18,9 +18,12 @@ import com.capstone.backend.battle.repository.BattleParticipantRepository;
 import com.capstone.backend.battle.repository.BattleRepository;
 import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.global.time.KoreanTime;
+import com.capstone.backend.quest.entity.UserQuest;
 import com.capstone.backend.quest.repository.UserQuestRepository;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
@@ -41,6 +44,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class BattleService {
 
     private static final int HISTORY_MAX_SIZE = 100;
+    private static final int QUEST_COMPLETION_POINTS = 100;
+    private static final int HEALTH_VERIFIED_POINTS = 50;
 
     private final BattleRepository battleRepository;
     private final BattleParticipantRepository battleParticipantRepository;
@@ -88,7 +93,7 @@ public class BattleService {
         }
 
         BattleStats myStats = loadStats(userId, period);
-        User opponent = chooseOpponent(userId, mode, period, myStats.totalExp());
+        User opponent = chooseOpponent(userId, mode, period, myStats.totalScore());
         Battle battle = battleRepository.save(Battle.create(
                 mode,
                 period.startDate(),
@@ -161,30 +166,21 @@ public class BattleService {
     }
 
     private User chooseOpponent(Long userId, BattleMode mode, BattlePeriod period, int myScore) {
-        List<UserQuestRepository.BattleOpponentCandidateRow> scoredCandidates = userQuestRepository.findBattleOpponentCandidates(
-                userId,
-                period.startDate(),
-                period.endDate(),
-                myScore,
-                mode,
-                PageRequest.of(0, 1)
-        );
-        if (!scoredCandidates.isEmpty()) {
-            return userRepository.findById(scoredCandidates.getFirst().getUserId())
-                    .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "BATTLE_OPPONENT_NOT_FOUND", "매칭 가능한 상대가 없습니다."));
-        }
-
-        List<User> fallbackCandidates = userRepository.findAvailableBattleOpponents(
+        List<User> candidates = userRepository.findAvailableBattleOpponents(
                 userId,
                 mode,
                 period.startDate(),
                 period.endDate(),
-                PageRequest.of(0, 1)
+                PageRequest.of(0, 50)
         );
-        if (fallbackCandidates.isEmpty()) {
+        if (candidates.isEmpty()) {
             throw new ApiException(HttpStatus.CONFLICT, "BATTLE_OPPONENT_NOT_FOUND", "매칭 가능한 상대가 없습니다.");
         }
-        return fallbackCandidates.getFirst();
+        return candidates.stream()
+                .min(Comparator
+                        .comparingInt((User candidate) -> Math.abs(loadStats(candidate.getId(), period).totalScore() - myScore))
+                        .thenComparing(User::getId))
+                .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "BATTLE_OPPONENT_NOT_FOUND", "매칭 가능한 상대가 없습니다."));
     }
 
     private void finalizeBattle(Battle battle) {
@@ -199,10 +195,10 @@ public class BattleService {
         BattleStats firstStats = loadStats(first.getUser().getId(), period);
         BattleStats secondStats = loadStats(second.getUser().getId(), period);
 
-        BattleResult firstResult = resultFor(firstStats.totalExp(), secondStats.totalExp());
-        BattleResult secondResult = resultFor(secondStats.totalExp(), firstStats.totalExp());
-        first.finalizeResult(firstStats.totalExp(), firstResult);
-        second.finalizeResult(secondStats.totalExp(), secondResult);
+        BattleResult firstResult = resultFor(firstStats.totalScore(), secondStats.totalScore());
+        BattleResult secondResult = resultFor(secondStats.totalScore(), firstStats.totalScore());
+        first.finalizeResult(firstStats.totalScore(), firstResult);
+        second.finalizeResult(secondStats.totalScore(), secondResult);
         battle.finalizeBattle(KoreanTime.nowInstant());
     }
 
@@ -219,7 +215,7 @@ public class BattleService {
                 battle.getEndsAt(),
                 remainingSeconds(battle),
                 snapshot.participants(),
-                new BattleScoreResponse(snapshot.myStats().totalExp(), snapshot.opponentStats().totalExp(), leadingUserId(snapshot)),
+                new BattleScoreResponse(snapshot.myStats().totalScore(), snapshot.opponentStats().totalScore(), leadingUserId(snapshot)),
                 metrics(snapshot.myStats(), snapshot.opponentStats())
         );
     }
@@ -228,7 +224,7 @@ public class BattleService {
         BattlePeriod period = BattlePeriod.fromBattle(battle);
         BattleSnapshot snapshot = snapshot(battle, currentUserId, period);
         Long winnerUserId = winnerUserId(snapshot);
-        BattleResult result = resultFor(snapshot.myStats().totalExp(), snapshot.opponentStats().totalExp());
+        BattleResult result = resultFor(snapshot.myStats().totalScore(), snapshot.opponentStats().totalScore());
         if (battle.isFinalized()) {
             result = snapshot.me().getResult();
         }
@@ -244,8 +240,8 @@ public class BattleService {
                 battle.isFinalized(),
                 result,
                 winnerUserId,
-                snapshot.myStats().totalExp(),
-                snapshot.opponentStats().totalExp(),
+                snapshot.myStats().totalScore(),
+                snapshot.opponentStats().totalScore(),
                 snapshot.participants(),
                 metrics(snapshot.myStats(), snapshot.opponentStats())
         );
@@ -311,7 +307,7 @@ public class BattleService {
                             participant.getUser().getNickname(),
                             participant.getUser().getProfileImageUrl(),
                             participant.getUser().getId().equals(currentUserId),
-                            battle.isFinalized() && participant.getFinalScore() != null ? participant.getFinalScore() : stats.totalExp(),
+                            battle.isFinalized() && participant.getFinalScore() != null ? participant.getFinalScore() : stats.totalScore(),
                             battle.isFinalized() ? participant.getResult() : BattleResult.PENDING
                     );
                 })
@@ -320,23 +316,54 @@ public class BattleService {
     }
 
     private BattleStats loadStats(Long userId, BattlePeriod period) {
-        UserQuestRepository.BattleScoreStatsRow row = userQuestRepository.findBattleScoreStats(
+        List<UserQuest> quests = userQuestRepository.findCompletedBattleQuests(
                 userId,
                 period.startDate(),
                 period.endDate()
         );
-        return new BattleStats(
-                safeLong(row == null ? null : row.getTotalExp()).intValue(),
-                safeLong(row == null ? null : row.getCompletedQuestCount()).intValue(),
-                safeLong(row == null ? null : row.getRoutineQuestCount()).intValue()
-        );
+        int completedQuestCount = quests.size();
+        int routineQuestCount = (int) quests.stream()
+                .filter(quest -> UserQuest.TYPE_ROUTINE.equals(quest.getQuestType()))
+                .count();
+
+        int activeMinutes = 0;
+        int steps = 0;
+        int distanceMeters = 0;
+        int activeCalories = 0;
+        int healthVerifiedQuestCount = 0;
+
+        for (UserQuest quest : quests) {
+            Map<String, Object> proof = quest.getProofJson();
+            if (Boolean.TRUE.equals(proof.get("verified"))) {
+                healthVerifiedQuestCount++;
+            }
+            Object metricsValue = proof.get("metrics");
+            if (!(metricsValue instanceof Map<?, ?> metrics)) {
+                continue;
+            }
+            activeMinutes += decimal(metrics.get("exerciseMinutes")).setScale(0, RoundingMode.HALF_UP).intValue();
+            steps += decimal(metrics.get("steps")).setScale(0, RoundingMode.HALF_UP).intValue();
+            distanceMeters += decimal(metrics.get("distanceMeters")).setScale(0, RoundingMode.HALF_UP).intValue();
+            activeCalories += decimal(metrics.get("activeCaloriesKcal")).setScale(0, RoundingMode.HALF_UP).intValue();
+        }
+
+        int totalScore = completedQuestCount * QUEST_COMPLETION_POINTS
+                + healthVerifiedQuestCount * HEALTH_VERIFIED_POINTS
+                + activeMinutes * 10
+                + Math.round(distanceMeters * 0.03f)
+                + Math.round(steps * 0.01f)
+                + activeCalories * 2;
+        return new BattleStats(totalScore, completedQuestCount, routineQuestCount, activeMinutes, steps, distanceMeters, activeCalories, healthVerifiedQuestCount);
     }
 
     private List<BattleMetricResponse> metrics(BattleStats myStats, BattleStats opponentStats) {
         return List.of(
-                metric("TOTAL_EXP", "획득 EXP", myStats.totalExp(), opponentStats.totalExp(), "EXP"),
-                metric("COMPLETED_QUESTS", "완료 퀘스트", myStats.completedQuestCount(), opponentStats.completedQuestCount(), "개"),
-                metric("ROUTINE_QUESTS", "루틴 퀘스트", myStats.routineQuestCount(), opponentStats.routineQuestCount(), "개")
+                metric("TOTAL_SCORE", "배틀 점수", myStats.totalScore(), opponentStats.totalScore(), "점"),
+                metric("ACTIVE_MINUTES", "운동 시간", myStats.activeMinutes(), opponentStats.activeMinutes(), "분"),
+                metric("DISTANCE", "이동 거리", myStats.distanceMeters(), opponentStats.distanceMeters(), "m"),
+                metric("STEPS", "걸음 수", myStats.steps(), opponentStats.steps(), "걸음"),
+                metric("ACTIVE_CALORIES", "활동 칼로리", myStats.activeCalories(), opponentStats.activeCalories(), "kcal"),
+                metric("COMPLETED_QUESTS", "완료 퀘스트", myStats.completedQuestCount(), opponentStats.completedQuestCount(), "개")
         );
     }
 
@@ -364,10 +391,10 @@ public class BattleService {
     }
 
     private Long leadingUserId(BattleSnapshot snapshot) {
-        if (snapshot.myStats().totalExp() == snapshot.opponentStats().totalExp()) {
+        if (snapshot.myStats().totalScore() == snapshot.opponentStats().totalScore()) {
             return null;
         }
-        return snapshot.myStats().totalExp() > snapshot.opponentStats().totalExp()
+        return snapshot.myStats().totalScore() > snapshot.opponentStats().totalScore()
                 ? snapshot.me().getUser().getId()
                 : snapshot.opponent().getUser().getId();
     }
@@ -417,8 +444,21 @@ public class BattleService {
         return BattlePeriod.fromDates(today, today);
     }
 
-    private Long safeLong(Long value) {
-        return value == null ? 0L : value;
+    private BigDecimal decimal(Object value) {
+        if (value instanceof BigDecimal decimal) {
+            return decimal;
+        }
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            try {
+                return new BigDecimal(text);
+            } catch (NumberFormatException ignored) {
+                return BigDecimal.ZERO;
+            }
+        }
+        return BigDecimal.ZERO;
     }
 
     private record BattlePeriod(LocalDate startDate, LocalDate endDate, Instant startsAt, Instant endsAt) {
@@ -441,7 +481,14 @@ public class BattleService {
         }
     }
 
-    private record BattleStats(int totalExp, int completedQuestCount, int routineQuestCount) {
+    private record BattleStats(int totalScore,
+                               int completedQuestCount,
+                               int routineQuestCount,
+                               int activeMinutes,
+                               int steps,
+                               int distanceMeters,
+                               int activeCalories,
+                               int healthVerifiedQuestCount) {
     }
 
     private record BattleSnapshot(BattleParticipant me,

@@ -249,9 +249,22 @@ Power
 
 점수 기준:
 
-- `DAILY`: KST 오늘 00:00부터 내일 00:00 직전까지 완료한 퀘스트 EXP 합계
-- `WEEKLY`: KST 월요일부터 일요일까지 완료한 퀘스트 EXP 합계
-- `status = completed`인 `user_quests.reward_exp`만 합산
+- `DAILY`: KST 오늘 00:00부터 내일 00:00 직전까지의 완료 퀘스트와 헬스 데이터 증거 합산
+- `WEEKLY`: KST 월요일부터 일요일까지의 완료 퀘스트와 헬스 데이터 증거 합산
+- 승패 기준은 퀘스트 EXP가 아니라 `TOTAL_SCORE`다.
+- 완료 퀘스트는 기본 점수를 주고, Health Connect 검증으로 저장된 운동 시간/거리/걸음/활동 칼로리가 점수를 더 만든다.
+
+현재 배틀 점수 계산:
+
+```text
+TOTAL_SCORE =
+  완료 퀘스트 수 * 100
++ 헬스 검증 성공 퀘스트 수 * 50
++ 운동 시간(분) * 10
++ 이동 거리(m) * 0.03
++ 걸음 수 * 0.01
++ 활동 칼로리(kcal) * 2
+```
 
 매칭 기준:
 
@@ -344,7 +357,7 @@ Content-Type: application/json
         "nickname": "나",
         "profileImageUrl": "https://example.com/me.png",
         "me": true,
-        "score": 50,
+        "score": 980,
         "result": "PENDING"
       },
       {
@@ -352,42 +365,42 @@ Content-Type: application/json
         "nickname": "상대",
         "profileImageUrl": "https://example.com/opponent.png",
         "me": false,
-        "score": 40,
+        "score": 779,
         "result": "PENDING"
       }
     ],
     "score": {
-      "myScore": 50,
-      "opponentScore": 40,
+      "myScore": 980,
+      "opponentScore": 779,
       "leadingUserId": 10
     },
     "metrics": [
       {
-        "metricKey": "TOTAL_EXP",
-        "label": "획득 EXP",
-        "myValue": "50EXP",
+        "metricKey": "TOTAL_SCORE",
+        "label": "배틀 점수",
+        "myValue": "980점",
         "myPercent": 100,
-        "opponentValue": "40EXP",
-        "opponentPercent": 80,
-        "unit": "EXP"
+        "opponentValue": "779점",
+        "opponentPercent": 79,
+        "unit": "점"
       },
       {
-        "metricKey": "COMPLETED_QUESTS",
-        "label": "완료 퀘스트",
-        "myValue": "2개",
+        "metricKey": "ACTIVE_MINUTES",
+        "label": "운동 시간",
+        "myValue": "30분",
         "myPercent": 100,
-        "opponentValue": "1개",
-        "opponentPercent": 50,
-        "unit": "개"
+        "opponentValue": "25분",
+        "opponentPercent": 83,
+        "unit": "분"
       },
       {
-        "metricKey": "ROUTINE_QUESTS",
-        "label": "루틴 퀘스트",
-        "myValue": "1개",
+        "metricKey": "DISTANCE",
+        "label": "이동 거리",
+        "myValue": "3000m",
         "myPercent": 100,
-        "opponentValue": "1개",
-        "opponentPercent": 100,
-        "unit": "개"
+        "opponentValue": "1800m",
+        "opponentPercent": 60,
+        "unit": "m"
       }
     ]
   }
@@ -455,8 +468,8 @@ Authorization: Bearer {accessToken}
     "finalized": true,
     "result": "WIN",
     "winnerUserId": 10,
-    "myScore": 80,
-    "opponentScore": 20,
+    "myScore": 980,
+    "opponentScore": 367,
     "participants": [],
     "metrics": []
   }
@@ -551,7 +564,14 @@ type BattleParticipant = {
 };
 
 type BattleMetric = {
-  metricKey: 'TOTAL_EXP' | 'COMPLETED_QUESTS' | 'ROUTINE_QUESTS' | string;
+  metricKey:
+    | 'TOTAL_SCORE'
+    | 'ACTIVE_MINUTES'
+    | 'DISTANCE'
+    | 'STEPS'
+    | 'ACTIVE_CALORIES'
+    | 'COMPLETED_QUESTS'
+    | string;
   label: string;
   myValue: string;
   myPercent: number;
@@ -595,6 +615,6 @@ type BattleDetail = {
 ## 4. 주의사항
 
 - 헬스 퀘스트 완료는 Health Connect 동기화 지연 때문에 같은 요청을 몇 분 뒤 재시도할 수 있게 만들어야 한다.
-- 배틀 점수는 운동별 km/횟수가 아니라 퀘스트 EXP 기준이다.
+- 배틀 점수는 퀘스트 EXP 기준이 아니라 활동량 기반 `TOTAL_SCORE` 기준이다.
 - 배틀 결과는 기간 종료 전에도 볼 수 있지만, 그때는 `finalized=false`라 최종 결과가 아니다.
 - 배틀 매칭 상대가 없는 경우는 정상 케이스로 보고 프론트에서 안내 문구를 보여주면 된다.

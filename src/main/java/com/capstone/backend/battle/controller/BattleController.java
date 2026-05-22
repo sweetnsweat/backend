@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Validated
-@Tag(name = "배틀", description = "사용자 간 하루/주간 퀘스트 EXP 배틀 API")
+@Tag(name = "배틀", description = "사용자 간 하루/주간 활동량 점수 배틀 API")
 @RestController
 @RequestMapping("/api/battles")
 public class BattleController {
@@ -49,7 +49,7 @@ public class BattleController {
         return ApiResponse.ok("Battle matched", battleService.match(authUser.userId(), request.mode()));
     }
 
-    @Operation(summary = "배틀 상세 조회", description = "배틀 상세 화면에 표시할 참여자, 현재 EXP 점수, 비교 지표를 조회합니다.")
+    @Operation(summary = "배틀 상세 조회", description = "배틀 상세 화면에 표시할 참여자, 현재 활동량 기반 배틀 점수, 비교 지표를 조회합니다.")
     @GetMapping("/{battleId}")
     public ApiResponse<BattleDetailResponse> detail(@AuthenticationPrincipal AuthUser authUser,
                                                     @PathVariable Long battleId) {
