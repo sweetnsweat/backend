@@ -63,6 +63,7 @@ class ShopControllerTest {
         seedItem("profile", "골드 프로필 프레임", 200, true);
         seedWallet(testUser.userId(), 150);
         seedUserItem(testUser.userId(), ownedItemId, 2);
+        jdbcTemplate.update("update users set profile_image_url = '/media/assets/test_item.png' where id = ?", testUser.userId());
 
         mockMvc.perform(get("/api/shop/items")
                         .header("Authorization", "Bearer " + testUser.accessToken()))
@@ -71,9 +72,12 @@ class ShopControllerTest {
                 .andExpect(jsonPath("$.data.items.length()").value(2))
                 .andExpect(jsonPath("$.data.items[0].id").value(ownedItemId))
                 .andExpect(jsonPath("$.data.items[0].itemType").value("skin"))
+                .andExpect(jsonPath("$.data.items[0].category").value("character"))
                 .andExpect(jsonPath("$.data.items[0].owned").value(true))
                 .andExpect(jsonPath("$.data.items[0].ownedQuantity").value(2))
                 .andExpect(jsonPath("$.data.items[0].purchasable").value(true))
+                .andExpect(jsonPath("$.data.items[0].equipped").value(true))
+                .andExpect(jsonPath("$.data.items[0].special").value(false))
                 .andExpect(jsonPath("$.data.items[1].owned").value(false))
                 .andExpect(jsonPath("$.data.items[1].ownedQuantity").value(0))
                 .andExpect(jsonPath("$.data.items[1].purchasable").value(false));
@@ -93,7 +97,33 @@ class ShopControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(1))
                 .andExpect(jsonPath("$.data.items[0].itemType").value("profile"))
+                .andExpect(jsonPath("$.data.items[0].category").value("character"))
                 .andExpect(jsonPath("$.data.items[0].name").value("골드 프로필 프레임"));
+    }
+
+    @Test
+    void shopItemsSupportMobileCategoryFilter() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser testUser = testUser("shopMobileCategoryUser");
+        seedItem("skin", "이수연", 0, true);
+        seedItem("profile", "골드 프로필 프레임", 80, true);
+        seedItem("ticket", "퀘스트 스킵권", 150, true);
+        seedWallet(testUser.userId(), 200);
+
+        mockMvc.perform(get("/api/shop/items")
+                        .queryParam("type", "character")
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.items[0].category").value("character"))
+                .andExpect(jsonPath("$.data.items[1].category").value("character"));
+
+        mockMvc.perform(get("/api/shop/items")
+                        .queryParam("type", "pass")
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].category").value("pass"));
     }
 
     @Test
