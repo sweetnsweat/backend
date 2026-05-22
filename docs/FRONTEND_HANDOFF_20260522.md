@@ -4,6 +4,7 @@
 
 - 헬스 데이터 기반 퀘스트 완료: `feature/health-quest-verification` 브랜치 기준
 - 배틀 API: `feature/battle-api` 브랜치 기준
+- 상점 API: `main` 브랜치 기준
 - 모든 인증 API는 `Authorization: Bearer {accessToken}` 필요
 - 성공 응답은 공통 `ApiResponse<T>` 형태
 - 에러 응답은 `ProblemDetail` 형태
@@ -601,7 +602,232 @@ type BattleDetail = {
 
 ---
 
-## 3. 프론트 구현 순서 권장
+## 3. 상점 API
+
+상점은 기존 DB 구조를 유지하면서 모바일 화면의 `character`, `pass` 탭에 맞게 응답을 확장했다.
+
+DB 저장값과 모바일 탭 매핑:
+
+```text
+character -> itemType skin, profile
+pass      -> itemType ticket, pvp_badge, gift, consumable
+```
+
+### 3.1 상점 아이템 목록
+
+```http
+GET /api/shop/items?type=character
+Authorization: Bearer {accessToken}
+```
+
+`type`은 선택값이다.
+
+- 생략: 전체 활성 아이템
+- `character`: 캐릭터/프로필 아이템
+- `pass`: 이용권/배지/소모품 아이템
+- 기존 DB 타입인 `skin`, `profile`, `ticket`, `pvp_badge`, `gift`, `consumable`도 그대로 사용 가능
+
+응답:
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "Request succeeded",
+  "data": {
+    "items": [
+      {
+        "id": 17,
+        "itemType": "skin",
+        "category": "character",
+        "name": "이수연",
+        "description": "체대 입시생 · 인내력",
+        "priceCurrency": 0,
+        "sellable": true,
+        "owned": true,
+        "ownedQuantity": 1,
+        "purchasable": true,
+        "equipped": true,
+        "special": false,
+        "effect": "기본 캐릭터",
+        "imageUrl": "https://i.imgur.com/v0njcuh.png",
+        "metadata": {
+          "bg": ["#fce7f3", "#ffe4e6"],
+          "effect": "기본 캐릭터",
+          "special": false
+        }
+      }
+    ],
+    "balanceCurrency": 1200
+  }
+}
+```
+
+주요 필드:
+
+- `category`: 모바일 탭 구분용. `character` 또는 `pass`
+- `owned`: 현재 사용자가 보유했는지
+- `ownedQuantity`: 보유 수량
+- `purchasable`: 현재 잔액으로 구매 가능한지
+- `equipped`: 현재 장착 중인지
+- `special`: 스페셜 표시 여부
+- `effect`: 효과/라벨 표시 문구
+- `balanceCurrency`: 현재 골드 잔액
+
+### 3.2 아이템 구매
+
+```http
+POST /api/shop/items/{itemId}/purchase
+Authorization: Bearer {accessToken}
+Content-Type: application/json
+```
+
+요청:
+
+```json
+{
+  "quantity": 1
+}
+```
+
+응답:
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "아이템을 구매했습니다.",
+  "data": {
+    "item": {
+      "id": 427,
+      "itemId": 15,
+      "itemType": "skin",
+      "name": "카일린",
+      "description": "여우 도적 · 기민함",
+      "quantity": 1,
+      "imageUrl": "",
+      "metadata": {
+        "effect": "캐릭터 스킨",
+        "special": false
+      }
+    },
+    "balanceCurrency": 850,
+    "transaction": {
+      "txType": "purchase",
+      "amount": -350
+    }
+  }
+}
+```
+
+구매 후 프론트는 목록을 다시 조회해서 `owned`, `ownedQuantity`, `purchasable`, `balanceCurrency`를 갱신하면 된다.
+
+잔액이 부족하면:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Conflict",
+  "status": 409,
+  "detail": "잔액이 부족합니다.",
+  "code": "INSUFFICIENT_BALANCE",
+  "path": "/api/shop/items/15/purchase"
+}
+```
+
+### 3.3 아이템 장착
+
+```http
+POST /api/shop/items/{itemId}/equip
+Authorization: Bearer {accessToken}
+```
+
+응답:
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "아이템을 장착했습니다.",
+  "data": {
+    "item": {
+      "id": 306,
+      "itemId": 17,
+      "itemType": "skin",
+      "name": "이수연",
+      "description": "체대 입시생 · 인내력",
+      "quantity": 1,
+      "imageUrl": "https://i.imgur.com/v0njcuh.png",
+      "metadata": {
+        "effect": "기본 캐릭터",
+        "special": false
+      }
+    },
+    "profileImageUrl": "https://i.imgur.com/v0njcuh.png"
+  }
+}
+```
+
+현재 장착 상태는 `GET /api/shop/items?type=character`의 `equipped`로 확인한다.
+
+보유하지 않은 아이템을 장착하면:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Conflict",
+  "status": 409,
+  "detail": "보유하지 않은 아이템입니다.",
+  "code": "ITEM_NOT_OWNED",
+  "path": "/api/shop/items/17/equip"
+}
+```
+
+### 상점 TypeScript 타입
+
+```ts
+type ShopCategory = 'character' | 'pass';
+
+type ShopItem = {
+  id: number;
+  itemType: string;
+  category: ShopCategory;
+  name: string;
+  description: string | null;
+  priceCurrency: number;
+  sellable: boolean;
+  owned: boolean;
+  ownedQuantity: number;
+  purchasable: boolean;
+  equipped: boolean;
+  special: boolean;
+  effect: string | null;
+  imageUrl: string | null;
+  metadata: Record<string, unknown>;
+};
+
+type ShopItemList = {
+  items: ShopItem[];
+  balanceCurrency: number;
+};
+
+type PurchaseItemRequest = {
+  quantity?: number;
+};
+```
+
+모바일 적용:
+
+- `ShopScreen` 진입 시 `GET /api/shop/items?type=character`, `GET /api/shop/items?type=pass` 호출
+- 캐릭터 탭은 `category === 'character'` 목록 사용
+- 아이템/패스 탭은 `category === 'pass'` 목록 사용
+- 구매 버튼은 `owned`, `purchasable`, `priceCurrency` 기준으로 분기
+- 장착 버튼은 `owned && !equipped`일 때 노출
+- 패스류는 `ownedQuantity`를 수량 뱃지로 표시 가능
+
+---
+
+## 4. 프론트 구현 순서 권장
 
 1. `QuestService.completeQuest` 요청 타입에 `healthSamples` 추가
 2. 오늘 퀘스트 응답 타입에 `verificationWindow` 추가
@@ -611,10 +837,14 @@ type BattleDetail = {
 6. `BattleMatchingScreen`에서 `POST /api/battles/match` 연동
 7. `BattleScreen`에서 `GET /api/battles/{battleId}` 연동
 8. `BattleResultScreen`에서 `GET /api/battles/{battleId}/result` 연동
+9. `ShopService.ts`에서 `GET /api/shop/items?type=character`, `GET /api/shop/items?type=pass` 연동
+10. `ShopScreen` 구매/장착 버튼을 `POST /api/shop/items/{itemId}/purchase`, `POST /api/shop/items/{itemId}/equip`에 연결
 
-## 4. 주의사항
+## 5. 주의사항
 
 - 헬스 퀘스트 완료는 Health Connect 동기화 지연 때문에 같은 요청을 몇 분 뒤 재시도할 수 있게 만들어야 한다.
 - 배틀 점수는 퀘스트 EXP 기준이 아니라 활동량 기반 `TOTAL_SCORE` 기준이다.
 - 배틀 결과는 기간 종료 전에도 볼 수 있지만, 그때는 `finalized=false`라 최종 결과가 아니다.
 - 배틀 매칭 상대가 없는 경우는 정상 케이스로 보고 프론트에서 안내 문구를 보여주면 된다.
+- 상점의 `character`, `pass`는 프론트 편의용 분류다. DB 원본 타입은 `itemType`에 그대로 내려간다.
+- 상점 구매/장착 후에는 목록을 재조회해서 잔액과 보유/장착 상태를 동기화하는 방식이 가장 단순하다.
