@@ -110,6 +110,7 @@ class BattleControllerTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Battle queued"))
                 .andExpect(jsonPath("$.data.mode").value("DAILY"))
                 .andExpect(jsonPath("$.data.matchStatus").value("WAITING"))
                 .andExpect(jsonPath("$.data.queuedAt").exists())
@@ -147,6 +148,7 @@ class BattleControllerTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Battle matched"))
                 .andExpect(jsonPath("$.data.mode").value("DAILY"))
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.data.matchStatus").value("MATCHED"))

@@ -51,7 +51,9 @@ public class BattleController {
     @PostMapping("/match")
     public ApiResponse<BattleDetailResponse> match(@AuthenticationPrincipal AuthUser authUser,
                                                    @Valid @RequestBody BattleMatchRequest request) {
-        return ApiResponse.ok("Battle matched", battleService.match(authUser.userId(), request.mode()));
+        BattleDetailResponse response = battleService.match(authUser.userId(), request.mode());
+        String message = "WAITING".equals(response.matchStatus()) ? "Battle queued" : "Battle matched";
+        return ApiResponse.ok(message, response);
     }
 
     @Operation(summary = "배틀 상세 조회", description = "배틀 상세 화면에 표시할 참여자, 현재 활동량 기반 배틀 점수, 비교 지표를 조회합니다.")
