@@ -103,6 +103,10 @@ public class HealthDailySummary {
         return steps;
     }
 
+    public LocalDate getSummaryDate() {
+        return summaryDate;
+    }
+
     public Integer getDistanceMeters() {
         return distanceMeters;
     }
@@ -113,5 +117,9 @@ public class HealthDailySummary {
 
     public Integer getExerciseMinutes() {
         return exerciseMinutes;
+    }
+
+    public Integer getSampleCount() {
+        return sampleCount;
     }
 }
