@@ -3,6 +3,7 @@ package com.capstone.backend.quest.service;
 import com.capstone.backend.achievement.service.AchievementBadgeService;
 import com.capstone.backend.condition.entity.ConditionLog;
 import com.capstone.backend.condition.repository.ConditionLogRepository;
+import com.capstone.backend.exercise.repository.ExerciseRepository;
 import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.global.time.KoreanTime;
 import com.capstone.backend.quest.dto.CompleteQuestRequest;
@@ -54,6 +55,7 @@ public class QuestService {
     private final HealthQuestProgressEvaluator healthQuestProgressEvaluator;
     private final ShopPassEffectService shopPassEffectService;
     private final AchievementBadgeService achievementBadgeService;
+    private final ExerciseRepository exerciseRepository;
 
     public QuestService(UserQuestRepository userQuestRepository,
                         UserRepository userRepository,
@@ -62,7 +64,8 @@ public class QuestService {
                         RewardService rewardService,
                         HealthQuestProgressEvaluator healthQuestProgressEvaluator,
                         ShopPassEffectService shopPassEffectService,
-                        AchievementBadgeService achievementBadgeService) {
+                        AchievementBadgeService achievementBadgeService,
+                        ExerciseRepository exerciseRepository) {
         this.userQuestRepository = userQuestRepository;
         this.userRepository = userRepository;
         this.conditionLogRepository = conditionLogRepository;
@@ -71,6 +74,7 @@ public class QuestService {
         this.healthQuestProgressEvaluator = healthQuestProgressEvaluator;
         this.shopPassEffectService = shopPassEffectService;
         this.achievementBadgeService = achievementBadgeService;
+        this.exerciseRepository = exerciseRepository;
     }
 
     @Transactional
@@ -284,6 +288,9 @@ public class QuestService {
         boolean conditionAdjusted = targetMinutes < 15;
         Map<String, Object> context = baseContext(routine, null, conditionLog);
         context.put("recommendedAction", "걷기 또는 스트레칭");
+        context.put("exercises", recommendedExerciseContexts(List.of(
+                new RecommendedExercise("걷기, 런닝머신", "유산소", 1, targetMinutes * 60)
+        )));
         QuestReward reward = QuestRewardPolicy.offDay(targetMinutes);
 
         return UserQuest.create(
@@ -311,6 +318,9 @@ public class QuestService {
                                     LocalDate today) {
         Map<String, Object> context = baseContext(routine, sourceSession, conditionLog);
         context.put("recommendedAction", "가벼운 스트레칭");
+        context.put("exercises", recommendedExerciseContexts(List.of(
+                new RecommendedExercise("회복 요가", "요가", 1, 600)
+        )));
         QuestReward reward = QuestRewardPolicy.recovery();
 
         return UserQuest.create(
@@ -358,6 +368,31 @@ public class QuestService {
         context.put("targetReps", item.getReps());
         context.put("targetDurationSec", item.getDurationSec());
         return context;
+    }
+
+    private List<Map<String, Object>> recommendedExerciseContexts(List<RecommendedExercise> recommendations) {
+        Map<String, Exercise> exerciseByName = new LinkedHashMap<>();
+        List<String> names = recommendations.stream()
+                .map(RecommendedExercise::name)
+                .toList();
+        for (Exercise exercise : exerciseRepository.findByNameIn(names)) {
+            exerciseByName.put(exercise.getName(), exercise);
+        }
+
+        List<Map<String, Object>> contexts = new ArrayList<>();
+        for (RecommendedExercise recommendation : recommendations) {
+            Exercise exercise = exerciseByName.get(recommendation.name());
+            Map<String, Object> context = new LinkedHashMap<>();
+            context.put("exerciseId", exercise == null ? null : exercise.getId());
+            context.put("exerciseName", exercise == null ? recommendation.name() : exercise.getName());
+            context.put("category", exercise == null ? recommendation.category() : exercise.getCategory());
+            context.put("seq", recommendation.seq());
+            context.put("targetSets", null);
+            context.put("targetReps", null);
+            context.put("targetDurationSec", recommendation.targetDurationSec());
+            contexts.add(context);
+        }
+        return contexts;
     }
 
     private List<QuestExerciseResponse> exercisesFromContext(UserQuest quest) {
@@ -411,5 +446,11 @@ public class QuestService {
                                    int rewardExp,
                                    int rewardCurrency,
                                    String rewardMemoPrefix) {
+    }
+
+    private record RecommendedExercise(String name,
+                                       String category,
+                                       int seq,
+                                       int targetDurationSec) {
     }
 }
