@@ -515,7 +515,100 @@ Authorization: Bearer {accessToken}
 
 ---
 
-## 9. 개발 서버 반영 상태
+## 9. 기록 페이지 통계 API
+
+더미 데이터로 구성되어 있던 기록/통계 화면은 아래 API로 실제 데이터를 받을 수 있다.
+
+```http
+GET /api/records/stats?period=WEEKLY
+Authorization: Bearer {accessToken}
+```
+
+`period` 값:
+
+| 값 | 조회 범위 |
+| --- | --- |
+| `WEEKLY` | KST 기준 이번 주 월요일 ~ 일요일 |
+| `MONTHLY` | KST 기준 이번 달 1일 ~ 말일 |
+| `YEARLY` | KST 기준 올해 1월 1일 ~ 12월 31일 |
+
+응답 구조:
+
+```ts
+type RecordStatsResponse = {
+  period: 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+  startDate: string;
+  endDate: string;
+  summary: {
+    averageConditionScore: number | null;
+    averageConditionLevel: number | null;
+    averageEnergyLevel: number | null;
+    averageStressScore: number | null;
+    exerciseCount: number;
+    completedQuestCount: number;
+    healthSyncedDays: number;
+    improvementRatePercent: number;
+    totalExerciseMinutes: number;
+    totalSteps: number;
+    totalDistanceMeters: number;
+    totalActiveCaloriesKcal: number;
+  };
+  conditionTrend: Array<{
+    date: string;
+    label: string;
+    conditionLevel: number | null;
+    conditionScore: number | null;
+    energyLevel: number | null;
+    stressScore: number | null;
+    exerciseMinutes: number;
+    steps: number;
+    distanceMeters: number;
+    activeCaloriesKcal: number;
+    completedQuestCount: number;
+  }>;
+  exerciseEffects: Array<{
+    exerciseType: string;
+    label: string;
+    completedCount: number;
+    exerciseMinutes: number;
+    averageConditionScore: number | null;
+    conditionDelta: number | null;
+    averageStressScore: number | null;
+  }>;
+  dailyRecords: Array<{
+    date: string;
+    dayOfWeek: string;
+    exerciseLabel: string;
+    conditionLevel: number | null;
+    conditionScore: number | null;
+    energyLevel: number | null;
+    stressScore: number | null;
+    exerciseMinutes: number;
+    steps: number;
+    activeCaloriesKcal: number;
+    completedQuestCount: number;
+  }>;
+  insight: {
+    title: string;
+    summary: string;
+    recommendation: string;
+  };
+};
+```
+
+화면 매핑:
+
+| 화면 영역 | 사용 필드 |
+| --- | --- |
+| 기간별 컨디션 변화 라인 차트 | `conditionTrend` |
+| 평균 컨디션/운동 횟수/개선율 카드 | `summary` |
+| 운동별 효과 분석 막대 차트 | `exerciseEffects` |
+| 주간 운동 기록 표 | `dailyRecords` |
+| AI 분석 인사이트 카드 | `insight` |
+
+---
+
+## 10. 개발 서버 반영 상태
 
 - 개발 서버 DB에 `battle_match_queue` 테이블 생성 완료
 - 개발 서버 DB에 `health_daily_summaries` 테이블 생성 완료
