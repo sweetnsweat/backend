@@ -11,7 +11,7 @@
 새 테이블을 만들지 않고 기존 테이블을 재사용한다.
 
 - `quest_templates`: 반복 사용 가능한 퀘스트 템플릿 저장용. 현재 자동 생성 퀘스트는 템플릿 없이 생성 가능하다.
-- `user_quests`: 사용자에게 실제로 발급된 퀘스트 저장용. 오늘 퀘스트 중복 생성을 막기 위해 `user_id + quest_date` 유니크 제약을 사용한다.
+- `user_quests`: 사용자에게 실제로 발급된 퀘스트 저장용. 기본 조회는 오늘 메인 퀘스트를 재사용하고, 스토리 진행용 추가 회복 퀘스트는 명시 요청 시 하루 1회만 생성한다.
 
 이번 작업에서 `user_quests`에 추가한 컬럼은 다음과 같다.
 
@@ -32,13 +32,25 @@ Authorization: Bearer {accessToken}
 
 1. KST 기준 오늘 날짜를 계산한다.
 2. 지난 날짜의 미완료 퀘스트를 `EXPIRED` 처리한다.
-3. 오늘 퀘스트가 이미 있으면 그대로 반환한다.
+3. 오늘 메인 퀘스트가 이미 있으면 그대로 반환한다.
 4. 오늘 퀘스트가 없으면 온보딩, 오늘 컨디션, 활성 루틴을 확인한다.
 5. 오늘 요일에 맞는 루틴 세션이 있으면 해당 세션 전체를 완료하는 `ROUTINE` 퀘스트를 생성한다.
 6. 오늘 요일 세션이 없으면 `OFF_DAY` 퀘스트를 생성한다.
 7. 컨디션 배율이 낮으면 `RECOVERY` 퀘스트로 대체하거나 목표량을 줄인다.
 
-같은 날 여러 번 호출해도 같은 퀘스트가 반환된다.
+같은 날 여러 번 호출해도 기본값에서는 같은 메인 퀘스트가 반환된다.
+
+스토리 진행 중 오늘 메인 퀘스트를 이미 완료했는데 추가 운동 분기가 필요하면 다음처럼 호출한다.
+
+```http
+GET /api/quests/today?issueRecoveryIfCompleted=true
+Authorization: Bearer {accessToken}
+```
+
+- 메인 퀘스트가 미완료면 기존 메인 퀘스트를 반환한다.
+- 메인 퀘스트가 완료됐고 추가 회복 퀘스트가 없으면 `RECOVERY` 퀘스트를 생성한다.
+- 이미 추가 회복 퀘스트가 있으면 같은 회복 퀘스트를 반환한다.
+- 추가 회복 퀘스트는 `quest_context_json.source = "story_additional_recovery"`로 저장된다.
 
 ## 응답 예시
 
@@ -184,6 +196,13 @@ AI 서버 -> 백엔드 GET /api/quests/today/by-user?userId={userId}
 백엔드 -> 오늘 퀘스트 반환
 AI 서버 -> title, description, exercises를 세계관 문장으로 래핑
 AI 서버 -> 프론트에 스토리 응답
+```
+
+오늘 메인 퀘스트가 이미 완료된 상태에서 스토리상 추가 운동이 필요하면 `issueRecoveryIfCompleted=true`를 붙인다.
+
+```text
+AI 서버 -> 백엔드 GET /api/quests/today/by-user?userId={userId}&issueRecoveryIfCompleted=true
+백엔드 -> 스토리 진행용 추가 RECOVERY 퀘스트 반환
 ```
 
 퀘스트 원본 데이터와 중복 방지는 백엔드가 담당하고, AI 서버는 표현과 세계관 래핑만 담당한다.

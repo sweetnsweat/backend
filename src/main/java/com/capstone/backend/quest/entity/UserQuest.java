@@ -15,7 +15,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
@@ -24,10 +23,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 @Entity
-@Table(
-        name = "user_quests",
-        uniqueConstraints = @UniqueConstraint(name = "user_quests_user_id_quest_date_key", columnNames = {"user_id", "quest_date"})
-)
+@Table(name = "user_quests")
 public class UserQuest {
 
     public static final String STATUS_ASSIGNED = "assigned";

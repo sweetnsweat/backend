@@ -46,6 +46,8 @@ public class QuestService {
     private static final String VERIFICATION_STATUS_VERIFIED = "VERIFIED";
     private static final String VERIFICATION_STATUS_NOT_PROVIDED = "NOT_PROVIDED";
     private static final String VERIFICATION_STATUS_INSUFFICIENT_DATA = "INSUFFICIENT_DATA";
+    private static final String QUEST_CONTEXT_SOURCE = "source";
+    private static final String SOURCE_STORY_ADDITIONAL_RECOVERY = "story_additional_recovery";
 
     private final UserQuestRepository userQuestRepository;
     private final UserRepository userRepository;
@@ -79,12 +81,29 @@ public class QuestService {
 
     @Transactional
     public QuestResponse getTodayQuest(Long userId) {
+        return getTodayQuest(userId, false);
+    }
+
+    @Transactional
+    public QuestResponse getTodayQuest(Long userId, boolean issueRecoveryIfCompleted) {
         LocalDate today = KoreanTime.today();
         userQuestRepository.expireUnfinishedBefore(userId, today);
 
-        return userQuestRepository.findByUser_IdAndQuestDate(userId, today)
+        List<UserQuest> todayQuests = userQuestRepository.findByUser_IdAndQuestDateOrderByCreatedAtAscIdAsc(userId, today);
+        if (todayQuests.isEmpty()) {
+            return createTodayQuest(userId, today);
+        }
+
+        UserQuest mainQuest = todayQuests.get(0);
+        if (!issueRecoveryIfCompleted || !UserQuest.STATUS_COMPLETED.equals(mainQuest.getStatus())) {
+            return returnExistingTodayQuest(mainQuest);
+        }
+
+        return todayQuests.stream()
+                .filter(this::isStoryAdditionalRecoveryQuest)
+                .findFirst()
                 .map(this::returnExistingTodayQuest)
-                .orElseGet(() -> createTodayQuest(userId, today));
+                .orElseGet(() -> createStoryAdditionalRecoveryQuest(userId, today, mainQuest));
     }
 
     @Transactional
@@ -164,7 +183,7 @@ public class QuestService {
             Map<String, Object> proof = new LinkedHashMap<>(healthProgress.proof());
             proof.put("completionType", COMPLETION_TYPE_VERIFIED);
             proof.put("verificationStatus", VERIFICATION_STATUS_VERIFIED);
-            proof.put("battleEligible", true);
+            proof.put("battleEligible", !isStoryAdditionalRecoveryQuest(quest));
             int rewardExp = shopPassEffectService.applyExpBoost(quest.getUser().getId(), quest.getRewardExp());
             proof.put("rewardExp", rewardExp);
             if (rewardExp > quest.getRewardExp()) {
@@ -221,6 +240,26 @@ public class QuestService {
 
         UserQuest quest = buildQuest(user, routine, conditionLog, today);
         UserQuest savedQuest = userQuestRepository.save(quest);
+        return QuestResponse.from(savedQuest, exercisesFromContext(savedQuest));
+    }
+
+    private QuestResponse createStoryAdditionalRecoveryQuest(Long userId, LocalDate today, UserQuest mainQuest) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다."));
+
+        ConditionLog conditionLog = conditionLogRepository.findByUser_IdAndLogDate(userId, today)
+                .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "CONDITION_REQUIRED", "오늘 퀘스트를 생성하려면 먼저 오늘 컨디션을 입력해 주세요."));
+
+        Routine activeRoutine = user.getActiveRoutine();
+        if (activeRoutine == null) {
+            throw new ApiException(HttpStatus.CONFLICT, "ACTIVE_ROUTINE_REQUIRED", "오늘 퀘스트를 생성하려면 추천 루틴을 선택하거나 내 루틴을 먼저 만들어 주세요.");
+        }
+
+        Routine routine = routineRepository.findWithSessionsByIdAndActiveTrue(activeRoutine.getId())
+                .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "ACTIVE_ROUTINE_REQUIRED", "활성 루틴을 찾을 수 없습니다. 다른 루틴을 다시 활성화해 주세요."));
+
+        UserQuest recoveryQuest = storyAdditionalRecoveryQuest(user, routine, conditionLog, today, mainQuest);
+        UserQuest savedQuest = userQuestRepository.save(recoveryQuest);
         return QuestResponse.from(savedQuest, exercisesFromContext(savedQuest));
     }
 
@@ -341,6 +380,38 @@ public class QuestService {
         );
     }
 
+    private UserQuest storyAdditionalRecoveryQuest(User user,
+                                                  Routine routine,
+                                                  ConditionLog conditionLog,
+                                                  LocalDate today,
+                                                  UserQuest mainQuest) {
+        Map<String, Object> context = baseContext(routine, null, conditionLog);
+        context.put(QUEST_CONTEXT_SOURCE, SOURCE_STORY_ADDITIONAL_RECOVERY);
+        context.put("mainQuestId", mainQuest.getId());
+        context.put("recommendedAction", "가벼운 회복 운동");
+        context.put("exercises", recommendedExerciseContexts(List.of(
+                new RecommendedExercise("회복 요가", "요가", 1, 600)
+        )));
+        QuestReward reward = QuestRewardPolicy.recovery();
+
+        return UserQuest.create(
+                user,
+                routine,
+                null,
+                conditionLog,
+                today,
+                UserQuest.TYPE_RECOVERY,
+                UserQuest.METRIC_MINUTES,
+                "스토리 회복 운동 10분",
+                "오늘 메인 운동은 완료했습니다. 스토리 진행을 위해 가벼운 회복 운동 10분을 진행해 주세요.",
+                10,
+                true,
+                reward.currency(),
+                reward.exp(),
+                context
+        );
+    }
+
     private Map<String, Object> baseContext(Routine routine, RoutineSession session, ConditionLog conditionLog) {
         Map<String, Object> context = new LinkedHashMap<>();
         context.put("routineId", routine.getId());
@@ -416,6 +487,10 @@ public class QuestService {
             }
         }
         return responses;
+    }
+
+    private boolean isStoryAdditionalRecoveryQuest(UserQuest quest) {
+        return SOURCE_STORY_ADDITIONAL_RECOVERY.equals(quest.getQuestContextJson().get(QUEST_CONTEXT_SOURCE));
     }
 
     private Long longValue(Object value) {
