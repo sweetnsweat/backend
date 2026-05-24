@@ -6,6 +6,7 @@
 - 배틀에 참가하지 않은 유저는 상대방으로 잡히지 않는다.
 - 기존 `POST /api/battles/match` 엔드포인트는 유지한다.
 - 프론트는 응답의 `data.matchStatus`로 `WAITING` / `MATCHED`를 분기하면 된다.
+- 상점 패스 아이템은 `POST /api/shop/items/{itemId}/use`로 실제 서버 효과를 활성화/소비한다.
 
 ---
 
@@ -277,11 +278,153 @@ Content-Type: application/json
 
 ---
 
-## 7. 개발 서버 반영 상태
+## 7. 상점 패스 효과 적용
+
+패스 아이템은 구매만으로 효과가 적용되지 않는다. 프론트가 보유 중인 패스 아이템에 대해 사용 API를 호출해야 서버 효과가 적용된다.
+
+```http
+POST /api/shop/items/{itemId}/use
+Authorization: Bearer {accessToken}
+```
+
+요청 바디는 없다.
+
+### 7.1 공통 응답
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "아이템을 사용했습니다.",
+  "data": {
+    "item": {
+      "id": 427,
+      "itemId": 13,
+      "itemType": "ticket",
+      "name": "EXP 2배권",
+      "description": "24시간 동안 경험치가 2배로 쌓여요",
+      "quantity": 0,
+      "imageUrl": "/media/assets/item_exp_boost.png",
+      "metadata": {
+        "effect": "EXP x2 · 24시간",
+        "special": false
+      }
+    },
+    "effectType": "EXP_BOOST",
+    "status": "ACTIVE",
+    "message": "24시간 동안 EXP 2배 효과가 적용됩니다.",
+    "expiresAt": "2026-05-25T08:30:00Z",
+    "quest": null
+  }
+}
+```
+
+`item.quantity`는 사용 후 남은 보유 수량이다.
+
+보유하지 않은 아이템이면:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "보유한 아이템만 사용할 수 있습니다.",
+  "code": "ITEM_NOT_OWNED",
+  "path": "/api/shop/items/13/use"
+}
+```
+
+사용 효과가 없는 아이템이면:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "사용 효과가 없는 아이템입니다.",
+  "code": "ITEM_NOT_USABLE",
+  "path": "/api/shop/items/17/use"
+}
+```
+
+### 7.2 패스별 효과
+
+| 아이템 | effectType | 적용 방식 |
+| --- | --- | --- |
+| `EXP 2배권` | `EXP_BOOST` | 사용 시 24시간 활성화. 활성 시간 동안 퀘스트 EXP와 배틀 승리 EXP가 2배 지급된다. |
+| `퀘스트 스킵권` | `QUEST_SKIP` | 사용 즉시 오늘 퀘스트를 수동 완료 처리한다. 이미 완료된 오늘 퀘스트에는 사용할 수 없다. |
+| `기록 방어권` | `RECORD_SHIELD` | 다음 배틀 종료 시 내 최종 점수가 기존 같은 모드 최고 점수보다 낮으면 최고 점수로 방어하고 1회 소비된다. |
+| `승률하락 방어권` | `WIN_RATE_SHIELD` | 다음 배틀 패배 시 결과를 `DRAW`로 바꿔 승률 하락을 막고 1회 소비된다. |
+| `배틀 부활권` | `BATTLE_RETRY` | 현재 백엔드에서는 다음 배틀 패배 시 `DRAW`로 방어하는 1회성 패배 방어권으로 적용된다. |
+
+### 7.3 퀘스트 스킵권 응답
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "아이템을 사용했습니다.",
+  "data": {
+    "item": {
+      "id": 501,
+      "itemId": 6,
+      "itemType": "ticket",
+      "name": "퀘스트 스킵권",
+      "quantity": 0,
+      "imageUrl": "/media/assets/item_quest_skip.png",
+      "metadata": {
+        "effect": "퀘스트 스킵 · 1회",
+        "special": false
+      }
+    },
+    "effectType": "QUEST_SKIP",
+    "status": "USED",
+    "message": "오늘 퀘스트를 스킵권으로 완료했습니다.",
+    "expiresAt": null,
+    "quest": {
+      "id": 12,
+      "status": "COMPLETED",
+      "completed": true,
+      "completionType": "MANUAL",
+      "verificationStatus": "NOT_PROVIDED",
+      "battleEligible": false,
+      "rewardExp": 10,
+      "rewardCurrency": 5,
+      "rewardGold": 5
+    }
+  }
+}
+```
+
+이미 완료된 오늘 퀘스트에 사용하면:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Conflict",
+  "status": 409,
+  "detail": "이미 완료된 오늘 퀘스트에는 스킵권을 사용할 수 없습니다.",
+  "code": "QUEST_ALREADY_COMPLETED",
+  "path": "/api/shop/items/6/use"
+}
+```
+
+### 7.4 프론트 처리 권장
+
+- 패스 탭에서 `ownedQuantity > 0`이면 구매 버튼 대신 `사용하기` 버튼을 노출한다.
+- `use` 성공 후 `GET /api/shop/items?type=pass`를 다시 조회해 남은 수량을 갱신한다.
+- `EXP_BOOST`, `RECORD_SHIELD`, `WIN_RATE_SHIELD`, `BATTLE_RETRY`는 서버가 이후 보상/배틀 확정 시 자동 적용한다.
+- `QUEST_SKIP`은 응답의 `data.quest`로 오늘 퀘스트 완료 상태를 즉시 갱신할 수 있다.
+
+---
+
+## 8. 개발 서버 반영 상태
 
 - 개발 서버 DB에 `battle_match_queue` 테이블 생성 완료
 - 개발 서버 DB에 `health_daily_summaries` 테이블 생성 완료
+- 개발 서버 DB에 `user_item_effects` 테이블 생성 완료
 - 개발 서버 백엔드 컨테이너 재배포 완료
 - 실제 API 검증 완료
   - 첫 계정 호출: `message=Battle queued`, `matchStatus=WAITING`, `battleId=null`
   - 두 번째 계정 호출: `message=Battle matched`, `matchStatus=MATCHED`, `battleId` 생성
+- 상점 패스 효과 코드는 `main`에 반영 완료. 개발 컨테이너에서 `/api/shop/items/{itemId}/use`가 보이면 즉시 연동 가능
