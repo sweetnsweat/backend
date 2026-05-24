@@ -72,7 +72,9 @@ class ShopControllerTest {
                 .andExpect(jsonPath("$.data.items.length()").value(2))
                 .andExpect(jsonPath("$.data.items[0].id").value(ownedItemId))
                 .andExpect(jsonPath("$.data.items[0].itemType").value("skin"))
+                .andExpect(jsonPath("$.data.items[0].itemTypeLabel").value("캐릭터 스킨"))
                 .andExpect(jsonPath("$.data.items[0].category").value("character"))
+                .andExpect(jsonPath("$.data.items[0].categoryLabel").value("캐릭터"))
                 .andExpect(jsonPath("$.data.items[0].owned").value(true))
                 .andExpect(jsonPath("$.data.items[0].ownedQuantity").value(2))
                 .andExpect(jsonPath("$.data.items[0].purchasable").value(true))
@@ -97,7 +99,9 @@ class ShopControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(1))
                 .andExpect(jsonPath("$.data.items[0].itemType").value("profile"))
+                .andExpect(jsonPath("$.data.items[0].itemTypeLabel").value("프로필"))
                 .andExpect(jsonPath("$.data.items[0].category").value("character"))
+                .andExpect(jsonPath("$.data.items[0].categoryLabel").value("캐릭터"))
                 .andExpect(jsonPath("$.data.items[0].name").value("골드 프로필 프레임"));
     }
 
@@ -123,7 +127,8 @@ class ShopControllerTest {
                         .header("Authorization", "Bearer " + testUser.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(1))
-                .andExpect(jsonPath("$.data.items[0].category").value("pass"));
+                .andExpect(jsonPath("$.data.items[0].category").value("pass"))
+                .andExpect(jsonPath("$.data.items[0].categoryLabel").value("패스"));
     }
 
     @Test
@@ -145,6 +150,7 @@ class ShopControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("아이템을 구매했습니다."))
                 .andExpect(jsonPath("$.data.item.itemId").value(itemId))
+                .andExpect(jsonPath("$.data.item.itemTypeLabel").value("이용권"))
                 .andExpect(jsonPath("$.data.item.quantity").value(3))
                 .andExpect(jsonPath("$.data.balanceCurrency").value(70))
                 .andExpect(jsonPath("$.data.transaction.txType").value("purchase"))
@@ -217,6 +223,7 @@ class ShopControllerTest {
                 .andExpect(jsonPath("$.message").value("아이템을 장착했습니다."))
                 .andExpect(jsonPath("$.data.item.itemId").value(itemId))
                 .andExpect(jsonPath("$.data.item.itemType").value("profile"))
+                .andExpect(jsonPath("$.data.item.itemTypeLabel").value("프로필"))
                 .andExpect(jsonPath("$.data.profileImageUrl").value("/media/assets/test_item.png"));
 
         String profileImageUrl = jdbcTemplate.queryForObject(
