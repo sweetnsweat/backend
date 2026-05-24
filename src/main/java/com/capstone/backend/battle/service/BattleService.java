@@ -37,6 +37,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -102,8 +103,7 @@ public class BattleService {
             return toDetail(currentBattle.get(), userId);
         }
 
-        BattleStats myStats = loadStats(userId, period);
-        User opponent = chooseOpponent(userId, mode, period, myStats.totalScore());
+        User opponent = chooseOpponent(userId, mode, period);
         Battle battle = battleRepository.save(Battle.create(
                 mode,
                 period.startDate(),
@@ -176,22 +176,26 @@ public class BattleService {
         ).stream().findFirst();
     }
 
-    private User chooseOpponent(Long userId, BattleMode mode, BattlePeriod period, int myScore) {
+    private User chooseOpponent(Long userId, BattleMode mode, BattlePeriod period) {
         List<User> candidates = userRepository.findAvailableBattleOpponents(
                 userId,
                 mode,
                 period.startDate(),
-                period.endDate(),
-                PageRequest.of(0, 50)
+                period.endDate()
         );
         if (candidates.isEmpty()) {
             throw new ApiException(HttpStatus.CONFLICT, "BATTLE_OPPONENT_NOT_FOUND", "매칭 가능한 상대가 없습니다.");
         }
-        return candidates.stream()
-                .min(Comparator
-                        .comparingInt((User candidate) -> Math.abs(loadStats(candidate.getId(), period).totalScore() - myScore))
-                        .thenComparing(User::getId))
-                .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "BATTLE_OPPONENT_NOT_FOUND", "매칭 가능한 상대가 없습니다."));
+        List<User> candidatesWithScoredRecords = candidates.stream()
+                .filter(candidate -> loadStats(candidate.getId(), period).totalScore() > 0)
+                .toList();
+        List<User> candidatesWithCompletedQuests = candidates.stream()
+                .filter(candidate -> loadStats(candidate.getId(), period).completedQuestCount() > 0)
+                .toList();
+        List<User> opponentPool = !candidatesWithScoredRecords.isEmpty()
+                ? candidatesWithScoredRecords
+                : candidatesWithCompletedQuests.isEmpty() ? candidates : candidatesWithCompletedQuests;
+        return opponentPool.get(ThreadLocalRandom.current().nextInt(opponentPool.size()));
     }
 
     private void finalizeBattle(Battle battle) {
@@ -349,8 +353,9 @@ public class BattleService {
         List<UserQuest> battleEligibleQuests = quests.stream()
                 .filter(this::battleEligible)
                 .toList();
-        int completedQuestCount = battleEligibleQuests.size();
-        int routineQuestCount = (int) battleEligibleQuests.stream()
+        int completedQuestCount = quests.size();
+        int battleEligibleQuestCount = battleEligibleQuests.size();
+        int routineQuestCount = (int) quests.stream()
                 .filter(quest -> UserQuest.TYPE_ROUTINE.equals(quest.getQuestType()))
                 .count();
 
@@ -375,7 +380,7 @@ public class BattleService {
             activeCalories += decimal(metrics.get("activeCaloriesKcal")).setScale(0, RoundingMode.HALF_UP).intValue();
         }
 
-        int totalScore = completedQuestCount * QUEST_COMPLETION_POINTS
+        int totalScore = battleEligibleQuestCount * QUEST_COMPLETION_POINTS
                 + healthVerifiedQuestCount * HEALTH_VERIFIED_POINTS
                 + activeMinutes * 10
                 + Math.round(distanceMeters * 0.03f)

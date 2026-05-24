@@ -5,7 +5,6 @@ import com.capstone.backend.user.entity.User;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -63,6 +62,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findAvailableBattleOpponents(@Param("userId") Long userId,
                                             @Param("mode") BattleMode mode,
                                             @Param("periodStartDate") LocalDate periodStartDate,
-                                            @Param("periodEndDate") LocalDate periodEndDate,
-                                            Pageable pageable);
+                                            @Param("periodEndDate") LocalDate periodEndDate);
 }

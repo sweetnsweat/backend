@@ -27,6 +27,8 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.equalTo;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -91,15 +93,15 @@ class BattleControllerTest {
     }
 
     @Test
-    void matchCreatesDailyBattleWithClosestExpOpponentAndReusesCurrentBattle() throws Exception {
+    void matchCreatesDailyBattleWithRandomRecordedOpponentAndReusesCurrentBattle() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser me = testUser("battleMe", "나");
-        TestUser close = testUser("battleClose", "근접상대");
-        TestUser far = testUser("battleFar", "먼상대");
+        TestUser firstCandidate = testUser("battleFirstCandidate", "후보1");
+        TestUser secondCandidate = testUser("battleSecondCandidate", "후보2");
         LocalDate today = KoreanTime.today();
         seedCompletedQuest(me.userId(), today, "routine", healthProof(30, 4000, 3000, 200));
-        seedCompletedQuest(close.userId(), today, "routine", healthProof(25, 2500, 1800, 150));
-        seedCompletedQuest(far.userId(), today, "routine", healthProof(60, 9000, 9000, 500));
+        seedCompletedQuest(firstCandidate.userId(), today, "routine", healthProof(25, 2500, 1800, 150));
+        seedCompletedQuest(secondCandidate.userId(), today, "routine", healthProof(5, 500, 300, 20));
 
         mockMvc.perform(post("/api/battles/match")
                         .header("Authorization", "Bearer " + me.accessToken())
@@ -115,8 +117,11 @@ class BattleControllerTest {
                 .andExpect(jsonPath("$.data.participants.length()").value(2))
                 .andExpect(jsonPath("$.data.participants[0].userId").value(me.userId()))
                 .andExpect(jsonPath("$.data.participants[0].score").value(980))
-                .andExpect(jsonPath("$.data.participants[1].userId").value(close.userId()))
-                .andExpect(jsonPath("$.data.participants[1].score").value(779))
+                .andExpect(jsonPath("$.data.participants[1].userId").value(anyOf(
+                        equalTo(firstCandidate.userId().intValue()),
+                        equalTo(secondCandidate.userId().intValue())
+                )))
+                .andExpect(jsonPath("$.data.participants[1].score").value(anyOf(equalTo(779), equalTo(254))))
                 .andExpect(jsonPath("$.data.score.leadingUserId").value(me.userId()))
                 .andExpect(jsonPath("$.data.metrics[0].metricKey").value("TOTAL_SCORE"))
                 .andExpect(jsonPath("$.data.metrics[1].metricKey").value("ACTIVE_MINUTES"));
@@ -140,7 +145,32 @@ class BattleControllerTest {
     }
 
     @Test
-    void matchIgnoresManualCompletedQuestsForBattleScore() throws Exception {
+    void matchPrefersOpponentsWithBattleRecordsOverEmptyAccounts() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser me = testUser("battleRecordMe", "기록유저");
+        testUser("battleEmptyOpponent", "기록없는상대");
+        TestUser recordedOpponent = testUser("battleRecordedOpponent", "기록있는상대");
+        LocalDate today = KoreanTime.today();
+        seedCompletedQuest(recordedOpponent.userId(), today, "routine", healthProof(15, 1500, 1000, 80));
+
+        mockMvc.perform(post("/api/battles/match")
+                        .header("Authorization", "Bearer " + me.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "mode": "DAILY"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.participants[0].userId").value(me.userId()))
+                .andExpect(jsonPath("$.data.participants[1].userId").value(recordedOpponent.userId()))
+                .andExpect(jsonPath("$.data.participants[1].score").value(505))
+                .andExpect(jsonPath("$.data.metrics[0].opponentValue").value("505점"))
+                .andExpect(jsonPath("$.data.metrics[5].opponentValue").value("1개"));
+    }
+
+    @Test
+    void matchShowsManualCompletedQuestsButExcludesThemFromBattleScore() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser me = testUser("battleManualMe", "수동완료");
         TestUser opponent = testUser("battleManualOpponent", "상대");
@@ -162,7 +192,7 @@ class BattleControllerTest {
                 .andExpect(jsonPath("$.data.participants[1].score").value(0))
                 .andExpect(jsonPath("$.data.score.leadingUserId").doesNotExist())
                 .andExpect(jsonPath("$.data.metrics[5].metricKey").value("COMPLETED_QUESTS"))
-                .andExpect(jsonPath("$.data.metrics[5].myValue").value("0개"));
+                .andExpect(jsonPath("$.data.metrics[5].myValue").value("1개"));
     }
 
     @Test
