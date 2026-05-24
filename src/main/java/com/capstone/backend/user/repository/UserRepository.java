@@ -48,6 +48,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
             from User user
             where user.id <> :userId
               and user.status = 'active'
+              and user.loginId not like 'codex_%'
+              and user.loginId not like 'jenkins_probe_%'
+              and user.loginId not like 'ci_check_%'
+              and user.loginId not like 'cicd_probe_%'
+              and user.loginId not like 'mail_probe_%'
+              and user.loginId not like 'fcm_probe_%'
+              and user.loginId not like 'fcm_real_mode_probe_%'
               and not exists (
                   select participant.id
                   from BattleParticipant participant
