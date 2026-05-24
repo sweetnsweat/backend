@@ -12,7 +12,9 @@ import org.springframework.data.repository.query.Param;
 
 public interface UserQuestRepository extends JpaRepository<UserQuest, Long> {
 
-    Optional<UserQuest> findByUser_IdAndQuestDate(Long userId, LocalDate questDate);
+    Optional<UserQuest> findFirstByUser_IdAndQuestDateOrderByCreatedAtAscIdAsc(Long userId, LocalDate questDate);
+
+    List<UserQuest> findByUser_IdAndQuestDateOrderByCreatedAtAscIdAsc(Long userId, LocalDate questDate);
 
     Optional<UserQuest> findByIdAndUser_Id(Long questId, Long userId);
 

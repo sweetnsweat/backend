@@ -32,21 +32,31 @@ public class QuestController {
         this.questService = questService;
     }
 
-    @Operation(summary = "오늘 퀘스트 조회 및 자동 생성", description = "오늘 퀘스트가 있으면 그대로 조회하고, 없으면 활성 루틴과 오늘 컨디션을 기준으로 자동 생성합니다.")
+    @Operation(summary = "오늘 퀘스트 조회 및 자동 생성", description = """
+            오늘 퀘스트가 있으면 그대로 조회하고, 없으면 활성 루틴과 오늘 컨디션을 기준으로 자동 생성합니다.
+
+            issueRecoveryIfCompleted=true로 호출하면 오늘 메인 퀘스트가 이미 완료된 경우 스토리 진행용 추가 회복 퀘스트를 1회 발급합니다.
+            일반 홈/퀘스트 화면은 기본값 false를 사용하면 기존처럼 오늘 메인 퀘스트만 조회합니다.
+            """)
     @GetMapping("/today")
-    public ApiResponse<QuestResponse> todayQuest(@AuthenticationPrincipal AuthUser authUser) {
-        return ApiResponse.ok("오늘 퀘스트를 조회했습니다.", questService.getTodayQuest(authUser.userId()));
+    public ApiResponse<QuestResponse> todayQuest(
+            @AuthenticationPrincipal AuthUser authUser,
+            @Parameter(description = "오늘 메인 퀘스트 완료 후 스토리 진행용 추가 회복 퀘스트를 발급할지 여부", example = "false")
+            @RequestParam(defaultValue = "false") boolean issueRecoveryIfCompleted) {
+        return ApiResponse.ok("오늘 퀘스트를 조회했습니다.", questService.getTodayQuest(authUser.userId(), issueRecoveryIfCompleted));
     }
 
-    @Operation(summary = "AI 서버용 오늘 퀘스트 조회", description = "캡스톤 데모용 AI 서버 연동 API입니다. 토큰 없이 userId로 오늘 퀘스트를 조회하거나 자동 생성합니다.")
+    @Operation(summary = "AI 서버용 오늘 퀘스트 조회", description = "캡스톤 데모용 AI 서버 연동 API입니다. 토큰 없이 userId로 오늘 퀘스트를 조회하거나 자동 생성합니다. issueRecoveryIfCompleted=true면 오늘 메인 퀘스트 완료 후 스토리용 추가 회복 퀘스트를 1회 발급합니다.")
     @GetMapping("/today/by-user")
     public ApiResponse<QuestResponse> todayQuestByUserId(
             @Parameter(description = "조회할 사용자 ID", required = true, example = "14")
-            @RequestParam Long userId) {
+            @RequestParam Long userId,
+            @Parameter(description = "오늘 메인 퀘스트 완료 후 스토리 진행용 추가 회복 퀘스트를 발급할지 여부", example = "false")
+            @RequestParam(defaultValue = "false") boolean issueRecoveryIfCompleted) {
         if (userId <= 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_USER_ID", "userId는 1 이상이어야 합니다.");
         }
-        return ApiResponse.ok("오늘 퀘스트를 조회했습니다.", questService.getTodayQuest(userId));
+        return ApiResponse.ok("오늘 퀘스트를 조회했습니다.", questService.getTodayQuest(userId, issueRecoveryIfCompleted));
     }
 
     @Operation(

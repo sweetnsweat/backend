@@ -277,6 +277,74 @@ class QuestControllerTest {
     }
 
     @Test
+    void todayQuestCanIssueStoryRecoveryQuestAfterMainQuestCompletion() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser testUser = onboardedUser("questStoryRecoveryUser");
+        Long routineId = seedRoutineWithSession(KoreanTime.today().getDayOfWeek().name());
+        jdbcTemplate.update("update users set active_routine_id = ? where id = ?", routineId, testUser.userId());
+        seedCondition(testUser.userId(), KoreanTime.today(), BigDecimal.valueOf(72.92), BigDecimal.valueOf(1.00));
+
+        mockMvc.perform(get("/api/quests/today")
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.questType").value("ROUTINE"));
+        Long mainQuestId = jdbcTemplate.queryForObject(
+                "select id from user_quests where user_id = ? and quest_date = ?",
+                Long.class,
+                testUser.userId(),
+                KoreanTime.today()
+        );
+
+        mockMvc.perform(patch("/api/quests/{questId}/complete", mainQuestId)
+                        .header("Authorization", "Bearer " + testUser.accessToken())
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+
+        mockMvc.perform(get("/api/quests/today")
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(mainQuestId))
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+
+        mockMvc.perform(get("/api/quests/today")
+                        .queryParam("issueRecoveryIfCompleted", "true")
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.questType").value("RECOVERY"))
+                .andExpect(jsonPath("$.data.status").value("ISSUED"))
+                .andExpect(jsonPath("$.data.title").value("스토리 회복 운동 10분"))
+                .andExpect(jsonPath("$.data.targetValue").value(10))
+                .andExpect(jsonPath("$.data.rewardExp").value(10))
+                .andExpect(jsonPath("$.data.rewardGold").value(5))
+                .andExpect(jsonPath("$.data.exercises.length()").value(1))
+                .andExpect(jsonPath("$.data.exercises[0].exerciseName").value("회복 요가"))
+                .andExpect(jsonPath("$.data.exercises[0].targetDurationSec").value(600));
+
+        Long recoveryQuestId = jdbcTemplate.queryForObject("""
+                select id
+                from user_quests
+                where user_id = ?
+                  and quest_date = ?
+                  and title = '스토리 회복 운동 10분'
+                """, Long.class, testUser.userId(), KoreanTime.today());
+
+        mockMvc.perform(get("/api/quests/today")
+                        .queryParam("issueRecoveryIfCompleted", "true")
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(recoveryQuestId));
+
+        Integer questCount = jdbcTemplate.queryForObject(
+                "select count(*) from user_quests where user_id = ? and quest_date = ?",
+                Integer.class,
+                testUser.userId(),
+                KoreanTime.today()
+        );
+        org.assertj.core.api.Assertions.assertThat(questCount).isEqualTo(2);
+    }
+
+    @Test
     void completeQuestAcceptsFormUrlEncodedEmptyRequestAsManualCompletion() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = onboardedUser("questFormCompleteUser");
