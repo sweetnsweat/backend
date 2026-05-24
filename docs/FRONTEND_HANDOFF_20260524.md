@@ -613,9 +613,10 @@ type RecordStatsResponse = {
 - 개발 서버 DB에 `battle_match_queue` 테이블 생성 완료
 - 개발 서버 DB에 `health_daily_summaries` 테이블 생성 완료
 - 개발 서버 DB에 `user_item_effects` 테이블 생성 완료
-- 개발 서버 DB에 획득 배지 seed 반영 필요: `db/20260524_seed_achievement_badges.sql`
+- 개발 서버 DB에 획득 배지 seed 반영 완료: `db/20260524_seed_achievement_badges.sql`
 - 개발 서버 백엔드 컨테이너 재배포 완료
 - 실제 API 검증 완료
   - 첫 계정 호출: `message=Battle queued`, `matchStatus=WAITING`, `battleId=null`
   - 두 번째 계정 호출: `message=Battle matched`, `matchStatus=MATCHED`, `battleId` 생성
 - 상점 패스 효과 코드는 `main`에 반영 완료. 개발 컨테이너에서 `/api/shop/items/{itemId}/use`가 보이면 즉시 연동 가능
+- 획득 배지 코드는 `main`에 반영 완료. 개발 컨테이너 OpenAPI에서 `/api/users/me/badges`, `/api/users/me/badges/sync`, `/api/shop/items/{itemId}/use` 노출 확인 완료
