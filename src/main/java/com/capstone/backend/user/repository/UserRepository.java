@@ -1,13 +1,10 @@
 package com.capstone.backend.user.repository;
 
-import com.capstone.backend.battle.entity.BattleMode;
 import com.capstone.backend.user.entity.User;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
@@ -42,32 +39,4 @@ public interface UserRepository extends JpaRepository<User, Long> {
             order by user.id asc
             """)
     List<User> findWeeklyStatsPushCandidates();
-
-    @Query("""
-            select user
-            from User user
-            where user.id <> :userId
-              and user.status = 'active'
-              and user.loginId not like 'codex_%'
-              and user.loginId not like 'jenkins_probe_%'
-              and user.loginId not like 'ci_check_%'
-              and user.loginId not like 'cicd_probe_%'
-              and user.loginId not like 'mail_probe_%'
-              and user.loginId not like 'fcm_probe_%'
-              and user.loginId not like 'fcm_real_mode_probe_%'
-              and not exists (
-                  select participant.id
-                  from BattleParticipant participant
-                  where participant.user.id = user.id
-                    and participant.battle.mode = :mode
-                    and participant.battle.periodStartDate = :periodStartDate
-                    and participant.battle.periodEndDate = :periodEndDate
-                    and participant.battle.status = com.capstone.backend.battle.entity.BattleStatus.ACTIVE
-              )
-            order by user.id asc
-            """)
-    List<User> findAvailableBattleOpponents(@Param("userId") Long userId,
-                                            @Param("mode") BattleMode mode,
-                                            @Param("periodStartDate") LocalDate periodStartDate,
-                                            @Param("periodEndDate") LocalDate periodEndDate);
 }

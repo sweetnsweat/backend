@@ -15,6 +15,8 @@ public record BattleDetailResponse(
         Instant startsAt,
         Instant endsAt,
         Long remainingSeconds,
+        String matchStatus,
+        Instant queuedAt,
         List<BattleParticipantResponse> participants,
         BattleScoreResponse score,
         List<BattleMetricResponse> metrics

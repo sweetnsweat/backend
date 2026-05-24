@@ -52,6 +52,8 @@ class UserControllerTest {
 
     @BeforeEach
     void cleanup() {
+        jdbcTemplate.update("delete from battle_match_queue");
+
         jdbcTemplate.update("delete from battle_participants");
         jdbcTemplate.update("delete from battles");
         jdbcTemplate.update("delete from user_quests");

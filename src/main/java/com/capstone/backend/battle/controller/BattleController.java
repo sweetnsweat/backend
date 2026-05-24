@@ -42,7 +42,12 @@ public class BattleController {
         return ApiResponse.ok(battleService.getSummary(authUser.userId()));
     }
 
-    @Operation(summary = "배틀 매칭 시작", description = "DAILY 또는 WEEKLY 배틀을 시작합니다. 같은 기간에 이미 진행 중인 배틀이 있으면 기존 배틀을 반환합니다.")
+    @Operation(summary = "배틀 매칭 대기열 참가", description = """
+            DAILY 또는 WEEKLY 배틀 매칭 대기열에 참가합니다.
+            같은 기간에 이미 진행 중인 배틀이 있으면 matchStatus=MATCHED와 기존 배틀 상세를 반환합니다.
+            대기 중인 상대가 있으면 참가한 사용자끼리 배틀을 생성하고 matchStatus=MATCHED를 반환합니다.
+            상대가 아직 없으면 battleId 없이 matchStatus=WAITING, queuedAt을 반환하므로 프론트는 대기 화면을 유지한 뒤 이 API를 다시 호출하거나 FCM 매칭 완료 알림을 기다리면 됩니다.
+            """)
     @PostMapping("/match")
     public ApiResponse<BattleDetailResponse> match(@AuthenticationPrincipal AuthUser authUser,
                                                    @Valid @RequestBody BattleMatchRequest request) {
