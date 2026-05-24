@@ -44,6 +44,8 @@ class WorldControllerTest {
         jdbcTemplate.update("delete from scenario_genres");
         jdbcTemplate.update("delete from character_profiles");
         jdbcTemplate.update("delete from scenarios");
+        jdbcTemplate.update("delete from battle_match_queue");
+
         jdbcTemplate.update("delete from battle_participants");
         jdbcTemplate.update("delete from battles");
         jdbcTemplate.update("delete from user_quests");

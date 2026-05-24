@@ -27,8 +27,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.hamcrest.Matchers.anyOf;
-import static org.hamcrest.Matchers.equalTo;
+import static org.mockito.Mockito.never;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -58,6 +57,7 @@ class BattleControllerTest {
 
     @BeforeEach
     void cleanup() {
+        jdbcTemplate.update("delete from battle_match_queue");
         jdbcTemplate.update("delete from battle_participants");
         jdbcTemplate.update("delete from battles");
         jdbcTemplate.update("delete from user_quests");
@@ -93,15 +93,50 @@ class BattleControllerTest {
     }
 
     @Test
-    void matchCreatesDailyBattleWithRandomRecordedOpponentAndReusesCurrentBattle() throws Exception {
+    void matchQueuesFirstUserThenCreatesBattleWhenSecondUserJoinsAndReusesCurrentBattle() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser me = testUser("battleMe", "나");
-        TestUser firstCandidate = testUser("battleFirstCandidate", "후보1");
-        TestUser secondCandidate = testUser("battleSecondCandidate", "후보2");
+        TestUser opponent = testUser("battleOpponent", "상대");
         LocalDate today = KoreanTime.today();
         seedCompletedQuest(me.userId(), today, "routine", healthProof(30, 4000, 3000, 200));
-        seedCompletedQuest(firstCandidate.userId(), today, "routine", healthProof(25, 2500, 1800, 150));
-        seedCompletedQuest(secondCandidate.userId(), today, "routine", healthProof(5, 500, 300, 20));
+        seedCompletedQuest(opponent.userId(), today, "routine", healthProof(25, 2500, 1800, 150));
+
+        mockMvc.perform(post("/api/battles/match")
+                        .header("Authorization", "Bearer " + opponent.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "mode": "DAILY"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.mode").value("DAILY"))
+                .andExpect(jsonPath("$.data.matchStatus").value("WAITING"))
+                .andExpect(jsonPath("$.data.queuedAt").exists())
+                .andExpect(jsonPath("$.data.participants.length()").value(1))
+                .andExpect(jsonPath("$.data.participants[0].userId").value(opponent.userId()))
+                .andExpect(jsonPath("$.data.participants[0].score").value(779));
+
+        mockMvc.perform(post("/api/battles/match")
+                        .header("Authorization", "Bearer " + opponent.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "mode": "DAILY"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.matchStatus").value("WAITING"));
+
+        Integer queuedBattleCount = jdbcTemplate.queryForObject("select count(*) from battles", Integer.class);
+        Integer waitingQueueCount = jdbcTemplate.queryForObject("""
+                select count(*)
+                from battle_match_queue
+                where status = 'WAITING'
+                """, Integer.class);
+        org.assertj.core.api.Assertions.assertThat(queuedBattleCount).isZero();
+        org.assertj.core.api.Assertions.assertThat(waitingQueueCount).isEqualTo(1);
+        verify(notificationService, never()).sendBattleMatched(any(Battle.class), anyList());
 
         mockMvc.perform(post("/api/battles/match")
                         .header("Authorization", "Bearer " + me.accessToken())
@@ -114,14 +149,12 @@ class BattleControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.mode").value("DAILY"))
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.matchStatus").value("MATCHED"))
                 .andExpect(jsonPath("$.data.participants.length()").value(2))
                 .andExpect(jsonPath("$.data.participants[0].userId").value(me.userId()))
                 .andExpect(jsonPath("$.data.participants[0].score").value(980))
-                .andExpect(jsonPath("$.data.participants[1].userId").value(anyOf(
-                        equalTo(firstCandidate.userId().intValue()),
-                        equalTo(secondCandidate.userId().intValue())
-                )))
-                .andExpect(jsonPath("$.data.participants[1].score").value(anyOf(equalTo(779), equalTo(254))))
+                .andExpect(jsonPath("$.data.participants[1].userId").value(opponent.userId()))
+                .andExpect(jsonPath("$.data.participants[1].score").value(779))
                 .andExpect(jsonPath("$.data.score.leadingUserId").value(me.userId()))
                 .andExpect(jsonPath("$.data.metrics[0].metricKey").value("TOTAL_SCORE"))
                 .andExpect(jsonPath("$.data.metrics[1].metricKey").value("ACTIVE_MINUTES"));
@@ -137,40 +170,23 @@ class BattleControllerTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.battleId").value(battleId));
+                .andExpect(jsonPath("$.data.battleId").value(battleId))
+                .andExpect(jsonPath("$.data.matchStatus").value("MATCHED"));
 
         Integer battleCount = jdbcTemplate.queryForObject("select count(*) from battles", Integer.class);
+        Integer matchedQueueCount = jdbcTemplate.queryForObject("""
+                select count(*)
+                from battle_match_queue
+                where status = 'MATCHED'
+                  and matched_battle_id = ?
+                """, Integer.class, battleId);
         org.assertj.core.api.Assertions.assertThat(battleCount).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(matchedQueueCount).isEqualTo(2);
         verify(notificationService, times(1)).sendBattleMatched(any(Battle.class), anyList());
     }
 
     @Test
-    void matchPrefersOpponentsWithBattleRecordsOverEmptyAccounts() throws Exception {
-        when(redisTemplate.hasKey(anyString())).thenReturn(false);
-        TestUser me = testUser("battleRecordMe", "기록유저");
-        testUser("battleEmptyOpponent", "기록없는상대");
-        TestUser recordedOpponent = testUser("battleRecordedOpponent", "기록있는상대");
-        LocalDate today = KoreanTime.today();
-        seedCompletedQuest(recordedOpponent.userId(), today, "routine", healthProof(15, 1500, 1000, 80));
-
-        mockMvc.perform(post("/api/battles/match")
-                        .header("Authorization", "Bearer " + me.accessToken())
-                        .contentType("application/json")
-                        .content("""
-                                {
-                                  "mode": "DAILY"
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.participants[0].userId").value(me.userId()))
-                .andExpect(jsonPath("$.data.participants[1].userId").value(recordedOpponent.userId()))
-                .andExpect(jsonPath("$.data.participants[1].score").value(505))
-                .andExpect(jsonPath("$.data.metrics[0].opponentValue").value("505점"))
-                .andExpect(jsonPath("$.data.metrics[5].opponentValue").value("1개"));
-    }
-
-    @Test
-    void matchExcludesInternalProbeAccountsFromOpponentPool() throws Exception {
+    void matchExcludesInternalProbeAccountsFromWaitingQueue() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser me = testUser("battleRealPoolMe", "실사용자");
         TestUser probe = testUser("jenkins_probe_battle_pool", "프로브계정");
@@ -179,6 +195,28 @@ class BattleControllerTest {
         seedCompletedQuest(probe.userId(), today, "routine", healthProof(30, 4000, 3000, 200));
 
         mockMvc.perform(post("/api/battles/match")
+                        .header("Authorization", "Bearer " + probe.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "mode": "DAILY"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.matchStatus").value("WAITING"));
+
+        mockMvc.perform(post("/api/battles/match")
+                        .header("Authorization", "Bearer " + realOpponent.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "mode": "DAILY"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.matchStatus").value("WAITING"));
+
+        mockMvc.perform(post("/api/battles/match")
                         .header("Authorization", "Bearer " + me.accessToken())
                         .contentType("application/json")
                         .content("""
@@ -187,7 +225,7 @@ class BattleControllerTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.participants[0].userId").value(me.userId()))
+                .andExpect(jsonPath("$.data.matchStatus").value("MATCHED"))
                 .andExpect(jsonPath("$.data.participants[1].userId").value(realOpponent.userId()))
                 .andExpect(jsonPath("$.data.participants[1].nickname").value("실제상대"));
     }
@@ -199,6 +237,17 @@ class BattleControllerTest {
         TestUser opponent = testUser("battleManualOpponent", "상대");
         LocalDate today = KoreanTime.today();
         seedCompletedQuest(me.userId(), today, "routine", manualProofWithLargeMetrics());
+
+        mockMvc.perform(post("/api/battles/match")
+                        .header("Authorization", "Bearer " + opponent.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "mode": "DAILY"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.matchStatus").value("WAITING"));
 
         mockMvc.perform(post("/api/battles/match")
                         .header("Authorization", "Bearer " + me.accessToken())
@@ -219,7 +268,7 @@ class BattleControllerTest {
     }
 
     @Test
-    void matchReturnsConflictWhenNoOpponentExists() throws Exception {
+    void matchWaitsWhenNoQueuedOpponentExists() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser me = testUser("battleSolo", "혼자");
 
@@ -231,8 +280,10 @@ class BattleControllerTest {
                                   "mode": "DAILY"
                                 }
                                 """))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("BATTLE_OPPONENT_NOT_FOUND"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.matchStatus").value("WAITING"))
+                .andExpect(jsonPath("$.data.participants.length()").value(1))
+                .andExpect(jsonPath("$.data.participants[0].userId").value(me.userId()));
     }
 
     @Test
@@ -243,6 +294,17 @@ class BattleControllerTest {
         LocalDate today = KoreanTime.today();
         seedCompletedQuest(me.userId(), today, "routine", healthProof(30, 4000, 3000, 200));
         seedCompletedQuest(opponent.userId(), today, "off_day", healthProof(10, 800, 300, 50));
+
+        mockMvc.perform(post("/api/battles/match")
+                        .header("Authorization", "Bearer " + opponent.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "mode": "DAILY"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.matchStatus").value("WAITING"));
 
         mockMvc.perform(post("/api/battles/match")
                         .header("Authorization", "Bearer " + me.accessToken())
@@ -314,6 +376,17 @@ class BattleControllerTest {
         LocalDate today = KoreanTime.today();
         seedCompletedQuest(me.userId(), today, "routine", healthProof(20, 1000, 1000, 100));
         seedCompletedQuest(opponent.userId(), today, "routine", healthProof(20, 1000, 1000, 100));
+
+        mockMvc.perform(post("/api/battles/match")
+                        .header("Authorization", "Bearer " + opponent.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "mode": "DAILY"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.matchStatus").value("WAITING"));
 
         mockMvc.perform(post("/api/battles/match")
                         .header("Authorization", "Bearer " + me.accessToken())

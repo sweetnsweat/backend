@@ -10,10 +10,13 @@ import com.capstone.backend.battle.dto.BattleResultResponse;
 import com.capstone.backend.battle.dto.BattleScoreResponse;
 import com.capstone.backend.battle.dto.BattleSummaryResponse;
 import com.capstone.backend.battle.entity.Battle;
+import com.capstone.backend.battle.entity.BattleMatchQueue;
+import com.capstone.backend.battle.entity.BattleMatchQueueStatus;
 import com.capstone.backend.battle.entity.BattleMode;
 import com.capstone.backend.battle.entity.BattleParticipant;
 import com.capstone.backend.battle.entity.BattleResult;
 import com.capstone.backend.battle.entity.BattleStatus;
+import com.capstone.backend.battle.repository.BattleMatchQueueRepository;
 import com.capstone.backend.battle.repository.BattleParticipantRepository;
 import com.capstone.backend.battle.repository.BattleRepository;
 import com.capstone.backend.global.exception.ApiException;
@@ -37,7 +40,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -53,6 +55,7 @@ public class BattleService {
     private static final int HEALTH_VERIFIED_POINTS = 50;
 
     private final BattleRepository battleRepository;
+    private final BattleMatchQueueRepository battleMatchQueueRepository;
     private final BattleParticipantRepository battleParticipantRepository;
     private final UserQuestRepository userQuestRepository;
     private final UserRepository userRepository;
@@ -60,12 +63,14 @@ public class BattleService {
     private final RewardService rewardService;
 
     public BattleService(BattleRepository battleRepository,
+                         BattleMatchQueueRepository battleMatchQueueRepository,
                          BattleParticipantRepository battleParticipantRepository,
                          UserQuestRepository userQuestRepository,
                          UserRepository userRepository,
                          NotificationService notificationService,
                          RewardService rewardService) {
         this.battleRepository = battleRepository;
+        this.battleMatchQueueRepository = battleMatchQueueRepository;
         this.battleParticipantRepository = battleParticipantRepository;
         this.userQuestRepository = userQuestRepository;
         this.userRepository = userRepository;
@@ -103,7 +108,38 @@ public class BattleService {
             return toDetail(currentBattle.get(), userId);
         }
 
-        User opponent = chooseOpponent(userId, mode, period);
+        Optional<BattleMatchQueue> currentWaitingQueue = battleMatchQueueRepository
+                .findByUser_IdAndModeAndPeriodStartDateAndPeriodEndDateAndStatus(
+                        userId,
+                        mode,
+                        period.startDate(),
+                        period.endDate(),
+                        BattleMatchQueueStatus.WAITING
+                );
+        if (currentWaitingQueue.isPresent()) {
+            return toWaitingDetail(currentUser, period, currentWaitingQueue.get());
+        }
+
+        Optional<BattleMatchQueue> opponentQueue = battleMatchQueueRepository.findWaitingOpponents(
+                userId,
+                mode,
+                period.startDate(),
+                period.endDate(),
+                PageRequest.of(0, 1)
+        ).stream().findFirst();
+
+        BattleMatchQueue myQueue = battleMatchQueueRepository.save(BattleMatchQueue.waiting(
+                currentUser,
+                mode,
+                period.startDate(),
+                period.endDate(),
+                period.endsAt()
+        ));
+        if (opponentQueue.isEmpty()) {
+            return toWaitingDetail(currentUser, period, myQueue);
+        }
+
+        User opponent = opponentQueue.get().getUser();
         Battle battle = battleRepository.save(Battle.create(
                 mode,
                 period.startDate(),
@@ -115,6 +151,9 @@ public class BattleService {
                 BattleParticipant.join(battle, currentUser),
                 BattleParticipant.join(battle, opponent)
         ));
+        Instant matchedAt = KoreanTime.nowInstant();
+        opponentQueue.get().match(battle, matchedAt);
+        myQueue.match(battle, matchedAt);
         notificationService.sendBattleMatched(battle, participants);
         return toDetail(battle, userId);
     }
@@ -176,28 +215,6 @@ public class BattleService {
         ).stream().findFirst();
     }
 
-    private User chooseOpponent(Long userId, BattleMode mode, BattlePeriod period) {
-        List<User> candidates = userRepository.findAvailableBattleOpponents(
-                userId,
-                mode,
-                period.startDate(),
-                period.endDate()
-        );
-        if (candidates.isEmpty()) {
-            throw new ApiException(HttpStatus.CONFLICT, "BATTLE_OPPONENT_NOT_FOUND", "매칭 가능한 상대가 없습니다.");
-        }
-        List<User> candidatesWithScoredRecords = candidates.stream()
-                .filter(candidate -> loadStats(candidate.getId(), period).totalScore() > 0)
-                .toList();
-        List<User> candidatesWithCompletedQuests = candidates.stream()
-                .filter(candidate -> loadStats(candidate.getId(), period).completedQuestCount() > 0)
-                .toList();
-        List<User> opponentPool = !candidatesWithScoredRecords.isEmpty()
-                ? candidatesWithScoredRecords
-                : candidatesWithCompletedQuests.isEmpty() ? candidates : candidatesWithCompletedQuests;
-        return opponentPool.get(ThreadLocalRandom.current().nextInt(opponentPool.size()));
-    }
-
     private void finalizeBattle(Battle battle) {
         List<BattleParticipant> participants = battleParticipantRepository.findByBattle_IdOrderByIdAsc(battle.getId());
         if (participants.size() != 2) {
@@ -238,9 +255,38 @@ public class BattleService {
                 battle.getStartsAt(),
                 battle.getEndsAt(),
                 remainingSeconds(battle),
+                "MATCHED",
+                null,
                 snapshot.participants(),
                 new BattleScoreResponse(snapshot.myStats().totalScore(), snapshot.opponentStats().totalScore(), leadingUserId(snapshot)),
                 metrics(snapshot.myStats(), snapshot.opponentStats())
+        );
+    }
+
+    private BattleDetailResponse toWaitingDetail(User currentUser, BattlePeriod period, BattleMatchQueue queue) {
+        BattleStats myStats = loadStats(currentUser.getId(), period);
+        BattleStats emptyOpponentStats = BattleStats.empty();
+        return new BattleDetailResponse(
+                null,
+                period.mode(),
+                null,
+                period.startDate(),
+                period.endDate(),
+                period.startsAt(),
+                period.endsAt(),
+                remainingSeconds(period.endsAt()),
+                "WAITING",
+                queue.getQueuedAt(),
+                List.of(new BattleParticipantResponse(
+                        currentUser.getId(),
+                        currentUser.getNickname(),
+                        currentUser.getProfileImageUrl(),
+                        true,
+                        myStats.totalScore(),
+                        BattleResult.PENDING
+                )),
+                new BattleScoreResponse(myStats.totalScore(), null, null),
+                metrics(myStats, emptyOpponentStats)
         );
     }
 
@@ -446,7 +492,11 @@ public class BattleService {
     }
 
     private long remainingSeconds(Battle battle) {
-        return Math.max(0, Duration.between(KoreanTime.nowInstant(), battle.getEndsAt()).toSeconds());
+        return remainingSeconds(battle.getEndsAt());
+    }
+
+    private long remainingSeconds(Instant endsAt) {
+        return Math.max(0, Duration.between(KoreanTime.nowInstant(), endsAt).toSeconds());
     }
 
     private BattleCurrentSummaryResponse toCurrentSummary(Battle battle) {
@@ -481,9 +531,9 @@ public class BattleService {
         if (BattleMode.WEEKLY.equals(mode)) {
             LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
             LocalDate weekEnd = weekStart.plusDays(6);
-            return BattlePeriod.fromDates(weekStart, weekEnd);
+            return BattlePeriod.fromDates(mode, weekStart, weekEnd);
         }
-        return BattlePeriod.fromDates(today, today);
+        return BattlePeriod.fromDates(mode, today, today);
     }
 
     private BigDecimal decimal(Object value) {
@@ -503,9 +553,10 @@ public class BattleService {
         return BigDecimal.ZERO;
     }
 
-    private record BattlePeriod(LocalDate startDate, LocalDate endDate, Instant startsAt, Instant endsAt) {
-        static BattlePeriod fromDates(LocalDate startDate, LocalDate endDate) {
+    private record BattlePeriod(BattleMode mode, LocalDate startDate, LocalDate endDate, Instant startsAt, Instant endsAt) {
+        static BattlePeriod fromDates(BattleMode mode, LocalDate startDate, LocalDate endDate) {
             return new BattlePeriod(
+                    mode,
                     startDate,
                     endDate,
                     startDate.atStartOfDay(KoreanTime.ZONE_ID).toInstant(),
@@ -515,6 +566,7 @@ public class BattleService {
 
         static BattlePeriod fromBattle(Battle battle) {
             return new BattlePeriod(
+                    battle.getMode(),
                     battle.getPeriodStartDate(),
                     battle.getPeriodEndDate(),
                     battle.getStartsAt(),
@@ -531,6 +583,9 @@ public class BattleService {
                                int distanceMeters,
                                int activeCalories,
                                int healthVerifiedQuestCount) {
+        static BattleStats empty() {
+            return new BattleStats(0, 0, 0, 0, 0, 0, 0, 0);
+        }
     }
 
     private record BattleSnapshot(BattleParticipant me,
