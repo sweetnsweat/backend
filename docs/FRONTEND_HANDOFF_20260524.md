@@ -200,24 +200,88 @@ if (response.data.matchStatus === 'MATCHED' && response.data.battleId) {
 
 ---
 
-## 6. 배틀 점수 표시 관련
+## 6. 배틀 점수 및 건강 데이터 반영
 
-퀘스트 완료 방식에 따라 배틀 점수 반영 여부가 다르다.
+배틀 지표는 이제 퀘스트 완료 proof에만 의존하지 않는다. 프론트가 `/api/health-data/sync`로 건강 데이터를 동기화하면 백엔드가 일별 요약을 저장하고, 배틀은 해당 기간의 `health_daily_summaries` 값을 우선 사용한다.
 
-| completionType | battleEligible | 배틀 점수 반영 | 완료 퀘스트 개수 표시 |
+```http
+POST /api/health-data/sync
+Authorization: Bearer {accessToken}
+Content-Type: application/json
+```
+
+요청 예시:
+
+```json
+{
+  "samples": [
+    {
+      "source": "health_connect",
+      "rawRecordType": "Steps",
+      "value": 3000,
+      "unit": "count",
+      "startTime": "2026-05-24T00:00:00Z",
+      "endTime": "2026-05-24T01:00:00Z",
+      "dataOrigin": "com.google.android.apps.fitness"
+    },
+    {
+      "source": "health_connect",
+      "rawRecordType": "Distance",
+      "value": 2000,
+      "unit": "m",
+      "startTime": "2026-05-24T00:00:00Z",
+      "endTime": "2026-05-24T01:00:00Z",
+      "dataOrigin": "com.google.android.apps.fitness"
+    },
+    {
+      "source": "health_connect",
+      "rawRecordType": "ActiveCaloriesBurned",
+      "value": 150,
+      "unit": "kcal",
+      "startTime": "2026-05-24T00:00:00Z",
+      "endTime": "2026-05-24T01:00:00Z",
+      "dataOrigin": "com.google.android.apps.fitness"
+    },
+    {
+      "source": "health_connect",
+      "rawRecordType": "ExerciseSession",
+      "value": 20,
+      "unit": "minutes",
+      "startTime": "2026-05-24T00:00:00Z",
+      "endTime": "2026-05-24T00:20:00Z",
+      "dataOrigin": "com.google.android.apps.fitness"
+    }
+  ]
+}
+```
+
+배틀 점수 계산:
+
+```text
+완료 퀘스트 수 * 100
++ 검증 완료 퀘스트 수 * 50
++ 운동 시간(분) * 10
++ 이동 거리(m) * 0.03
++ 걸음 수 * 0.01
++ 활동 칼로리(kcal) * 2
+```
+
+퀘스트 완료 방식별 처리:
+
+| completionType | 완료 퀘스트 점수 | 건강 데이터 지표 | 비고 |
 | --- | --- | --- | --- |
-| `VERIFIED` | `true` | O | O |
-| `MANUAL` | `false` | X | O |
+| `VERIFIED` | O | O | health sync 데이터가 있으면 sync 값을 우선 사용 |
+| `MANUAL` | O | O | 수동 완료여도 health sync가 있으면 걸음/거리/칼로리/운동시간 반영 |
 
-따라서 사용자가 수동 완료한 퀘스트는 배틀 점수, 운동 시간, 걸음 수, 칼로리에는 반영되지 않을 수 있다. 다만 배틀 화면의 `COMPLETED_QUESTS` 지표에는 완료 개수로 표시된다.
+즉 수동 완료만 하고 건강 데이터 동기화가 없으면 완료 퀘스트 점수만 반영된다. 건강 데이터 동기화가 있으면 수동 완료 여부와 별개로 운동 시간, 걸음 수, 이동 거리, 활동 칼로리도 배틀 지표에 반영된다.
 
 ---
 
 ## 7. 개발 서버 반영 상태
 
 - 개발 서버 DB에 `battle_match_queue` 테이블 생성 완료
+- 개발 서버 DB에 `health_daily_summaries` 테이블 생성 완료
 - 개발 서버 백엔드 컨테이너 재배포 완료
 - 실제 API 검증 완료
   - 첫 계정 호출: `message=Battle queued`, `matchStatus=WAITING`, `battleId=null`
   - 두 번째 계정 호출: `message=Battle matched`, `matchStatus=MATCHED`, `battleId` 생성
-

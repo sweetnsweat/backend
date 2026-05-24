@@ -21,6 +21,8 @@ import com.capstone.backend.battle.repository.BattleParticipantRepository;
 import com.capstone.backend.battle.repository.BattleRepository;
 import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.global.time.KoreanTime;
+import com.capstone.backend.health.entity.HealthDailySummary;
+import com.capstone.backend.health.repository.HealthDailySummaryRepository;
 import com.capstone.backend.notification.service.NotificationService;
 import com.capstone.backend.quest.entity.UserQuest;
 import com.capstone.backend.quest.repository.UserQuestRepository;
@@ -57,6 +59,7 @@ public class BattleService {
     private final BattleRepository battleRepository;
     private final BattleMatchQueueRepository battleMatchQueueRepository;
     private final BattleParticipantRepository battleParticipantRepository;
+    private final HealthDailySummaryRepository healthDailySummaryRepository;
     private final UserQuestRepository userQuestRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
@@ -65,6 +68,7 @@ public class BattleService {
     public BattleService(BattleRepository battleRepository,
                          BattleMatchQueueRepository battleMatchQueueRepository,
                          BattleParticipantRepository battleParticipantRepository,
+                         HealthDailySummaryRepository healthDailySummaryRepository,
                          UserQuestRepository userQuestRepository,
                          UserRepository userRepository,
                          NotificationService notificationService,
@@ -72,6 +76,7 @@ public class BattleService {
         this.battleRepository = battleRepository;
         this.battleMatchQueueRepository = battleMatchQueueRepository;
         this.battleParticipantRepository = battleParticipantRepository;
+        this.healthDailySummaryRepository = healthDailySummaryRepository;
         this.userQuestRepository = userQuestRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
@@ -400,15 +405,15 @@ public class BattleService {
                 .filter(this::battleEligible)
                 .toList();
         int completedQuestCount = quests.size();
-        int battleEligibleQuestCount = battleEligibleQuests.size();
         int routineQuestCount = (int) quests.stream()
                 .filter(quest -> UserQuest.TYPE_ROUTINE.equals(quest.getQuestType()))
                 .count();
 
-        int activeMinutes = 0;
-        int steps = 0;
-        int distanceMeters = 0;
-        int activeCalories = 0;
+        BattleHealthStats syncedHealthStats = loadSyncedHealthStats(userId, period);
+        int activeMinutes = syncedHealthStats.activeMinutes();
+        int steps = syncedHealthStats.steps();
+        int distanceMeters = syncedHealthStats.distanceMeters();
+        int activeCalories = syncedHealthStats.activeCalories();
         int healthVerifiedQuestCount = 0;
 
         for (UserQuest quest : battleEligibleQuests) {
@@ -416,17 +421,19 @@ public class BattleService {
             if (Boolean.TRUE.equals(proof.get("verified"))) {
                 healthVerifiedQuestCount++;
             }
-            Object metricsValue = proof.get("metrics");
-            if (!(metricsValue instanceof Map<?, ?> metrics)) {
-                continue;
+            if (!syncedHealthStats.hasData()) {
+                Object metricsValue = proof.get("metrics");
+                if (!(metricsValue instanceof Map<?, ?> metrics)) {
+                    continue;
+                }
+                activeMinutes += decimal(metrics.get("exerciseMinutes")).setScale(0, RoundingMode.HALF_UP).intValue();
+                steps += decimal(metrics.get("steps")).setScale(0, RoundingMode.HALF_UP).intValue();
+                distanceMeters += decimal(metrics.get("distanceMeters")).setScale(0, RoundingMode.HALF_UP).intValue();
+                activeCalories += decimal(metrics.get("activeCaloriesKcal")).setScale(0, RoundingMode.HALF_UP).intValue();
             }
-            activeMinutes += decimal(metrics.get("exerciseMinutes")).setScale(0, RoundingMode.HALF_UP).intValue();
-            steps += decimal(metrics.get("steps")).setScale(0, RoundingMode.HALF_UP).intValue();
-            distanceMeters += decimal(metrics.get("distanceMeters")).setScale(0, RoundingMode.HALF_UP).intValue();
-            activeCalories += decimal(metrics.get("activeCaloriesKcal")).setScale(0, RoundingMode.HALF_UP).intValue();
         }
 
-        int totalScore = battleEligibleQuestCount * QUEST_COMPLETION_POINTS
+        int totalScore = completedQuestCount * QUEST_COMPLETION_POINTS
                 + healthVerifiedQuestCount * HEALTH_VERIFIED_POINTS
                 + activeMinutes * 10
                 + Math.round(distanceMeters * 0.03f)
@@ -442,6 +449,25 @@ public class BattleService {
             return value;
         }
         return Boolean.TRUE.equals(proof.get("verified"));
+    }
+
+    private BattleHealthStats loadSyncedHealthStats(Long userId, BattlePeriod period) {
+        List<HealthDailySummary> summaries = healthDailySummaryRepository.findByUserIdAndSummaryDateBetween(
+                userId,
+                period.startDate(),
+                period.endDate()
+        );
+        int activeMinutes = 0;
+        int steps = 0;
+        int distanceMeters = 0;
+        int activeCalories = 0;
+        for (HealthDailySummary summary : summaries) {
+            activeMinutes += summary.getExerciseMinutes() == null ? 0 : summary.getExerciseMinutes();
+            steps += summary.getSteps() == null ? 0 : summary.getSteps();
+            distanceMeters += summary.getDistanceMeters() == null ? 0 : summary.getDistanceMeters();
+            activeCalories += summary.getActiveCaloriesKcal() == null ? 0 : summary.getActiveCaloriesKcal();
+        }
+        return new BattleHealthStats(activeMinutes, steps, distanceMeters, activeCalories, !summaries.isEmpty());
     }
 
     private List<BattleMetricResponse> metrics(BattleStats myStats, BattleStats opponentStats) {
@@ -586,6 +612,13 @@ public class BattleService {
         static BattleStats empty() {
             return new BattleStats(0, 0, 0, 0, 0, 0, 0, 0);
         }
+    }
+
+    private record BattleHealthStats(int activeMinutes,
+                                     int steps,
+                                     int distanceMeters,
+                                     int activeCalories,
+                                     boolean hasData) {
     }
 
     private record BattleSnapshot(BattleParticipant me,

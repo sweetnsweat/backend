@@ -28,6 +28,6 @@ public class HealthDataController {
     @PostMapping("/sync")
     public ApiResponse<HealthDataSyncResponse> sync(@AuthenticationPrincipal AuthUser authUser,
                                                     @RequestBody HealthDataSyncRequest request) {
-        return ApiResponse.ok("건강 데이터가 정규화되었습니다.", healthDataService.summarize(request));
+        return ApiResponse.ok("건강 데이터가 동기화되었습니다.", healthDataService.summarize(authUser.userId(), request));
     }
 }

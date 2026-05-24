@@ -59,6 +59,8 @@ class RankingControllerTest {
         jdbcTemplate.update("delete from routine_sessions");
         jdbcTemplate.update("delete from routines");
         jdbcTemplate.update("delete from refresh_tokens");
+        jdbcTemplate.update("delete from health_daily_summaries");
+
         jdbcTemplate.update("delete from users");
         jdbcTemplate.update("delete from exercises");
     }
