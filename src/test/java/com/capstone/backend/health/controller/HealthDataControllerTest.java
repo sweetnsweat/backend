@@ -41,6 +41,8 @@ class HealthDataControllerTest {
     @BeforeEach
     void cleanup() {
         jdbcTemplate.update("delete from refresh_tokens");
+        jdbcTemplate.update("delete from health_daily_summaries");
+
         jdbcTemplate.update("delete from users");
     }
 
@@ -89,6 +91,15 @@ class HealthDataControllerTest {
                 .andExpect(jsonPath("$.data.summaries[0].max").value(99))
                 .andExpect(jsonPath("$.data.summaries[1].type").value("STEPS"))
                 .andExpect(jsonPath("$.data.summaries[1].total").value(4815));
+
+        Long userId = jdbcTemplate.queryForObject("select id from users where login_id = 'healthConnectUser'", Long.class);
+        Integer steps = jdbcTemplate.queryForObject("""
+                select steps
+                from health_daily_summaries
+                where user_id = ?
+                  and summary_date = date '2026-05-15'
+                """, Integer.class, userId);
+        org.assertj.core.api.Assertions.assertThat(steps).isEqualTo(4815);
     }
 
     @Test
@@ -117,6 +128,15 @@ class HealthDataControllerTest {
                 .andExpect(jsonPath("$.data.countByType.STEPS").value(1))
                 .andExpect(jsonPath("$.data.summaries[0].type").value("STEPS"))
                 .andExpect(jsonPath("$.data.summaries[0].total").value(3200));
+
+        Long userId = jdbcTemplate.queryForObject("select id from users where login_id = 'healthKitUser'", Long.class);
+        Integer steps = jdbcTemplate.queryForObject("""
+                select steps
+                from health_daily_summaries
+                where user_id = ?
+                  and summary_date = date '2026-05-15'
+                """, Integer.class, userId);
+        org.assertj.core.api.Assertions.assertThat(steps).isEqualTo(3200);
     }
 
     private String accessTokenFor(String loginId) {

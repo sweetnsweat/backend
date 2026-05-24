@@ -71,6 +71,8 @@ class BattleControllerTest {
         jdbcTemplate.update("delete from routine_sessions");
         jdbcTemplate.update("delete from routines");
         jdbcTemplate.update("delete from refresh_tokens");
+        jdbcTemplate.update("delete from health_daily_summaries");
+
         jdbcTemplate.update("delete from users");
         jdbcTemplate.update("delete from exercises");
     }
@@ -233,7 +235,7 @@ class BattleControllerTest {
     }
 
     @Test
-    void matchShowsManualCompletedQuestsButExcludesThemFromBattleScore() throws Exception {
+    void matchIncludesManualCompletedQuestCountInBattleScore() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser me = testUser("battleManualMe", "수동완료");
         TestUser opponent = testUser("battleManualOpponent", "상대");
@@ -261,11 +263,49 @@ class BattleControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.participants[0].userId").value(me.userId()))
-                .andExpect(jsonPath("$.data.participants[0].score").value(0))
+                .andExpect(jsonPath("$.data.participants[0].score").value(100))
                 .andExpect(jsonPath("$.data.participants[1].userId").value(opponent.userId()))
                 .andExpect(jsonPath("$.data.participants[1].score").value(0))
-                .andExpect(jsonPath("$.data.score.leadingUserId").doesNotExist())
+                .andExpect(jsonPath("$.data.score.leadingUserId").value(me.userId()))
                 .andExpect(jsonPath("$.data.metrics[5].metricKey").value("COMPLETED_QUESTS"))
+                .andExpect(jsonPath("$.data.metrics[5].myValue").value("1개"));
+    }
+
+    @Test
+    void battleUsesSyncedDailyHealthSummaryEvenWhenQuestWasManual() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser me = testUser("battleManualHealthMe", "수동건강");
+        TestUser opponent = testUser("battleManualHealthOpponent", "상대");
+        LocalDate today = KoreanTime.today();
+        seedCompletedQuest(me.userId(), today, "routine", manualProofWithLargeMetrics());
+        seedHealthDailySummary(me.userId(), today, 3000, 2000, 150, 20);
+
+        mockMvc.perform(post("/api/battles/match")
+                        .header("Authorization", "Bearer " + opponent.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "mode": "DAILY"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.matchStatus").value("WAITING"));
+
+        mockMvc.perform(post("/api/battles/match")
+                        .header("Authorization", "Bearer " + me.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "mode": "DAILY"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.participants[0].score").value(690))
+                .andExpect(jsonPath("$.data.metrics[0].myValue").value("690점"))
+                .andExpect(jsonPath("$.data.metrics[1].myValue").value("20분"))
+                .andExpect(jsonPath("$.data.metrics[2].myValue").value("2000m"))
+                .andExpect(jsonPath("$.data.metrics[3].myValue").value("3000걸음"))
+                .andExpect(jsonPath("$.data.metrics[4].myValue").value("150kcal"))
                 .andExpect(jsonPath("$.data.metrics[5].myValue").value("1개"));
     }
 
@@ -455,6 +495,29 @@ class BattleControllerTest {
                 values (?, ?, ?, 'minutes', '배틀 테스트 퀘스트', '배틀 테스트용 완료 퀘스트입니다.', 10, 10, 'completed', false, 0, 0, CURRENT_TIMESTAMP, JSON '""" + escapedProofJson + """
                 ', JSON '{}', CURRENT_TIMESTAMP)
                 """, userId, questDate, questType);
+    }
+
+    private void seedHealthDailySummary(Long userId,
+                                        LocalDate summaryDate,
+                                        int steps,
+                                        int distanceMeters,
+                                        int activeCalories,
+                                        int exerciseMinutes) {
+        jdbcTemplate.update("""
+                insert into health_daily_summaries (
+                    user_id,
+                    summary_date,
+                    steps,
+                    distance_meters,
+                    active_calories_kcal,
+                    exercise_minutes,
+                    sample_count,
+                    synced_at,
+                    created_at,
+                    updated_at
+                )
+                values (?, ?, ?, ?, ?, ?, 4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, userId, summaryDate, steps, distanceMeters, activeCalories, exerciseMinutes);
     }
 
     private int expRewardCount(Long userId, Long battleId) {
