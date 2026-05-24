@@ -151,7 +151,10 @@ class QuestControllerTest {
                 .andExpect(jsonPath("$.data.rewardGold").value(10))
                 .andExpect(jsonPath("$.data.sessionType").value(nullValue()))
                 .andExpect(jsonPath("$.data.sessionTypeDisplayName").value(nullValue()))
-                .andExpect(jsonPath("$.data.exercises").isEmpty());
+                .andExpect(jsonPath("$.data.exercises.length()").value(1))
+                .andExpect(jsonPath("$.data.exercises[0].exerciseName").value("걷기, 런닝머신"))
+                .andExpect(jsonPath("$.data.exercises[0].category").value("유산소"))
+                .andExpect(jsonPath("$.data.exercises[0].targetDurationSec").value(900));
     }
 
     @Test
@@ -171,7 +174,11 @@ class QuestControllerTest {
                 .andExpect(jsonPath("$.data.rewardExp").value(10))
                 .andExpect(jsonPath("$.data.rewardCurrency").value(5))
                 .andExpect(jsonPath("$.data.rewardGold").value(5))
-                .andExpect(jsonPath("$.data.conditionAdjusted").value(true));
+                .andExpect(jsonPath("$.data.conditionAdjusted").value(true))
+                .andExpect(jsonPath("$.data.exercises.length()").value(1))
+                .andExpect(jsonPath("$.data.exercises[0].exerciseName").value("회복 요가"))
+                .andExpect(jsonPath("$.data.exercises[0].category").value("요가"))
+                .andExpect(jsonPath("$.data.exercises[0].targetDurationSec").value(600));
     }
 
     @Test
