@@ -252,11 +252,57 @@ class ShopControllerTest {
                 .andExpect(jsonPath("$.code").value("ITEM_NOT_EQUIPPABLE"));
     }
 
+    @Test
+    void useExpBoostPassConsumesInventoryAndActivatesEffect() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser testUser = testUser("shopUseExpBoostUser");
+        Long itemId = seedItem("ticket", "EXP 2배권", 200, true);
+        seedUserItem(testUser.userId(), itemId, 2);
+
+        mockMvc.perform(post("/api/shop/items/{itemId}/use", itemId)
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("아이템을 사용했습니다."))
+                .andExpect(jsonPath("$.data.item.itemId").value(itemId))
+                .andExpect(jsonPath("$.data.item.quantity").value(1))
+                .andExpect(jsonPath("$.data.effectType").value("EXP_BOOST"))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.expiresAt").exists());
+
+        Integer quantity = jdbcTemplate.queryForObject(
+                "select quantity from user_items where user_id = ? and item_id = ?",
+                Integer.class,
+                testUser.userId(),
+                itemId
+        );
+        Integer effectCount = jdbcTemplate.queryForObject(
+                "select count(*) from user_item_effects where user_id = ? and item_id = ? and effect_type = 'EXP_BOOST' and status = 'ACTIVE'",
+                Integer.class,
+                testUser.userId(),
+                itemId
+        );
+        org.assertj.core.api.Assertions.assertThat(quantity).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(effectCount).isEqualTo(1);
+    }
+
+    @Test
+    void usePassRequiresOwnership() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser testUser = testUser("shopUseOwnershipUser");
+        Long itemId = seedItem("ticket", "EXP 2배권", 200, true);
+
+        mockMvc.perform(post("/api/shop/items/{itemId}/use", itemId)
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("ITEM_NOT_OWNED"));
+    }
+
     private void cleanup() {
         jdbcTemplate.update("delete from battle_match_queue");
 
         jdbcTemplate.update("delete from battle_participants");
         jdbcTemplate.update("delete from battles");
+        jdbcTemplate.update("delete from user_item_effects");
         jdbcTemplate.update("delete from user_quests");
         jdbcTemplate.update("delete from user_exp_logs");
         jdbcTemplate.update("delete from user_items");

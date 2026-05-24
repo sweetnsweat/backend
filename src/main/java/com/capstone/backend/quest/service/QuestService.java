@@ -18,6 +18,7 @@ import com.capstone.backend.routine.entity.Routine;
 import com.capstone.backend.routine.entity.RoutineItem;
 import com.capstone.backend.routine.entity.RoutineSession;
 import com.capstone.backend.routine.repository.RoutineRepository;
+import com.capstone.backend.shop.service.ShopPassEffectService;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import java.math.BigDecimal;
@@ -50,19 +51,22 @@ public class QuestService {
     private final RoutineRepository routineRepository;
     private final RewardService rewardService;
     private final HealthQuestProgressEvaluator healthQuestProgressEvaluator;
+    private final ShopPassEffectService shopPassEffectService;
 
     public QuestService(UserQuestRepository userQuestRepository,
                         UserRepository userRepository,
                         ConditionLogRepository conditionLogRepository,
                         RoutineRepository routineRepository,
                         RewardService rewardService,
-                        HealthQuestProgressEvaluator healthQuestProgressEvaluator) {
+                        HealthQuestProgressEvaluator healthQuestProgressEvaluator,
+                        ShopPassEffectService shopPassEffectService) {
         this.userQuestRepository = userQuestRepository;
         this.userRepository = userRepository;
         this.conditionLogRepository = conditionLogRepository;
         this.routineRepository = routineRepository;
         this.rewardService = rewardService;
         this.healthQuestProgressEvaluator = healthQuestProgressEvaluator;
+        this.shopPassEffectService = shopPassEffectService;
     }
 
     @Transactional
@@ -113,6 +117,20 @@ public class QuestService {
         return QuestResponse.from(quest, exercisesFromContext(quest));
     }
 
+    @Transactional
+    public QuestResponse completeTodayQuestWithShopPass(Long userId, Long itemId, String itemName) {
+        QuestResponse todayQuest = getTodayQuest(userId);
+        if (Boolean.TRUE.equals(todayQuest.completed())) {
+            throw new ApiException(HttpStatus.CONFLICT, "QUEST_ALREADY_COMPLETED", "이미 완료된 오늘 퀘스트에는 스킵권을 사용할 수 없습니다.");
+        }
+        Map<String, Object> proof = new LinkedHashMap<>();
+        proof.put("source", "shop_pass");
+        proof.put("itemId", itemId);
+        proof.put("itemName", itemName);
+        proof.put("reason", "퀘스트 스킵권으로 완료했습니다.");
+        return completeQuest(userId, todayQuest.id(), new CompleteQuestRequest(1, proof, null));
+    }
+
     private HealthQuestProgress evaluateHealthProgress(UserQuest quest, CompleteQuestRequest request) {
         if (request == null) {
             return null;
@@ -138,10 +156,14 @@ public class QuestService {
             proof.put("completionType", COMPLETION_TYPE_VERIFIED);
             proof.put("verificationStatus", VERIFICATION_STATUS_VERIFIED);
             proof.put("battleEligible", true);
-            proof.put("rewardExp", quest.getRewardExp());
+            int rewardExp = shopPassEffectService.applyExpBoost(quest.getUser().getId(), quest.getRewardExp());
+            proof.put("rewardExp", rewardExp);
+            if (rewardExp > quest.getRewardExp()) {
+                proof.put("expBoostApplied", true);
+            }
             proof.put("rewardCurrency", quest.getRewardCurrency());
             proof.put("rewardGold", quest.getRewardCurrency());
-            return new QuestCompletion(proof, quest.getRewardExp(), quest.getRewardCurrency(), "검증 퀘스트 완료");
+            return new QuestCompletion(proof, rewardExp, quest.getRewardCurrency(), "검증 퀘스트 완료");
         }
 
         Map<String, Object> proof = healthProgress == null
@@ -152,13 +174,17 @@ public class QuestService {
         proof.put("completionType", COMPLETION_TYPE_MANUAL);
         proof.put("verificationStatus", healthProgress == null ? VERIFICATION_STATUS_NOT_PROVIDED : VERIFICATION_STATUS_INSUFFICIENT_DATA);
         proof.put("battleEligible", false);
-        proof.put("rewardExp", MANUAL_COMPLETION_REWARD_EXP);
+        int rewardExp = shopPassEffectService.applyExpBoost(quest.getUser().getId(), MANUAL_COMPLETION_REWARD_EXP);
+        proof.put("rewardExp", rewardExp);
+        if (rewardExp > MANUAL_COMPLETION_REWARD_EXP) {
+            proof.put("expBoostApplied", true);
+        }
         proof.put("rewardCurrency", MANUAL_COMPLETION_REWARD_CURRENCY);
         proof.put("rewardGold", MANUAL_COMPLETION_REWARD_CURRENCY);
         if (request != null && request.proof() != null && !request.proof().isEmpty()) {
             proof.put("submittedProof", request.proof());
         }
-        return new QuestCompletion(proof, MANUAL_COMPLETION_REWARD_EXP, MANUAL_COMPLETION_REWARD_CURRENCY, "수동 퀘스트 완료");
+        return new QuestCompletion(proof, rewardExp, MANUAL_COMPLETION_REWARD_CURRENCY, "수동 퀘스트 완료");
     }
 
     private QuestResponse returnExistingTodayQuest(UserQuest quest) {

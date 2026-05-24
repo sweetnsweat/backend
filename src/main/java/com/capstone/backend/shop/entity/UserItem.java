@@ -59,6 +59,13 @@ public class UserItem {
         this.quantity = getQuantity() + amount;
     }
 
+    public void decreaseQuantity(int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        this.quantity = Math.max(0, getQuantity() - amount);
+    }
+
     @PrePersist
     @PreUpdate
     void onUpdate() {

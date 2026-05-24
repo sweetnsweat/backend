@@ -5,6 +5,7 @@ import com.capstone.backend.global.api.ApiResponse;
 import com.capstone.backend.shop.dto.PurchaseItemRequest;
 import com.capstone.backend.shop.dto.ShopEquipResponse;
 import com.capstone.backend.shop.dto.ShopItemListResponse;
+import com.capstone.backend.shop.dto.ShopItemUseResponse;
 import com.capstone.backend.shop.dto.ShopPurchaseResponse;
 import com.capstone.backend.shop.service.ShopService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -60,5 +61,14 @@ public class ShopController {
             @PathVariable Long itemId
     ) {
         return ApiResponse.ok("아이템을 장착했습니다.", shopService.equipItem(authUser.userId(), itemId));
+    }
+
+    @Operation(summary = "패스/소모 아이템 사용", description = "보유 중인 패스 아이템을 1개 소비하고 서버 효과를 적용합니다.")
+    @PostMapping("/items/{itemId}/use")
+    public ApiResponse<ShopItemUseResponse> use(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long itemId
+    ) {
+        return ApiResponse.ok("아이템을 사용했습니다.", shopService.useItem(authUser.userId(), itemId));
     }
 }

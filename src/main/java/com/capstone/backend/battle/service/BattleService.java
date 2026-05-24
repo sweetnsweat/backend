@@ -29,6 +29,7 @@ import com.capstone.backend.quest.repository.UserQuestRepository;
 import com.capstone.backend.reward.policy.BattleRewardPolicy;
 import com.capstone.backend.reward.policy.BattleRewardPolicy.BattleReward;
 import com.capstone.backend.reward.service.RewardService;
+import com.capstone.backend.shop.service.ShopPassEffectService;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import java.math.BigDecimal;
@@ -64,6 +65,7 @@ public class BattleService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final RewardService rewardService;
+    private final ShopPassEffectService shopPassEffectService;
 
     public BattleService(BattleRepository battleRepository,
                          BattleMatchQueueRepository battleMatchQueueRepository,
@@ -72,7 +74,8 @@ public class BattleService {
                          UserQuestRepository userQuestRepository,
                          UserRepository userRepository,
                          NotificationService notificationService,
-                         RewardService rewardService) {
+                         RewardService rewardService,
+                         ShopPassEffectService shopPassEffectService) {
         this.battleRepository = battleRepository;
         this.battleMatchQueueRepository = battleMatchQueueRepository;
         this.battleParticipantRepository = battleParticipantRepository;
@@ -81,6 +84,7 @@ public class BattleService {
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.rewardService = rewardService;
+        this.shopPassEffectService = shopPassEffectService;
     }
 
     @Transactional(readOnly = true)
@@ -232,10 +236,15 @@ public class BattleService {
         BattleStats firstStats = loadStats(first.getUser().getId(), period);
         BattleStats secondStats = loadStats(second.getUser().getId(), period);
 
-        BattleResult firstResult = resultFor(firstStats.totalScore(), secondStats.totalScore());
-        BattleResult secondResult = resultFor(secondStats.totalScore(), firstStats.totalScore());
-        first.finalizeResult(firstStats.totalScore(), firstResult);
-        second.finalizeResult(secondStats.totalScore(), secondResult);
+        int firstScore = shopPassEffectService.applyRecordShield(
+                first.getUser().getId(), battle.getMode(), battle.getId(), firstStats.totalScore());
+        int secondScore = shopPassEffectService.applyRecordShield(
+                second.getUser().getId(), battle.getMode(), battle.getId(), secondStats.totalScore());
+
+        BattleResult firstResult = protectedResult(first.getUser().getId(), battle.getId(), resultFor(firstScore, secondScore));
+        BattleResult secondResult = protectedResult(second.getUser().getId(), battle.getId(), resultFor(secondScore, firstScore));
+        first.finalizeResult(firstScore, firstResult);
+        second.finalizeResult(secondScore, secondResult);
         battle.finalizeBattle(KoreanTime.nowInstant());
         issueWinRewards(battle, participants);
         notificationService.sendBattleResultReady(battle, participants);
@@ -246,6 +255,13 @@ public class BattleService {
         participants.stream()
                 .filter(participant -> BattleResult.WIN.equals(participant.getResult()))
                 .forEach(participant -> rewardService.issueBattleWinReward(participant.getUser(), battle.getId(), reward));
+    }
+
+    private BattleResult protectedResult(Long userId, Long battleId, BattleResult result) {
+        if (!BattleResult.LOSS.equals(result)) {
+            return result;
+        }
+        return shopPassEffectService.consumeNextLossProtection(userId, battleId) ? BattleResult.DRAW : result;
     }
 
     private BattleDetailResponse toDetail(Battle battle, Long currentUserId) {

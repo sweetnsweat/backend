@@ -9,6 +9,7 @@ import com.capstone.backend.reward.policy.LevelPolicy;
 import com.capstone.backend.reward.repository.UserExpLogRepository;
 import com.capstone.backend.reward.repository.WalletRepository;
 import com.capstone.backend.reward.repository.WalletTransactionRepository;
+import com.capstone.backend.shop.service.ShopPassEffectService;
 import com.capstone.backend.user.entity.User;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
@@ -20,13 +21,16 @@ public class RewardService {
     private final UserExpLogRepository userExpLogRepository;
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
+    private final ShopPassEffectService shopPassEffectService;
 
     public RewardService(UserExpLogRepository userExpLogRepository,
                          WalletRepository walletRepository,
-                         WalletTransactionRepository walletTransactionRepository) {
+                         WalletTransactionRepository walletTransactionRepository,
+                         ShopPassEffectService shopPassEffectService) {
         this.userExpLogRepository = userExpLogRepository;
         this.walletRepository = walletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
+        this.shopPassEffectService = shopPassEffectService;
     }
 
     @Transactional
@@ -119,22 +123,23 @@ public class RewardService {
             return;
         }
 
+        int boostedAmount = shopPassEffectService.applyExpBoost(user.getId(), amount);
         int beforeTotalExp = user.getTotalExp();
         int beforeLevel = user.getLevel();
-        int afterTotalExp = beforeTotalExp + amount;
+        int afterTotalExp = beforeTotalExp + boostedAmount;
         int afterLevel = LevelPolicy.levelForTotalExp(afterTotalExp);
 
         user.applyExperience(afterTotalExp, afterLevel);
         userExpLogRepository.save(UserExpLog.create(
                 user,
-                amount,
+                boostedAmount,
                 beforeTotalExp,
                 afterTotalExp,
                 beforeLevel,
                 afterLevel,
                 UserExpLog.REF_TYPE_BATTLE_WIN,
                 battleId,
-                "배틀 승리 EXP 보상"
+                boostedAmount > amount ? "배틀 승리 EXP 보상 (EXP 2배권 적용)" : "배틀 승리 EXP 보상"
         ));
     }
 
