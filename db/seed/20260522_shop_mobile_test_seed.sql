@@ -15,7 +15,7 @@ from (values
     ('skin', '네오', '우주 탐험가 · 도전', 900, true, '', '{"special":true,"bg":["#e0f2fe","#e0e7ff"],"effect":"스페셜 캐릭터"}'),
     ('pvp_badge', '기록 방어권', '이번 주 최고 기록을 유지해 줘요', 300, true, '/media/assets/item_record_shield.png', '{"special":false,"effect":"최고 기록 보호 · 1회","bg":["#fdf2f8","#fce7f3"]}'),
     ('pvp_badge', '승률하락 방어권', '패배해도 배틀 승률이 내려가지 않아요', 500, true, '/media/assets/item_winrate_shield.png', '{"special":false,"effect":"승률 보호 · 1회","bg":["#f0f9ff","#e0f2fe"]}'),
-    ('ticket', 'EXP 2배권', '24시간 동안 경험치가 2배로 쌓여요', 200, true, '/media/assets/item_exp_boost.png', '{"special":false,"effect":"EXP x2 · 24시간","bg":["#fefce8","#fef9c3"]}'),
+    ('ticket', '경험치 2배권', '24시간 동안 경험치가 2배로 쌓여요', 200, true, '/media/assets/item_exp_boost.png', '{"special":false,"effect":"경험치 2배 · 24시간","bg":["#fefce8","#fef9c3"]}'),
     ('ticket', '배틀 부활권', '배틀 패배 시 즉시 재도전할 수 있어요', 400, true, '/media/assets/item_battle_retry.png', '{"special":false,"effect":"재도전 1회","bg":["#f0fdf4","#dcfce7"]}'),
     ('ticket', '퀘스트 스킵권', '오늘의 퀘스트를 건너뛸 수 있어요', 150, true, '/media/assets/item_quest_skip.png', '{"special":false,"effect":"퀘스트 스킵 · 1회","bg":["#ede9fe","#f3e8ff"]}')
 ) as seed(item_type, name, description, price_currency, is_sellable, image_url, metadata)

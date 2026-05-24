@@ -7,7 +7,9 @@ import java.util.Map;
 public record ShopItemResponse(
         Long id,
         String itemType,
+        String itemTypeLabel,
         String category,
+        String categoryLabel,
         String name,
         String description,
         Integer priceCurrency,
@@ -27,7 +29,9 @@ public record ShopItemResponse(
         return new ShopItemResponse(
                 item.getId(),
                 item.getItemType(),
+                itemTypeLabel(item.getItemType()),
                 category(item),
+                categoryLabel(category(item)),
                 item.getName(),
                 item.getDescription(),
                 item.getPriceCurrency(),
@@ -53,6 +57,27 @@ public record ShopItemResponse(
             case "skin", "profile" -> "character";
             case "ticket", "pvp_badge", "gift", "consumable" -> "pass";
             default -> itemType;
+        };
+    }
+
+    private static String itemTypeLabel(String itemType) {
+        return switch (itemType == null ? "" : itemType) {
+            case "skin" -> "캐릭터 스킨";
+            case "profile" -> "프로필";
+            case "ticket" -> "이용권";
+            case "pvp_badge" -> "배틀 아이템";
+            case "gift" -> "선물";
+            case "consumable" -> "소모품";
+            default -> itemType;
+        };
+    }
+
+    private static String categoryLabel(String category) {
+        return switch (category == null ? "" : category) {
+            case "character" -> "캐릭터";
+            case "pass" -> "패스";
+            case "badge" -> "배지";
+            default -> category;
         };
     }
 
