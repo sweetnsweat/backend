@@ -1,5 +1,6 @@
 package com.capstone.backend.quest.service;
 
+import com.capstone.backend.achievement.service.AchievementBadgeService;
 import com.capstone.backend.condition.entity.ConditionLog;
 import com.capstone.backend.condition.repository.ConditionLogRepository;
 import com.capstone.backend.global.exception.ApiException;
@@ -52,6 +53,7 @@ public class QuestService {
     private final RewardService rewardService;
     private final HealthQuestProgressEvaluator healthQuestProgressEvaluator;
     private final ShopPassEffectService shopPassEffectService;
+    private final AchievementBadgeService achievementBadgeService;
 
     public QuestService(UserQuestRepository userQuestRepository,
                         UserRepository userRepository,
@@ -59,7 +61,8 @@ public class QuestService {
                         RoutineRepository routineRepository,
                         RewardService rewardService,
                         HealthQuestProgressEvaluator healthQuestProgressEvaluator,
-                        ShopPassEffectService shopPassEffectService) {
+                        ShopPassEffectService shopPassEffectService,
+                        AchievementBadgeService achievementBadgeService) {
         this.userQuestRepository = userQuestRepository;
         this.userRepository = userRepository;
         this.conditionLogRepository = conditionLogRepository;
@@ -67,6 +70,7 @@ public class QuestService {
         this.rewardService = rewardService;
         this.healthQuestProgressEvaluator = healthQuestProgressEvaluator;
         this.shopPassEffectService = shopPassEffectService;
+        this.achievementBadgeService = achievementBadgeService;
     }
 
     @Transactional
@@ -101,6 +105,7 @@ public class QuestService {
                     : request == null ? null : request.progressValue();
             quest.complete(progressValue, completion.proof());
             rewardService.issueQuestCompletionRewards(quest, completion.rewardExp(), completion.rewardCurrency(), completion.rewardMemoPrefix());
+            achievementBadgeService.awardForQuestCompletion(quest);
         }
         return QuestResponse.from(quest, exercisesFromContext(quest));
     }

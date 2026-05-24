@@ -1,5 +1,6 @@
 package com.capstone.backend.battle.service;
 
+import com.capstone.backend.achievement.service.AchievementBadgeService;
 import com.capstone.backend.battle.dto.BattleCurrentSummaryResponse;
 import com.capstone.backend.battle.dto.BattleDetailResponse;
 import com.capstone.backend.battle.dto.BattleHistoryItemResponse;
@@ -66,6 +67,7 @@ public class BattleService {
     private final NotificationService notificationService;
     private final RewardService rewardService;
     private final ShopPassEffectService shopPassEffectService;
+    private final AchievementBadgeService achievementBadgeService;
 
     public BattleService(BattleRepository battleRepository,
                          BattleMatchQueueRepository battleMatchQueueRepository,
@@ -75,7 +77,8 @@ public class BattleService {
                          UserRepository userRepository,
                          NotificationService notificationService,
                          RewardService rewardService,
-                         ShopPassEffectService shopPassEffectService) {
+                         ShopPassEffectService shopPassEffectService,
+                         AchievementBadgeService achievementBadgeService) {
         this.battleRepository = battleRepository;
         this.battleMatchQueueRepository = battleMatchQueueRepository;
         this.battleParticipantRepository = battleParticipantRepository;
@@ -85,6 +88,7 @@ public class BattleService {
         this.notificationService = notificationService;
         this.rewardService = rewardService;
         this.shopPassEffectService = shopPassEffectService;
+        this.achievementBadgeService = achievementBadgeService;
     }
 
     @Transactional(readOnly = true)
@@ -247,6 +251,7 @@ public class BattleService {
         second.finalizeResult(secondScore, secondResult);
         battle.finalizeBattle(KoreanTime.nowInstant());
         issueWinRewards(battle, participants);
+        achievementBadgeService.awardForBattleFinalized(participants);
         notificationService.sendBattleResultReady(battle, participants);
     }
 

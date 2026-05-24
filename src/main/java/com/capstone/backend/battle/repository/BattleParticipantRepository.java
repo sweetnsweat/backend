@@ -23,6 +23,33 @@ public interface BattleParticipantRepository extends JpaRepository<BattlePartici
             """)
     long countByUserIdAndResult(@Param("userId") Long userId, @Param("result") BattleResult result);
 
+    @Query("""
+            select count(participant)
+            from BattleParticipant participant
+            where participant.user.id = :userId
+              and participant.battle.status = com.capstone.backend.battle.entity.BattleStatus.FINALIZED
+            """)
+    long countFinalizedByUserId(@Param("userId") Long userId);
+
+    @Query("""
+            select count(participant)
+            from BattleParticipant participant
+            where participant.user.id = :userId
+              and participant.result = :result
+              and participant.battle.status = com.capstone.backend.battle.entity.BattleStatus.FINALIZED
+            """)
+    long countFinalizedByUserIdAndResult(@Param("userId") Long userId, @Param("result") BattleResult result);
+
+    @Query("""
+            select count(participant)
+            from BattleParticipant participant
+            where participant.user.id = :userId
+              and participant.battle.status = com.capstone.backend.battle.entity.BattleStatus.FINALIZED
+              and participant.finalScore >= :minimumScore
+            """)
+    long countFinalizedByUserIdAndFinalScoreGreaterThanEqual(@Param("userId") Long userId,
+                                                             @Param("minimumScore") int minimumScore);
+
     @Query(
             value = """
                     select participant

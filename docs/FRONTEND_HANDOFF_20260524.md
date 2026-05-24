@@ -7,6 +7,7 @@
 - 기존 `POST /api/battles/match` 엔드포인트는 유지한다.
 - 프론트는 응답의 `data.matchStatus`로 `WAITING` / `MATCHED`를 분기하면 된다.
 - 상점 패스 아이템은 `POST /api/shop/items/{itemId}/use`로 실제 서버 효과를 활성화/소비한다.
+- 획득 배지는 퀘스트/배틀 기록 기준으로 백엔드가 자동 지급한다.
 
 ---
 
@@ -418,11 +419,108 @@ Authorization: Bearer {accessToken}
 
 ---
 
-## 8. 개발 서버 반영 상태
+## 8. 획득 배지 API
+
+획득 배지는 별도 테이블을 만들지 않고 기존 `items` / `user_items` 구조를 사용한다.
+
+- DB 타입은 기존 제약에 맞춰 `items.item_type = pvp_badge`
+- 배지 구분은 `metadata.kind = achievement_badge`
+- 구매 불가 배지이므로 `is_sellable = false`, `price_currency = 0`
+- 프론트는 `GET /api/users/me/badges`를 우선 사용하면 된다.
+
+### 8.1 자동 지급 기준
+
+| badgeCode | 이름 | 지급 기준 |
+| --- | --- | --- |
+| `FIRST_QUEST_COMPLETE` | 첫 퀘스트 완료 | 퀘스트 1회 완료 |
+| `VERIFIED_QUEST_COMPLETE` | 검증 완료 | 건강 데이터로 검증된 퀘스트 1회 완료 |
+| `QUEST_STREAK_3` | 3일 연속 달성 | 퀘스트 3일 연속 완료 |
+| `QUEST_10_COMPLETE` | 퀘스트 루키 | 퀘스트 누적 10회 완료 |
+| `FIRST_BATTLE_JOIN` | 첫 배틀 참가 | 배틀 1회 참가 후 결과 확정 |
+| `FIRST_BATTLE_WIN` | 첫 승리 | 배틀 1회 승리 |
+| `BATTLE_SCORE_1000` | 1000점 돌파 | 배틀 정산 점수 1000점 이상 |
+
+자동 지급 타이밍:
+
+- 퀘스트 완료 성공 직후 퀘스트 관련 배지를 재평가한다.
+- 배틀 결과 확정 직후 배틀 관련 배지를 재평가한다.
+- 이미 지급된 배지는 `user_items` unique 제약 기준으로 중복 지급하지 않는다.
+
+### 8.2 내 배지 목록 조회
+
+```http
+GET /api/users/me/badges
+Authorization: Bearer {accessToken}
+```
+
+응답:
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "OK",
+  "data": {
+    "badges": [
+      {
+        "itemId": 31,
+        "badgeCode": "FIRST_QUEST_COMPLETE",
+        "name": "첫 퀘스트 완료",
+        "description": "퀘스트를 처음 완료하면 자동 지급되는 배지입니다.",
+        "imageUrl": "/media/assets/badges/first_quest_complete.png",
+        "criteria": "퀘스트 1회 완료",
+        "earned": true,
+        "earnedAt": "2026-05-24T08:30:00Z",
+        "metadata": {
+          "kind": "achievement_badge",
+          "badgeCode": "FIRST_QUEST_COMPLETE",
+          "criteria": "퀘스트 1회 완료",
+          "sortOrder": 10
+        }
+      }
+    ],
+    "earnedCount": 1,
+    "totalCount": 7
+  }
+}
+```
+
+프론트 처리:
+
+- `earned === true`이면 획득 배지로 표시한다.
+- `earnedAt`은 획득 시각이다. 미획득이면 `null`이다.
+- 잠금 배지도 보여줄 화면이면 `earned === false` 항목을 잠금 처리하면 된다.
+
+### 8.3 배지 상태 수동 동기화
+
+기존 데이터에 대해 누락된 배지를 복구할 때 사용한다. 일반 화면 진입마다 호출할 필요는 없다.
+
+```http
+POST /api/users/me/badges/sync
+Authorization: Bearer {accessToken}
+```
+
+응답 형태는 `GET /api/users/me/badges`와 같다.
+
+### 8.4 상점 API에서 배지만 조회
+
+상점 응답 구조를 재사용해야 하면 아래 필터도 지원한다.
+
+```http
+GET /api/shop/items?type=badge
+Authorization: Bearer {accessToken}
+```
+
+`category`는 `badge`로 내려간다. 기존 `type=pass`에서는 획득 배지를 제외해서 패스 아이템과 섞이지 않게 했다.
+
+---
+
+## 9. 개발 서버 반영 상태
 
 - 개발 서버 DB에 `battle_match_queue` 테이블 생성 완료
 - 개발 서버 DB에 `health_daily_summaries` 테이블 생성 완료
 - 개발 서버 DB에 `user_item_effects` 테이블 생성 완료
+- 개발 서버 DB에 획득 배지 seed 반영 필요: `db/20260524_seed_achievement_badges.sql`
 - 개발 서버 백엔드 컨테이너 재배포 완료
 - 실제 API 검증 완료
   - 첫 계정 호출: `message=Battle queued`, `matchStatus=WAITING`, `battleId=null`

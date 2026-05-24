@@ -1,5 +1,6 @@
 package com.capstone.backend.shop.service;
 
+import com.capstone.backend.achievement.service.AchievementBadgeService;
 import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.reward.entity.Wallet;
 import com.capstone.backend.reward.entity.WalletTransaction;
@@ -86,16 +87,27 @@ public class ShopService {
 
     private List<Item> itemsByType(String type) {
         if (!StringUtils.hasText(type)) {
-            return itemRepository.findByActiveTrueOrderByIdAsc();
+            return itemRepository.findByActiveTrueOrderByIdAsc().stream()
+                    .filter(item -> !isAchievementBadge(item))
+                    .toList();
         }
         String normalizedType = type.trim();
         if ("character".equals(normalizedType)) {
             return itemRepository.findByItemTypeInAndActiveTrueOrderByIdAsc(CHARACTER_TYPES);
         }
         if ("pass".equals(normalizedType)) {
-            return itemRepository.findByItemTypeInAndActiveTrueOrderByIdAsc(PASS_TYPES);
+            return itemRepository.findByItemTypeInAndActiveTrueOrderByIdAsc(PASS_TYPES).stream()
+                    .filter(item -> !isAchievementBadge(item))
+                    .toList();
         }
-        return itemRepository.findByItemTypeAndActiveTrueOrderByIdAsc(normalizedType);
+        if ("badge".equals(normalizedType)) {
+            return itemRepository.findByActiveTrueOrderByIdAsc().stream()
+                    .filter(this::isAchievementBadge)
+                    .toList();
+        }
+        return itemRepository.findByItemTypeAndActiveTrueOrderByIdAsc(normalizedType).stream()
+                .filter(item -> !isAchievementBadge(item))
+                .toList();
     }
 
     @Transactional
@@ -188,6 +200,11 @@ public class ShopService {
         return item != null
                 && IMAGE_EQUIPPABLE_TYPES.contains(item.getItemType())
                 && StringUtils.hasText(item.getImageUrl());
+    }
+
+    private boolean isAchievementBadge(Item item) {
+        return item != null
+                && AchievementBadgeService.KIND_ACHIEVEMENT_BADGE.equals(String.valueOf(item.getMetadata().get("kind")));
     }
 
     private String useMessage(String effectType) {

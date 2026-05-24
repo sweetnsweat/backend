@@ -1,5 +1,6 @@
 package com.capstone.backend.shop.dto;
 
+import com.capstone.backend.achievement.service.AchievementBadgeService;
 import com.capstone.backend.shop.entity.Item;
 import java.util.Map;
 
@@ -26,7 +27,7 @@ public record ShopItemResponse(
         return new ShopItemResponse(
                 item.getId(),
                 item.getItemType(),
-                category(item.getItemType()),
+                category(item),
                 item.getName(),
                 item.getDescription(),
                 item.getPriceCurrency(),
@@ -42,7 +43,12 @@ public record ShopItemResponse(
         );
     }
 
-    private static String category(String itemType) {
+    private static String category(Item item) {
+        Map<String, Object> metadata = item.getMetadata();
+        if (AchievementBadgeService.KIND_ACHIEVEMENT_BADGE.equals(stringValue(metadata.get("kind")))) {
+            return "badge";
+        }
+        String itemType = item.getItemType();
         return switch (itemType == null ? "" : itemType) {
             case "skin", "profile" -> "character";
             case "ticket", "pvp_badge", "gift", "consumable" -> "pass";
