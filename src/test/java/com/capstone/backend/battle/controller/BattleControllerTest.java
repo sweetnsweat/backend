@@ -170,6 +170,29 @@ class BattleControllerTest {
     }
 
     @Test
+    void matchExcludesInternalProbeAccountsFromOpponentPool() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser me = testUser("battleRealPoolMe", "실사용자");
+        TestUser probe = testUser("jenkins_probe_battle_pool", "프로브계정");
+        TestUser realOpponent = testUser("battleRealOpponent", "실제상대");
+        LocalDate today = KoreanTime.today();
+        seedCompletedQuest(probe.userId(), today, "routine", healthProof(30, 4000, 3000, 200));
+
+        mockMvc.perform(post("/api/battles/match")
+                        .header("Authorization", "Bearer " + me.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "mode": "DAILY"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.participants[0].userId").value(me.userId()))
+                .andExpect(jsonPath("$.data.participants[1].userId").value(realOpponent.userId()))
+                .andExpect(jsonPath("$.data.participants[1].nickname").value("실제상대"));
+    }
+
+    @Test
     void matchShowsManualCompletedQuestsButExcludesThemFromBattleScore() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser me = testUser("battleManualMe", "수동완료");
