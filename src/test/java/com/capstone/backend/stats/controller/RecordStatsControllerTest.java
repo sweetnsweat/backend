@@ -7,6 +7,7 @@ import com.capstone.backend.user.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,11 +72,10 @@ class RecordStatsControllerTest {
         TestUser user = testUser("recordStatsUser", "기록통계유저");
         LocalDate today = KoreanTime.today();
         LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        seedCondition(user.userId(), weekStart, 3, 3, 4, 2, 60);
-        seedCondition(user.userId(), weekStart.plusDays(1), 4, 4, 3, 3, 70);
-        seedCondition(user.userId(), weekStart.plusDays(2), 5, 5, 2, 5, 80);
-        seedHealthDailySummary(user.userId(), weekStart.plusDays(2), 5000, 3200, 220, 35);
-        seedCompletedQuest(user.userId(), weekStart.plusDays(2), """
+        int elapsedWeekDays = (int) ChronoUnit.DAYS.between(weekStart, today) + 1;
+        seedCondition(user.userId(), today, 4, 4, 3, 4, 70);
+        seedHealthDailySummary(user.userId(), today, 5000, 3200, 220, 35);
+        seedCompletedQuest(user.userId(), today, """
                 {
                   "exerciseName": "running"
                 }
@@ -87,7 +87,10 @@ class RecordStatsControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("기록 통계를 조회했습니다."))
                 .andExpect(jsonPath("$.data.period").value("WEEKLY"))
-                .andExpect(jsonPath("$.data.conditionTrend.length()").value(7))
+                .andExpect(jsonPath("$.data.conditionTrend.length()").value(elapsedWeekDays))
+                .andExpect(jsonPath("$.data.conditionTrend[" + (elapsedWeekDays - 1) + "].conditionScore").value(70.0))
+                .andExpect(jsonPath("$.data.conditionTrend[" + (elapsedWeekDays - 1) + "].energyLevel").value(75))
+                .andExpect(jsonPath("$.data.conditionTrend[" + (elapsedWeekDays - 1) + "].stressScore").value(50))
                 .andExpect(jsonPath("$.data.summary.averageConditionScore").value(70.0))
                 .andExpect(jsonPath("$.data.summary.exerciseCount").value(1))
                 .andExpect(jsonPath("$.data.summary.completedQuestCount").value(1))
@@ -101,6 +104,7 @@ class RecordStatsControllerTest {
                 .andExpect(jsonPath("$.data.exerciseEffects[0].completedCount").value(1))
                 .andExpect(jsonPath("$.data.exerciseEffects[0].exerciseMinutes").value(35))
                 .andExpect(jsonPath("$.data.dailyRecords[*].exerciseLabel").value(hasItem("러닝")))
+                .andExpect(jsonPath("$.data.dailyRecords.length()").value(1))
                 .andExpect(jsonPath("$.data.dailyRecords[*].completedQuestCount").value(hasItem(1)))
                 .andExpect(jsonPath("$.data.insight.title").value("분석 인사이트"));
     }
@@ -109,15 +113,19 @@ class RecordStatsControllerTest {
     void statsDefaultsToWeeklyAndReturnsEmptyShapeWhenNoDataExists() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser user = testUser("emptyRecordStatsUser", "빈통계유저");
+        LocalDate today = KoreanTime.today();
+        LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        int elapsedWeekDays = (int) ChronoUnit.DAYS.between(weekStart, today) + 1;
 
         mockMvc.perform(get("/api/records/stats")
                         .header("Authorization", "Bearer " + user.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.period").value("WEEKLY"))
-                .andExpect(jsonPath("$.data.conditionTrend.length()").value(7))
+                .andExpect(jsonPath("$.data.conditionTrend.length()").value(elapsedWeekDays))
                 .andExpect(jsonPath("$.data.summary.exerciseCount").value(0))
                 .andExpect(jsonPath("$.data.summary.totalSteps").value(0))
                 .andExpect(jsonPath("$.data.exerciseEffects.length()").value(0))
+                .andExpect(jsonPath("$.data.dailyRecords.length()").value(0))
                 .andExpect(jsonPath("$.data.insight.title").value("분석할 기록이 부족합니다."));
     }
 
@@ -127,10 +135,11 @@ class RecordStatsControllerTest {
         TestUser user = testUser("yearlyRecordStatsUser", "연간통계유저");
         LocalDate today = KoreanTime.today();
         LocalDate yearStart = today.withDayOfYear(1);
+        int elapsedMonths = today.getMonthValue();
         LocalDate firstMonthFirstRecord = yearStart.plusDays(9);
         LocalDate firstMonthSecondRecord = yearStart.plusDays(19);
         seedCondition(user.userId(), firstMonthFirstRecord, 3, 3, 4, 3, 60);
-        seedCondition(user.userId(), firstMonthSecondRecord, 5, 5, 2, 5, 80);
+        seedCondition(user.userId(), firstMonthSecondRecord, 5, 4, 2, 5, 80);
         seedHealthDailySummary(user.userId(), firstMonthFirstRecord, 1000, 800, 50, 10);
         seedHealthDailySummary(user.userId(), firstMonthSecondRecord, 2000, 1200, 80, 20);
         seedCompletedQuest(user.userId(), firstMonthFirstRecord, """
@@ -149,20 +158,20 @@ class RecordStatsControllerTest {
                         .header("Authorization", "Bearer " + user.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.period").value("YEARLY"))
-                .andExpect(jsonPath("$.data.conditionTrend.length()").value(12))
-                .andExpect(jsonPath("$.data.dailyRecords.length()").value(12))
+                .andExpect(jsonPath("$.data.conditionTrend.length()").value(elapsedMonths))
+                .andExpect(jsonPath("$.data.dailyRecords.length()").value(1))
                 .andExpect(jsonPath("$.data.conditionTrend[0].date").value(yearStart.toString()))
                 .andExpect(jsonPath("$.data.conditionTrend[0].label").value("1월"))
                 .andExpect(jsonPath("$.data.conditionTrend[0].conditionLevel").value(4))
                 .andExpect(jsonPath("$.data.conditionTrend[0].conditionScore").value(70.0))
-                .andExpect(jsonPath("$.data.conditionTrend[0].energyLevel").value(4))
-                .andExpect(jsonPath("$.data.conditionTrend[0].stressScore").value(3))
+                .andExpect(jsonPath("$.data.conditionTrend[0].energyLevel").value(75))
+                .andExpect(jsonPath("$.data.conditionTrend[0].stressScore").value(50))
                 .andExpect(jsonPath("$.data.conditionTrend[0].exerciseMinutes").value(30))
                 .andExpect(jsonPath("$.data.conditionTrend[0].steps").value(3000))
                 .andExpect(jsonPath("$.data.conditionTrend[0].distanceMeters").value(2000))
                 .andExpect(jsonPath("$.data.conditionTrend[0].activeCaloriesKcal").value(130))
                 .andExpect(jsonPath("$.data.conditionTrend[0].completedQuestCount").value(2))
-                .andExpect(jsonPath("$.data.conditionTrend[11].label").value("12월"))
+                .andExpect(jsonPath("$.data.conditionTrend[" + (elapsedMonths - 1) + "].label").value(today.getMonthValue() + "월"))
                 .andExpect(jsonPath("$.data.dailyRecords[0].dayOfWeek").value("1월"))
                 .andExpect(jsonPath("$.data.dailyRecords[0].exerciseLabel").value("러닝, 걷기"))
                 .andExpect(jsonPath("$.data.dailyRecords[0].completedQuestCount").value(2));
@@ -179,8 +188,8 @@ class RecordStatsControllerTest {
                         .header("Authorization", "Bearer " + user.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.period").value("MONTHLY"))
-                .andExpect(jsonPath("$.data.conditionTrend.length()").value(today.lengthOfMonth()))
-                .andExpect(jsonPath("$.data.dailyRecords.length()").value(today.lengthOfMonth()))
+                .andExpect(jsonPath("$.data.conditionTrend.length()").value(today.getDayOfMonth()))
+                .andExpect(jsonPath("$.data.dailyRecords.length()").value(0))
                 .andExpect(jsonPath("$.data.conditionTrend[0].date").value(today.withDayOfMonth(1).toString()));
     }
 
@@ -190,7 +199,7 @@ class RecordStatsControllerTest {
         TestUser user = testUser("recordStatsCopyUser", "통계문구유저");
         LocalDate today = KoreanTime.today();
         LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        seedCondition(user.userId(), weekStart, 5, 5, 2, 5, 80);
+        seedCondition(user.userId(), weekStart, 5, 4, 2, 5, 80);
         seedHealthDailySummary(user.userId(), weekStart, 2000, 1200, 80, 20);
         seedCompletedQuest(user.userId(), weekStart, """
                 {

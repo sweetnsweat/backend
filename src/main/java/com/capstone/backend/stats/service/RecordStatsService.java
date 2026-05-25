@@ -91,15 +91,15 @@ public class RecordStatsService {
         return switch (period) {
             case WEEKLY -> new DateRange(
                     today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)),
-                    today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
+                    today
             );
             case MONTHLY -> new DateRange(
                     today.withDayOfMonth(1),
-                    today.withDayOfMonth(today.lengthOfMonth())
+                    today
             );
             case YEARLY -> new DateRange(
                     today.withDayOfYear(1),
-                    today.withDayOfYear(today.lengthOfYear())
+                    today
             );
         };
     }
@@ -129,10 +129,12 @@ public class RecordStatsService {
         if (period != RecordStatsPeriod.YEARLY) {
             return dates.stream()
                     .map(date -> dailyRecord(date, conditionsByDate.get(date), healthByDate.get(date), questsByDate.getOrDefault(date, List.of())))
+                    .filter(Objects::nonNull)
                     .toList();
         }
         return monthRanges(range).stream()
                 .map(monthRange -> monthlyRecord(monthRange, conditionsByDate, healthByDate, questsByDate))
+                .filter(Objects::nonNull)
                 .toList();
     }
 
@@ -145,8 +147,8 @@ public class RecordStatsService {
                 labelFor(date),
                 conditionLevel(condition),
                 condition == null ? null : scaleOne(condition.getConditionScore()),
-                energyLevel(condition),
-                condition == null ? null : condition.getStressScore(),
+                normalizePositive(energyLevel(condition), 1, 5),
+                normalizePositive(condition == null ? null : condition.getStressScore(), 1, 5),
                 value(health == null ? null : health.getExerciseMinutes()),
                 value(health == null ? null : health.getSteps()),
                 value(health == null ? null : health.getDistanceMeters()),
@@ -159,10 +161,13 @@ public class RecordStatsService {
                                     ConditionLog condition,
                                     HealthDailySummary health,
                                     List<UserQuest> quests) {
+        if (quests.isEmpty() && value(health == null ? null : health.getExerciseMinutes()) <= 0) {
+            return null;
+        }
         return new DailyRecord(
                 date,
                 dayOfWeekLabel(date.getDayOfWeek()),
-                exerciseLabel(quests),
+                exerciseLabel(quests, health),
                 conditionLevel(condition),
                 condition == null ? null : scaleOne(condition.getConditionScore()),
                 energyLevel(condition),
@@ -186,8 +191,8 @@ public class RecordStatsService {
                 monthLabel(monthRange.startDate()),
                 roundedAverageInteger(conditions.stream().map(this::conditionLevel).toList()),
                 averageBigDecimal(conditions.stream().map(ConditionLog::getConditionScore).toList()),
-                roundedAverageInteger(conditions.stream().map(this::energyLevel).toList()),
-                roundedAverageInteger(conditions.stream().map(ConditionLog::getStressScore).toList()),
+                roundedAverageInteger(conditions.stream().map(this::energyLevel).map(value -> normalizePositive(value, 1, 5)).toList()),
+                roundedAverageInteger(conditions.stream().map(ConditionLog::getStressScore).map(value -> normalizePositive(value, 1, 5)).toList()),
                 healthSummaries.stream().mapToInt(summary -> value(summary.getExerciseMinutes())).sum(),
                 healthSummaries.stream().mapToInt(summary -> value(summary.getSteps())).sum(),
                 healthSummaries.stream().mapToInt(summary -> value(summary.getDistanceMeters())).sum(),
@@ -203,10 +208,13 @@ public class RecordStatsService {
         List<ConditionLog> conditions = conditionsInRange(monthRange, conditionsByDate);
         List<HealthDailySummary> healthSummaries = healthInRange(monthRange, healthByDate);
         List<UserQuest> quests = questsInRange(monthRange, questsByDate);
+        if (quests.isEmpty() && healthSummaries.stream().mapToInt(summary -> value(summary.getExerciseMinutes())).sum() <= 0) {
+            return null;
+        }
         return new DailyRecord(
                 monthRange.startDate(),
                 monthLabel(monthRange.startDate()),
-                exerciseLabel(quests),
+                exerciseLabel(quests, healthSummaries),
                 roundedAverageInteger(conditions.stream().map(this::conditionLevel).toList()),
                 averageBigDecimal(conditions.stream().map(ConditionLog::getConditionScore).toList()),
                 roundedAverageInteger(conditions.stream().map(this::energyLevel).toList()),
@@ -297,24 +305,10 @@ public class RecordStatsService {
             );
         }
 
-        ExerciseBucket noExerciseBucket = new ExerciseBucket("none", "없음");
-        for (LocalDate date : dates) {
-            if (completedQuests.stream().noneMatch(quest -> quest.getQuestDate().equals(date))) {
-                ConditionLog condition = conditionsByDate.get(date);
-                if (condition != null) {
-                    noExerciseBucket.add(condition.getConditionScore(), null, condition.getStressScore(), 0);
-                }
-            }
-        }
-        if (noExerciseBucket.count > 0) {
-            buckets.put(noExerciseBucket.key, noExerciseBucket);
-        }
-
         return buckets.values().stream()
                 .map(ExerciseBucket::toResponse)
                 .sorted(Comparator
-                        .comparing((ExerciseEffect effect) -> "none".equals(effect.exerciseType()))
-                        .thenComparing(ExerciseEffect::completedCount, Comparator.reverseOrder())
+                        .comparing(ExerciseEffect::completedCount, Comparator.reverseOrder())
                         .thenComparing(effect -> nullToZero(effect.averageConditionScore()), Comparator.reverseOrder()))
                 .toList();
     }
@@ -415,6 +409,21 @@ public class RecordStatsService {
                 .map(quest -> exerciseKey(quest).label())
                 .filter(seen::add)
                 .collect(Collectors.joining(", "));
+    }
+
+    private String exerciseLabel(List<UserQuest> quests, HealthDailySummary health) {
+        if (!quests.isEmpty()) {
+            return exerciseLabel(quests);
+        }
+        return value(health == null ? null : health.getExerciseMinutes()) > 0 ? "운동" : "";
+    }
+
+    private String exerciseLabel(List<UserQuest> quests, List<HealthDailySummary> healthSummaries) {
+        if (!quests.isEmpty()) {
+            return exerciseLabel(quests);
+        }
+        int exerciseMinutes = healthSummaries.stream().mapToInt(summary -> value(summary.getExerciseMinutes())).sum();
+        return exerciseMinutes > 0 ? "운동" : "";
     }
 
     private ExerciseKey keyAndLabel(String rawValue) {
@@ -572,6 +581,16 @@ public class RecordStatsService {
             return conditionLog.getEnergyLevel();
         }
         return 6 - conditionLog.getFatigueScore();
+    }
+
+    private Integer normalizePositive(Integer value, int min, int max) {
+        if (value == null) {
+            return null;
+        }
+        return BigDecimal.valueOf(value - min)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(BigDecimal.valueOf(max - min), 0, RoundingMode.HALF_UP)
+                .intValue();
     }
 
     private int value(Integer value) {
