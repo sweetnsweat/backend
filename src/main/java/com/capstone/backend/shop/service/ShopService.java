@@ -2,6 +2,7 @@ package com.capstone.backend.shop.service;
 
 import com.capstone.backend.achievement.service.AchievementBadgeService;
 import com.capstone.backend.global.exception.ApiException;
+import com.capstone.backend.global.media.MediaUrlResolver;
 import com.capstone.backend.reward.entity.Wallet;
 import com.capstone.backend.reward.entity.WalletTransaction;
 import com.capstone.backend.reward.repository.WalletRepository;
@@ -46,6 +47,7 @@ public class ShopService {
     private final WalletTransactionRepository walletTransactionRepository;
     private final ShopPassEffectService shopPassEffectService;
     private final QuestService questService;
+    private final MediaUrlResolver mediaUrlResolver;
 
     public ShopService(ItemRepository itemRepository,
                        UserItemRepository userItemRepository,
@@ -53,7 +55,8 @@ public class ShopService {
                        WalletRepository walletRepository,
                        WalletTransactionRepository walletTransactionRepository,
                        ShopPassEffectService shopPassEffectService,
-                       QuestService questService) {
+                       QuestService questService,
+                       MediaUrlResolver mediaUrlResolver) {
         this.itemRepository = itemRepository;
         this.userItemRepository = userItemRepository;
         this.userRepository = userRepository;
@@ -61,6 +64,7 @@ public class ShopService {
         this.walletTransactionRepository = walletTransactionRepository;
         this.shopPassEffectService = shopPassEffectService;
         this.questService = questService;
+        this.mediaUrlResolver = mediaUrlResolver;
     }
 
     @Transactional(readOnly = true)
@@ -79,7 +83,8 @@ public class ShopService {
                         item,
                         ownedQuantities.getOrDefault(item.getId(), 0),
                         balanceCurrency,
-                        user.getProfileImageUrl()
+                        user.getProfileImageUrl(),
+                        mediaUrlResolver
                 ))
                 .toList();
         return new ShopItemListResponse(itemResponses, balanceCurrency);

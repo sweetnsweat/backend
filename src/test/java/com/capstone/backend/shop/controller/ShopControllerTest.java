@@ -80,6 +80,7 @@ class ShopControllerTest {
                 .andExpect(jsonPath("$.data.items[0].purchasable").value(true))
                 .andExpect(jsonPath("$.data.items[0].equipped").value(true))
                 .andExpect(jsonPath("$.data.items[0].special").value(false))
+                .andExpect(jsonPath("$.data.items[0].imageUrl").value("http://localhost:8000/media/assets/test_item.png"))
                 .andExpect(jsonPath("$.data.items[1].owned").value(false))
                 .andExpect(jsonPath("$.data.items[1].ownedQuantity").doesNotExist())
                 .andExpect(jsonPath("$.data.items[1].purchasable").value(false));

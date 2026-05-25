@@ -1,6 +1,7 @@
 package com.capstone.backend.shop.dto;
 
 import com.capstone.backend.achievement.service.AchievementBadgeService;
+import com.capstone.backend.global.media.MediaUrlResolver;
 import com.capstone.backend.shop.entity.Item;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.Map;
@@ -25,7 +26,11 @@ public record ShopItemResponse(
         String imageUrl,
         Map<String, Object> metadata
 ) {
-    public static ShopItemResponse from(Item item, int ownedQuantity, int balanceCurrency, String equippedProfileImageUrl) {
+    public static ShopItemResponse from(Item item,
+                                        int ownedQuantity,
+                                        int balanceCurrency,
+                                        String equippedProfileImageUrl,
+                                        MediaUrlResolver mediaUrlResolver) {
         boolean sellable = Boolean.TRUE.equals(item.getSellable());
         Map<String, Object> metadata = item.getMetadata();
         String category = category(item);
@@ -45,7 +50,7 @@ public record ShopItemResponse(
                 ownedQuantity > 0 && item.getImageUrl() != null && item.getImageUrl().equals(equippedProfileImageUrl),
                 Boolean.TRUE.equals(metadata.get("special")),
                 stringValue(metadata.get("effect")),
-                item.getImageUrl(),
+                mediaUrlResolver.resolve(item.getImageUrl()),
                 metadata
         );
     }
