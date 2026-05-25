@@ -146,9 +146,9 @@ public class RecordStatsService {
                 date,
                 labelFor(date),
                 conditionLevel(condition),
-                condition == null ? null : scaleOne(condition.getConditionScore()),
-                normalizePositive(energyLevel(condition), 1, 5),
-                normalizePositive(condition == null ? null : condition.getStressScore(), 1, 5),
+                condition == null ? null : conditionScoreForStats(condition.getConditionScore()),
+                energyLevel(condition),
+                condition == null ? null : condition.getStressScore(),
                 value(health == null ? null : health.getExerciseMinutes()),
                 value(health == null ? null : health.getSteps()),
                 value(health == null ? null : health.getDistanceMeters()),
@@ -169,7 +169,7 @@ public class RecordStatsService {
                 dayOfWeekLabel(date.getDayOfWeek()),
                 exerciseLabel(quests, health),
                 conditionLevel(condition),
-                condition == null ? null : scaleOne(condition.getConditionScore()),
+                condition == null ? null : conditionScoreForStats(condition.getConditionScore()),
                 energyLevel(condition),
                 condition == null ? null : condition.getStressScore(),
                 value(health == null ? null : health.getExerciseMinutes()),
@@ -190,9 +190,9 @@ public class RecordStatsService {
                 monthRange.startDate(),
                 monthLabel(monthRange.startDate()),
                 roundedAverageInteger(conditions.stream().map(this::conditionLevel).toList()),
-                averageBigDecimal(conditions.stream().map(ConditionLog::getConditionScore).toList()),
-                roundedAverageInteger(conditions.stream().map(this::energyLevel).map(value -> normalizePositive(value, 1, 5)).toList()),
-                roundedAverageInteger(conditions.stream().map(ConditionLog::getStressScore).map(value -> normalizePositive(value, 1, 5)).toList()),
+                averageConditionScoreForStats(conditions.stream().map(ConditionLog::getConditionScore).toList()),
+                roundedAverageInteger(conditions.stream().map(this::energyLevel).toList()),
+                roundedAverageInteger(conditions.stream().map(ConditionLog::getStressScore).toList()),
                 healthSummaries.stream().mapToInt(summary -> value(summary.getExerciseMinutes())).sum(),
                 healthSummaries.stream().mapToInt(summary -> value(summary.getSteps())).sum(),
                 healthSummaries.stream().mapToInt(summary -> value(summary.getDistanceMeters())).sum(),
@@ -216,7 +216,7 @@ public class RecordStatsService {
                 monthLabel(monthRange.startDate()),
                 exerciseLabel(quests, healthSummaries),
                 roundedAverageInteger(conditions.stream().map(this::conditionLevel).toList()),
-                averageBigDecimal(conditions.stream().map(ConditionLog::getConditionScore).toList()),
+                averageConditionScoreForStats(conditions.stream().map(ConditionLog::getConditionScore).toList()),
                 roundedAverageInteger(conditions.stream().map(this::energyLevel).toList()),
                 roundedAverageInteger(conditions.stream().map(ConditionLog::getStressScore).toList()),
                 healthSummaries.stream().mapToInt(summary -> value(summary.getExerciseMinutes())).sum(),
@@ -272,7 +272,7 @@ public class RecordStatsService {
         int totalActiveCaloriesKcal = healthByDate.values().stream().mapToInt(summary -> value(summary.getActiveCaloriesKcal())).sum();
 
         return new RecordStatsSummary(
-                averageBigDecimal(conditions.stream().map(ConditionLog::getConditionScore).toList()),
+                averageConditionScoreForStats(conditions.stream().map(ConditionLog::getConditionScore).toList()),
                 averageInteger(conditions.stream().map(this::conditionLevel).filter(Objects::nonNull).toList()),
                 averageInteger(conditions.stream().map(this::energyLevel).filter(Objects::nonNull).toList()),
                 averageInteger(conditions.stream().map(ConditionLog::getStressScore).filter(Objects::nonNull).toList()),
@@ -542,8 +542,12 @@ public class RecordStatsService {
                 .intValue();
     }
 
-    private BigDecimal scaleOne(BigDecimal value) {
-        return value == null ? null : value.setScale(1, RoundingMode.HALF_UP);
+    private BigDecimal averageConditionScoreForStats(List<BigDecimal> values) {
+        return conditionScoreForStats(averageBigDecimal(values));
+    }
+
+    private static BigDecimal conditionScoreForStats(BigDecimal value) {
+        return value == null ? null : value.divide(BigDecimal.TEN, 1, RoundingMode.HALF_UP);
     }
 
     private BigDecimal nullToZero(BigDecimal value) {
@@ -581,16 +585,6 @@ public class RecordStatsService {
             return conditionLog.getEnergyLevel();
         }
         return 6 - conditionLog.getFatigueScore();
-    }
-
-    private Integer normalizePositive(Integer value, int min, int max) {
-        if (value == null) {
-            return null;
-        }
-        return BigDecimal.valueOf(value - min)
-                .multiply(BigDecimal.valueOf(100))
-                .divide(BigDecimal.valueOf(max - min), 0, RoundingMode.HALF_UP)
-                .intValue();
     }
 
     private int value(Integer value) {
@@ -683,8 +677,8 @@ public class RecordStatsService {
                     label,
                     count,
                     exerciseMinutes,
-                    averageBigDecimalStatic(conditionScores),
-                    averageBigDecimalStatic(conditionDeltas),
+                    conditionScoreForStats(averageBigDecimalStatic(conditionScores)),
+                    conditionScoreForStats(averageBigDecimalStatic(conditionDeltas)),
                     averageIntegerStatic(stressScores)
             );
         }

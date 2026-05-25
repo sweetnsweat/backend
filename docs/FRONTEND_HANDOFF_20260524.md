@@ -556,9 +556,9 @@ type RecordStatsResponse = {
     date: string;
     label: string;
     conditionLevel: number | null;
-    conditionScore: number | null; // 0~100
-    energyLevel: number | null;    // 1~5 입력값을 0~100으로 정규화한 차트용 값
-    stressScore: number | null;    // 1~5 입력값을 0~100으로 정규화한 차트용 값
+    conditionScore: number | null; // 저장값 0~100을 /10한 0~10 표시용 값
+    energyLevel: number | null;    // 원본 입력값 1~5
+    stressScore: number | null;    // 원본 입력값 1~5
     exerciseMinutes: number;
     steps: number;
     distanceMeters: number;
@@ -607,10 +607,10 @@ type RecordStatsResponse = {
 
 통계 응답 변경:
 
-- `conditionTrend.energyLevel`, `conditionTrend.stressScore`는 차트에서 `conditionScore`와 같은 축에 올릴 수 있도록 0~100 스케일로 내려간다.
+- `summary.averageConditionScore`, `conditionTrend.conditionScore`, `dailyRecords.conditionScore`, `exerciseEffects.averageConditionScore`, `exerciseEffects.conditionDelta`는 저장값 0~100을 /10한 0~10 표시용 값으로 내려간다.
+- `energyLevel`, `stressScore`는 스케일 변환하지 않고 원본 입력값 범위(1~5)를 유지한다.
 - 기간 범위는 미래 날짜를 포함하지 않는다. 주간은 이번 주 월요일부터 오늘까지, 월간은 이번 달 1일부터 오늘까지, 연간은 올해 1월부터 이번 달까지 내려간다.
 - `dailyRecords`는 실제 운동 기록이 있는 날짜/월만 내려간다. 운동이 없는 날짜의 `"없음"` 행은 응답에서 제외한다.
-- `dailyRecords.energyLevel`, `dailyRecords.stressScore`는 상세 표 표시용 원본 입력값 범위(1~5)를 유지한다.
 
 ---
 
