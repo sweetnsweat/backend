@@ -102,7 +102,7 @@ class RecordStatsControllerTest {
                 .andExpect(jsonPath("$.data.exerciseEffects[0].exerciseMinutes").value(35))
                 .andExpect(jsonPath("$.data.dailyRecords[*].exerciseLabel").value(hasItem("러닝")))
                 .andExpect(jsonPath("$.data.dailyRecords[*].completedQuestCount").value(hasItem(1)))
-                .andExpect(jsonPath("$.data.insight.title").value("AI 분석 인사이트"));
+                .andExpect(jsonPath("$.data.insight.title").value("분석 인사이트"));
     }
 
     @Test
@@ -182,6 +182,36 @@ class RecordStatsControllerTest {
                 .andExpect(jsonPath("$.data.conditionTrend.length()").value(today.lengthOfMonth()))
                 .andExpect(jsonPath("$.data.dailyRecords.length()").value(today.lengthOfMonth()))
                 .andExpect(jsonPath("$.data.conditionTrend[0].date").value(today.withDayOfMonth(1).toString()));
+    }
+
+    @Test
+    void statsUsesRuleBasedInsightCopyAndKoreanExerciseLabels() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser user = testUser("recordStatsCopyUser", "통계문구유저");
+        LocalDate today = KoreanTime.today();
+        LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        seedCondition(user.userId(), weekStart, 5, 5, 2, 5, 80);
+        seedHealthDailySummary(user.userId(), weekStart, 2000, 1200, 80, 20);
+        seedCompletedQuest(user.userId(), weekStart, """
+                {
+                  "exerciseType": "full_body",
+                  "exercises": [
+                    {
+                      "exerciseName": "걷기, full_body",
+                      "category": "걷기"
+                    }
+                  ]
+                }
+                """);
+
+        mockMvc.perform(get("/api/records/stats")
+                        .param("period", "WEEKLY")
+                        .header("Authorization", "Bearer " + user.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.dailyRecords[*].exerciseLabel").value(hasItem("걷기")))
+                .andExpect(jsonPath("$.data.insight.title").value("분석 인사이트"))
+                .andExpect(jsonPath("$.data.insight.summary").value("최근 걷기를 했을 때 평균 컨디션이 80.0점으로 가장 높았습니다."))
+                .andExpect(jsonPath("$.data.insight.recommendation").value("컨디션이 좋았던 걷기를 우선 추천합니다. 스트레스 점수가 높은 날에는 스트레칭이나 회복 운동처럼 강도가 낮은 운동을 선택해 주세요."));
     }
 
     @Test

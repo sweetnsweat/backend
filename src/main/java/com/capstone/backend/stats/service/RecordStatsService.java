@@ -346,24 +346,45 @@ public class RecordStatsService {
         if (bestExercise.isPresent()) {
             ExerciseEffect effect = bestExercise.get();
             return new Insight(
-                    "AI 분석 인사이트",
-                    "최근 " + effect.label() + "을 했을 때 평균 컨디션이 " + effect.averageConditionScore() + "점으로 가장 높았습니다.",
-                    "컨디션이 좋았던 운동을 우선 추천하고, 스트레스 점수가 높은 날에는 회복형 운동으로 강도를 낮추는 흐름이 적합합니다."
+                    "분석 인사이트",
+                    "최근 " + withObjectParticle(effect.label()) + " 했을 때 평균 컨디션이 " + effect.averageConditionScore() + "점으로 가장 높았습니다.",
+                    "컨디션이 좋았던 " + withObjectParticle(effect.label()) + " 우선 추천합니다. 스트레스 점수가 높은 날에는 스트레칭이나 회복 운동처럼 강도가 낮은 운동을 선택해 주세요."
             );
         }
         return new Insight(
-                "AI 분석 인사이트",
+                "분석 인사이트",
                 "이번 기간 평균 컨디션은 " + summary.averageConditionScore() + "점입니다.",
-                "운동 완료 기록과 건강 데이터가 함께 쌓이면 운동별 효과 분석이 더 정확해집니다."
+                "운동 완료 기록과 건강 데이터가 함께 쌓이면 운동별 효과를 더 안정적으로 비교할 수 있습니다."
         );
     }
 
     private ExerciseKey exerciseKey(UserQuest quest) {
-        String fromSession = Optional.ofNullable(quest.getSourceSession())
-                .map(session -> firstNonBlank(session.getSessionType(), session.getSessionName()))
-                .orElse(null);
-        if (hasText(fromSession)) {
-            return keyAndLabel(fromSession);
+        Map<String, Object> context = quest.getQuestContextJson();
+        String direct = firstText(
+                context.get("exerciseName"),
+                context.get("recommendedExerciseName"),
+                context.get("exerciseCategory"),
+                context.get("category"),
+                context.get("recommendedAction")
+        );
+        if (hasText(direct)) {
+            return keyAndLabel(direct);
+        }
+        Object exercises = context.get("exercises");
+        if (exercises instanceof List<?> exerciseList && !exerciseList.isEmpty() && exerciseList.getFirst() instanceof Map<?, ?> firstExercise) {
+            String nested = firstText(
+                    firstExercise.get("category"),
+                    firstExercise.get("exerciseName"),
+                    firstExercise.get("name"),
+                    firstExercise.get("type")
+            );
+            if (hasText(nested)) {
+                return keyAndLabel(nested);
+            }
+        }
+        String exerciseType = firstText(context.get("exerciseType"));
+        if (hasText(exerciseType)) {
+            return keyAndLabel(exerciseType);
         }
         if (quest.getSourceSession() != null) {
             for (RoutineItem item : quest.getSourceSession().getItems()) {
@@ -376,29 +397,11 @@ public class RecordStatsService {
                 }
             }
         }
-        Map<String, Object> context = quest.getQuestContextJson();
-        String direct = firstText(
-                context.get("exerciseName"),
-                context.get("recommendedExerciseName"),
-                context.get("exerciseCategory"),
-                context.get("category"),
-                context.get("recommendedAction"),
-                context.get("exerciseType")
-        );
-        if (hasText(direct)) {
-            return keyAndLabel(direct);
-        }
-        Object exercises = context.get("exercises");
-        if (exercises instanceof List<?> exerciseList && !exerciseList.isEmpty() && exerciseList.getFirst() instanceof Map<?, ?> firstExercise) {
-            String nested = firstText(
-                    firstExercise.get("exerciseName"),
-                    firstExercise.get("name"),
-                    firstExercise.get("category"),
-                    firstExercise.get("type")
-            );
-            if (hasText(nested)) {
-                return keyAndLabel(nested);
-            }
+        String fromSession = Optional.ofNullable(quest.getSourceSession())
+                .map(session -> firstNonBlank(session.getSessionType(), session.getSessionName()))
+                .orElse(null);
+        if (hasText(fromSession)) {
+            return keyAndLabel(fromSession);
         }
         return keyAndLabel(quest.getQuestType());
     }
@@ -424,6 +427,15 @@ public class RecordStatsService {
     }
 
     private String displayLabel(String normalized, String rawValue) {
+        if (normalized.contains("full_body") || normalized.contains("full body") || normalized.contains("전신")) {
+            return "전신운동";
+        }
+        if (normalized.contains("upper_body") || normalized.contains("upper body") || normalized.contains("상체")) {
+            return "상체운동";
+        }
+        if (normalized.contains("lower_body") || normalized.contains("lower body") || normalized.contains("하체")) {
+            return "하체운동";
+        }
         if (normalized.contains("bodyweight") || normalized.contains("calisthenics") || normalized.contains("맨몸")) {
             return "맨몸운동";
         }
@@ -458,6 +470,15 @@ public class RecordStatsService {
             return "루틴 운동";
         }
         return rawValue == null || rawValue.isBlank() ? "운동" : rawValue.trim();
+    }
+
+    private String withObjectParticle(String text) {
+        String label = hasText(text) ? text.trim() : "운동";
+        char last = label.charAt(label.length() - 1);
+        if (last < '가' || last > '힣') {
+            return label + "을";
+        }
+        return ((last - '가') % 28) == 0 ? label + "를" : label + "을";
     }
 
     private int targetMinutes(UserQuest quest) {
