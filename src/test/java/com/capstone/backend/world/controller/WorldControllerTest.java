@@ -65,7 +65,7 @@ class WorldControllerTest {
     }
 
     @Test
-    void rankingsReturnsInProgressScenarioScoresOnly() throws Exception {
+    void rankingsReturnsParticipantScenarioScores() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         String accessToken = accessToken("worldRankingUser");
         seedScenarios();
@@ -76,14 +76,14 @@ class WorldControllerTest {
         mockMvc.perform(get("/api/worlds/rankings")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.metric").value("ACTIVE_CHAT_COUNT"))
+                .andExpect(jsonPath("$.data.metric").value("PARTICIPANT_COUNT"))
                 .andExpect(jsonPath("$.data.rankings.length()").value(3))
                 .andExpect(jsonPath("$.data.rankings[0].rank").value(1))
                 .andExpect(jsonPath("$.data.rankings[0].scenarioId").value(2))
                 .andExpect(jsonPath("$.data.rankings[0].worldTitle").value("하륜의 세계"))
                 .andExpect(jsonPath("$.data.rankings[0].displayName").value("하륜"))
                 .andExpect(jsonPath("$.data.rankings[0].imageUrl").value("http://localhost:8000/media/assets/character_haryun.png"))
-                .andExpect(jsonPath("$.data.rankings[0].score").value(3))
+                .andExpect(jsonPath("$.data.rankings[0].score").value(4))
                 .andExpect(jsonPath("$.data.rankings[0].activeChatCount").doesNotExist())
                 .andExpect(jsonPath("$.data.rankings[1].rank").value(2))
                 .andExpect(jsonPath("$.data.rankings[1].scenarioId").value(1))
@@ -124,7 +124,7 @@ class WorldControllerTest {
                         .queryParam("size", "2")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.metric").value("ACTIVE_CHAT_COUNT"))
+                .andExpect(jsonPath("$.data.metric").value("PARTICIPANT_COUNT"))
                 .andExpect(jsonPath("$.data.page").value(0))
                 .andExpect(jsonPath("$.data.size").value(2))
                 .andExpect(jsonPath("$.data.totalCount").value(4))
@@ -145,7 +145,7 @@ class WorldControllerTest {
                 .andExpect(jsonPath("$.data.rankings[0].displayName").value("하륜"))
                 .andExpect(jsonPath("$.data.rankings[0].imageUrl").value("http://localhost:8000/media/assets/character_haryun.png"))
                 .andExpect(jsonPath("$.data.rankings[0].backgroundImageUrl").value("http://localhost:8000/media/assets/world_2.png"))
-                .andExpect(jsonPath("$.data.rankings[0].score").value(3))
+                .andExpect(jsonPath("$.data.rankings[0].score").value(4))
                 .andExpect(jsonPath("$.data.rankings[1].rank").value(2))
                 .andExpect(jsonPath("$.data.rankings[1].scenarioId").value(1));
 
@@ -215,8 +215,8 @@ class WorldControllerTest {
                 .andExpect(jsonPath("$.data.scenario.playerImageUrl").value("http://localhost:8000/media/assets/player_2.png"))
                 .andExpect(jsonPath("$.data.scenario.playerDescription").value("플레이어 설명 2"))
                 .andExpect(jsonPath("$.data.scenario.active").value(true))
-                .andExpect(jsonPath("$.data.ranking.metric").value("ACTIVE_CHAT_COUNT"))
-                .andExpect(jsonPath("$.data.ranking.score").value(4))
+                .andExpect(jsonPath("$.data.ranking.metric").value("PARTICIPANT_COUNT"))
+                .andExpect(jsonPath("$.data.ranking.score").value(5))
                 .andExpect(jsonPath("$.data.representativeCharacter.name").value("하륜"))
                 .andExpect(jsonPath("$.data.representativeCharacter.title").value("라이벌"))
                 .andExpect(jsonPath("$.data.representativeCharacter.imageUrl").value("http://localhost:8000/media/assets/character_haryun.png"))

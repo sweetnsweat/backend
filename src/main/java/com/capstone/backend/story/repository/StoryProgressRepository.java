@@ -48,21 +48,18 @@ public interface StoryProgressRepository extends JpaRepository<StoryProgress, In
             select count(distinct progress.userKey)
             from StoryProgress progress
             where progress.scenario.id = :scenarioId
-              and progress.status = :status
             """)
-    long countDistinctUserKeyByScenarioIdAndStatus(@Param("scenarioId") Integer scenarioId,
-                                                   @Param("status") String status);
+    long countDistinctUserKeyByScenarioId(@Param("scenarioId") Integer scenarioId);
 
     @Query("""
             select progress.scenario.id as scenarioId,
                    count(distinct progress.userKey) as score
             from StoryProgress progress
             where progress.scenario.active = true
-              and progress.status = :status
             group by progress.scenario.id
             order by count(distinct progress.userKey) desc, progress.scenario.id asc
             """)
-    List<WorldRankingRow> findWorldRankingRows(@Param("status") String status, Pageable pageable);
+    List<WorldRankingRow> findWorldRankingRows(Pageable pageable);
 
     @Query(
             value = """
@@ -72,7 +69,6 @@ public interface StoryProgressRepository extends JpaRepository<StoryProgress, In
                     from scenarios s
                     left join story_progress sp
                         on sp.scenario_id = s.id
-                       and sp.status = :status
                     where s.is_active = true
                       and (
                         :genre is null
@@ -150,8 +146,7 @@ public interface StoryProgressRepository extends JpaRepository<StoryProgress, In
                     """,
             nativeQuery = true
     )
-    Page<WorldRankingRow> findWorldRankingFullRows(@Param("status") String status,
-                                                   @Param("genre") String genre,
+    Page<WorldRankingRow> findWorldRankingFullRows(@Param("genre") String genre,
                                                    @Param("keyword") String keyword,
                                                    Pageable pageable);
 
