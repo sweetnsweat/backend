@@ -23,6 +23,7 @@ public record StoryChatSummaryResponse(
         String imageUrl,
         String backgroundImageUrl,
         String status,
+        String statusLabel,
         Integer currentChapterNum,
         String phase,
         String lastMessage,
@@ -52,6 +53,7 @@ public record StoryChatSummaryResponse(
                 mediaUrlResolver.resolve(firstNonBlank(characterImageUrl, scenario.getThumbnailUrl(), scenario.getWorldImageUrl(), scenario.getPlayerImageUrl())),
                 mediaUrlResolver.resolve(firstNonBlank(scenario.getWorldImageUrl(), scenario.getThumbnailUrl(), characterImageUrl, scenario.getPlayerImageUrl())),
                 progress.getStatus(),
+                statusLabel(progress.getStatus()),
                 progress.getCurrentChapterNum(),
                 progress.getPhase(),
                 progress.getLastOutput(),
@@ -69,6 +71,18 @@ public record StoryChatSummaryResponse(
             }
         }
         return null;
+    }
+
+    private static String statusLabel(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        return switch (status) {
+            case StoryProgress.STATUS_IN_PROGRESS -> "진행 중";
+            case "STORY_COMPLETED", "COMPLETED" -> "완료";
+            case "CHAPTER_DONE" -> "챕터 완료";
+            default -> status;
+        };
     }
 
     public record RepresentativeCharacterResponse(

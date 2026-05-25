@@ -86,13 +86,16 @@ class StoryChatControllerTest {
                 .andExpect(jsonPath("$.data.chats[0].imageUrl").value("http://localhost:8000/media/assets/character_haryun.png"))
                 .andExpect(jsonPath("$.data.chats[0].backgroundImageUrl").value("http://localhost:8000/media/assets/world_2.png"))
                 .andExpect(jsonPath("$.data.chats[0].status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.data.chats[0].statusLabel").value("진행 중"))
                 .andExpect(jsonPath("$.data.chats[0].currentChapterNum").value(2))
                 .andExpect(jsonPath("$.data.chats[0].phase").value("choice"))
                 .andExpect(jsonPath("$.data.chats[0].lastMessage").value("하륜의 마지막 응답"))
                 .andExpect(jsonPath("$.data.chats[0].historyEndpoint").value("/api/stories/play/history?scenario_id=2"))
                 .andExpect(jsonPath("$.data.chats[0].playEndpoint").value("/api/stories/play"))
                 .andExpect(jsonPath("$.data.chats[1].scenarioId").value(1))
-                .andExpect(jsonPath("$.data.chats[1].displayName").value("카이렌"));
+                .andExpect(jsonPath("$.data.chats[1].displayName").value("카이렌"))
+                .andExpect(jsonPath("$.data.chats[1].status").value("STORY_COMPLETED"))
+                .andExpect(jsonPath("$.data.chats[1].statusLabel").value("완료"));
     }
 
     @Test
@@ -197,7 +200,7 @@ class StoryChatControllerTest {
                     updated_at
                 )
                 values
-                    (1, ?, 1, 1, 'IN_PROGRESS', 'intro', '카이렌의 마지막 응답', timestamp '2026-05-05 10:00:00', timestamp '2026-05-05 10:10:00'),
+                    (1, ?, 1, 1, 'STORY_COMPLETED', 'intro', '카이렌의 마지막 응답', timestamp '2026-05-05 10:00:00', timestamp '2026-05-05 10:10:00'),
                     (2, ?, 2, 2, 'IN_PROGRESS', 'choice', '하륜의 마지막 응답', timestamp '2026-05-05 11:00:00', timestamp '2026-05-05 11:10:00'),
                     (3, '9999', 1, 1, 'IN_PROGRESS', 'intro', '다른 사용자 응답', timestamp '2026-05-05 12:00:00', timestamp '2026-05-05 12:10:00'),
                     (4, ?, 3, 1, 'IN_PROGRESS', 'intro', '비활성 응답', timestamp '2026-05-05 13:00:00', timestamp '2026-05-05 13:10:00')
