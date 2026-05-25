@@ -223,8 +223,8 @@ class RecordStatsControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.dailyRecords[*].exerciseLabel").value(hasItem("걷기")))
                 .andExpect(jsonPath("$.data.insight.title").value("분석 인사이트"))
-                .andExpect(jsonPath("$.data.insight.summary").value("최근 걷기를 했을 때 평균 컨디션이 8.0점으로 가장 높았습니다."))
-                .andExpect(jsonPath("$.data.insight.recommendation").value("컨디션이 좋았던 걷기를 우선 추천합니다. 스트레스 점수가 높은 날에는 스트레칭이나 회복 운동처럼 강도가 낮은 운동을 선택해 주세요."));
+                .andExpect(jsonPath("$.data.insight.summary").value("최근 기록에서는 걷기 운동을 한 날의 평균 컨디션이 8.0점으로 가장 좋았습니다."))
+                .andExpect(jsonPath("$.data.insight.recommendation").value("비슷한 컨디션의 날에는 걷기 운동을 먼저 고려해 보세요. 스트레스가 높은 날에는 강도를 낮추고 스트레칭이나 회복 운동으로 마무리하는 편이 좋습니다."));
     }
 
     @Test

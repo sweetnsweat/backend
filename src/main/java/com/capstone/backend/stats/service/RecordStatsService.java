@@ -341,8 +341,10 @@ public class RecordStatsService {
             ExerciseEffect effect = bestExercise.get();
             return new Insight(
                     "분석 인사이트",
-                    "최근 " + withObjectParticle(effect.label()) + " 했을 때 평균 컨디션이 " + effect.averageConditionScore() + "점으로 가장 높았습니다.",
-                    "컨디션이 좋았던 " + withObjectParticle(effect.label()) + " 우선 추천합니다. 스트레스 점수가 높은 날에는 스트레칭이나 회복 운동처럼 강도가 낮은 운동을 선택해 주세요."
+                    "최근 기록에서는 " + asExerciseName(effect.label()) + "을 한 날의 평균 컨디션이 "
+                            + effect.averageConditionScore() + "점으로 가장 좋았습니다.",
+                    "비슷한 컨디션의 날에는 " + asExerciseName(effect.label())
+                            + "을 먼저 고려해 보세요. 스트레스가 높은 날에는 강도를 낮추고 스트레칭이나 회복 운동으로 마무리하는 편이 좋습니다."
             );
         }
         return new Insight(
@@ -481,13 +483,9 @@ public class RecordStatsService {
         return rawValue == null || rawValue.isBlank() ? "운동" : rawValue.trim();
     }
 
-    private String withObjectParticle(String text) {
+    private String asExerciseName(String text) {
         String label = hasText(text) ? text.trim() : "운동";
-        char last = label.charAt(label.length() - 1);
-        if (last < '가' || last > '힣') {
-            return label + "을";
-        }
-        return ((last - '가') % 28) == 0 ? label + "를" : label + "을";
+        return label.endsWith("운동") ? label : label + " 운동";
     }
 
     private int targetMinutes(UserQuest quest) {
