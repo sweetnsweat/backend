@@ -4,6 +4,7 @@ import com.capstone.backend.ai.dto.AiStoryGenerateRequest;
 import com.capstone.backend.ai.dto.AiStoryPlayHistoryRequest;
 import com.capstone.backend.ai.dto.AiStoryPlayRequest;
 import com.capstone.backend.ai.dto.AiStoryPlayStartRequest;
+import com.capstone.backend.ai.dto.AiStoryQuestState;
 import com.capstone.backend.ai.dto.AiStoryQuestListRequest;
 import com.capstone.backend.ai.dto.AiStoryQuestTodayRequest;
 import com.capstone.backend.global.exception.ApiException;
@@ -35,7 +36,14 @@ public class AiStoryRequestFactory {
         return writeJson(payload);
     }
 
-    public String fromPlayRequest(AiStoryPlayRequest request, Long userId) {
+    public String withAuthenticatedUserContext(String requestBody, Long userId, AiStoryQuestState questState) {
+        ObjectNode payload = parseObject(requestBody);
+        payload.put("user_id", userId);
+        appendQuestState(payload, questState);
+        return writeJson(payload);
+    }
+
+    public String fromPlayRequest(AiStoryPlayRequest request, Long userId, AiStoryQuestState questState) {
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("user_id", userId);
         payload.put("scenario_id", request.scenarioId());
@@ -48,13 +56,15 @@ public class AiStoryRequestFactory {
         if (request.restart() != null) {
             payload.put("restart", request.restart());
         }
+        appendQuestState(payload, questState);
         return writeJson(payload);
     }
 
-    public String fromStartRequest(AiStoryPlayStartRequest request, Long userId) {
+    public String fromStartRequest(AiStoryPlayStartRequest request, Long userId, AiStoryQuestState questState) {
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("user_id", userId);
         payload.put("scenario_id", request.scenarioId());
+        appendQuestState(payload, questState);
         return writeJson(payload);
     }
 
@@ -116,6 +126,17 @@ public class AiStoryRequestFactory {
         } catch (JsonProcessingException exception) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_AI_STORY_REQUEST", "AI 스토리 요청 JSON 형식이 올바르지 않습니다.");
         }
+    }
+
+    private void appendQuestState(ObjectNode payload, AiStoryQuestState questState) {
+        if (questState == null) {
+            return;
+        }
+        payload.put("today_quest_completed", questState.todayQuestCompleted());
+        payload.put("today_quest_issued", questState.todayQuestIssued());
+        payload.put("today_quest_skipped", questState.todayQuestSkipped());
+        payload.put("can_issue_today_quest", questState.canIssueTodayQuest());
+        payload.set("quest_state", objectMapper.valueToTree(questState));
     }
 
     private String writeJson(ObjectNode payload) {

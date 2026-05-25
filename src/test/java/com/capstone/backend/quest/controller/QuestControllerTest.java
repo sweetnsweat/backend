@@ -133,7 +133,7 @@ class QuestControllerTest {
     }
 
     @Test
-    void todayQuestCreatesOffDayQuestWhenTodayHasNoRoutineSession() throws Exception {
+    void todayQuestCreatesOneOffDayQuestWhenTodayHasNoRoutineSession() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = onboardedUser("questOffDayUser");
         Long routineId = seedRoutineWithSession(KoreanTime.today().plusDays(1).getDayOfWeek().name());
@@ -155,10 +155,23 @@ class QuestControllerTest {
                 .andExpect(jsonPath("$.data.exercises[0].exerciseName").value("걷기, 런닝머신"))
                 .andExpect(jsonPath("$.data.exercises[0].category").value("유산소"))
                 .andExpect(jsonPath("$.data.exercises[0].targetDurationSec").value(900));
+
+        mockMvc.perform(get("/api/quests/today")
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.questType").value("OFF_DAY"));
+
+        Integer questCount = jdbcTemplate.queryForObject(
+                "select count(*) from user_quests where user_id = ? and quest_date = ?",
+                Integer.class,
+                testUser.userId(),
+                KoreanTime.today()
+        );
+        org.assertj.core.api.Assertions.assertThat(questCount).isEqualTo(1);
     }
 
     @Test
-    void todayQuestCreatesRecoveryQuestWhenConditionIsLow() throws Exception {
+    void todayQuestCreatesOneRecoveryQuestWhenConditionIsLow() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = onboardedUser("questRecoveryUser");
         Long routineId = seedRoutineWithSession(KoreanTime.today().getDayOfWeek().name());
@@ -179,6 +192,19 @@ class QuestControllerTest {
                 .andExpect(jsonPath("$.data.exercises[0].exerciseName").value("회복 요가"))
                 .andExpect(jsonPath("$.data.exercises[0].category").value("요가"))
                 .andExpect(jsonPath("$.data.exercises[0].targetDurationSec").value(600));
+
+        mockMvc.perform(get("/api/quests/today")
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.questType").value("RECOVERY"));
+
+        Integer questCount = jdbcTemplate.queryForObject(
+                "select count(*) from user_quests where user_id = ? and quest_date = ?",
+                Integer.class,
+                testUser.userId(),
+                KoreanTime.today()
+        );
+        org.assertj.core.api.Assertions.assertThat(questCount).isEqualTo(1);
     }
 
     @Test
@@ -277,7 +303,7 @@ class QuestControllerTest {
     }
 
     @Test
-    void todayQuestCanIssueStoryRecoveryQuestAfterMainQuestCompletion() throws Exception {
+    void todayQuestDoesNotIssueStoryRecoveryQuestAfterMainQuestCompletion() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = onboardedUser("questStoryRecoveryUser");
         Long routineId = seedRoutineWithSession(KoreanTime.today().getDayOfWeek().name());
@@ -311,29 +337,15 @@ class QuestControllerTest {
                         .queryParam("issueRecoveryIfCompleted", "true")
                         .header("Authorization", "Bearer " + testUser.accessToken()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.questType").value("RECOVERY"))
-                .andExpect(jsonPath("$.data.status").value("ISSUED"))
-                .andExpect(jsonPath("$.data.title").value("스토리 회복 운동 10분"))
-                .andExpect(jsonPath("$.data.targetValue").value(10))
-                .andExpect(jsonPath("$.data.rewardExp").value(10))
-                .andExpect(jsonPath("$.data.rewardGold").value(5))
-                .andExpect(jsonPath("$.data.exercises.length()").value(1))
-                .andExpect(jsonPath("$.data.exercises[0].exerciseName").value("회복 요가"))
-                .andExpect(jsonPath("$.data.exercises[0].targetDurationSec").value(600));
-
-        Long recoveryQuestId = jdbcTemplate.queryForObject("""
-                select id
-                from user_quests
-                where user_id = ?
-                  and quest_date = ?
-                  and title = '스토리 회복 운동 10분'
-                """, Long.class, testUser.userId(), KoreanTime.today());
+                .andExpect(jsonPath("$.data.id").value(mainQuestId))
+                .andExpect(jsonPath("$.data.questType").value("ROUTINE"))
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
 
         mockMvc.perform(get("/api/quests/today")
                         .queryParam("issueRecoveryIfCompleted", "true")
                         .header("Authorization", "Bearer " + testUser.accessToken()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.id").value(recoveryQuestId));
+                .andExpect(jsonPath("$.data.id").value(mainQuestId));
 
         Integer questCount = jdbcTemplate.queryForObject(
                 "select count(*) from user_quests where user_id = ? and quest_date = ?",
@@ -341,14 +353,14 @@ class QuestControllerTest {
                 testUser.userId(),
                 KoreanTime.today()
         );
-        org.assertj.core.api.Assertions.assertThat(questCount).isEqualTo(2);
+        org.assertj.core.api.Assertions.assertThat(questCount).isEqualTo(1);
     }
 
     @Test
     void completeQuestAcceptsFormUrlEncodedEmptyRequestAsManualCompletion() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = onboardedUser("questFormCompleteUser");
-        Long routineId = seedRoutineWithSession(KoreanTime.today().plusDays(1).getDayOfWeek().name());
+        Long routineId = seedRoutineWithSession(KoreanTime.today().getDayOfWeek().name());
         jdbcTemplate.update("update users set active_routine_id = ? where id = ?", routineId, testUser.userId());
         seedCondition(testUser.userId(), KoreanTime.today(), BigDecimal.valueOf(72.92), BigDecimal.valueOf(1.00));
 

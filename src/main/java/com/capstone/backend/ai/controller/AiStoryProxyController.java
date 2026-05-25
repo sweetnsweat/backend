@@ -7,6 +7,7 @@ import com.capstone.backend.ai.dto.AiStoryPlayStartRequest;
 import com.capstone.backend.ai.dto.AiStoryQuestListRequest;
 import com.capstone.backend.ai.dto.AiStoryQuestTodayRequest;
 import com.capstone.backend.ai.service.AiProxyService;
+import com.capstone.backend.ai.service.AiStoryQuestStateService;
 import com.capstone.backend.ai.service.AiStoryRequestFactory;
 import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.global.api.ApiResponse;
@@ -40,10 +41,14 @@ public class AiStoryProxyController {
 
     private final AiProxyService aiProxyService;
     private final AiStoryRequestFactory aiStoryRequestFactory;
+    private final AiStoryQuestStateService aiStoryQuestStateService;
 
-    public AiStoryProxyController(AiProxyService aiProxyService, AiStoryRequestFactory aiStoryRequestFactory) {
+    public AiStoryProxyController(AiProxyService aiProxyService,
+                                  AiStoryRequestFactory aiStoryRequestFactory,
+                                  AiStoryQuestStateService aiStoryQuestStateService) {
         this.aiProxyService = aiProxyService;
         this.aiStoryRequestFactory = aiStoryRequestFactory;
+        this.aiStoryQuestStateService = aiStoryQuestStateService;
     }
 
     @Operation(summary = "AI 서버 상태 확인", description = "백엔드에서 AI 서버 루트 상태 확인 API를 호출합니다.")
@@ -73,7 +78,11 @@ public class AiStoryProxyController {
         ));
     }
 
-    @Operation(summary = "AI 스토리 플레이 통합 진행", description = "프론트에서 주로 사용할 메인 API입니다. user_id는 요청에 넣지 않고 백엔드가 로그인 사용자 ID를 AI 서버 요청에 주입합니다.")
+    @Operation(summary = "AI 스토리 플레이 통합 진행", description = """
+            프론트에서 주로 사용할 메인 API입니다. user_id는 요청에 넣지 않고 백엔드가 로그인 사용자 ID를 AI 서버 요청에 주입합니다.
+            백엔드는 AI 서버 요청에 today_quest_completed, today_quest_issued, can_issue_today_quest, quest_state를 함께 주입합니다.
+            AI 서버는 can_issue_today_quest=true일 때만 오늘 최초 퀘스트를 요청하고, today_quest_completed=true이면 더 이상 퀘스트를 내려주지 않아야 합니다.
+            """)
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "AI 스토리 진행 성공",
@@ -85,7 +94,7 @@ public class AiStoryProxyController {
                                          HttpServletRequest servletRequest) {
         return ApiResponse.ok("AI 스토리 진행 응답을 조회했습니다.", aiProxyService.post(
                 "/stories/play",
-                aiStoryRequestFactory.fromPlayRequest(request, authUser.userId()),
+                aiStoryRequestFactory.fromPlayRequest(request, authUser.userId(), aiStoryQuestStateService.todayQuestState(authUser.userId())),
                 authorizationHeader(servletRequest)
         ));
     }
@@ -173,7 +182,7 @@ public class AiStoryProxyController {
         ));
     }
 
-    @Operation(summary = "AI 스토리 처음부터 시작", description = "기존 진행 상태를 리셋하고 1챕터 처음부터 시작합니다. user_id는 백엔드가 로그인 사용자 ID로 주입합니다.")
+    @Operation(summary = "AI 스토리 처음부터 시작", description = "기존 진행 상태를 리셋하고 1챕터 처음부터 시작합니다. user_id와 오늘 퀘스트 상태는 백엔드가 AI 서버 요청에 주입합니다.")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             required = true,
             content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, examples = @ExampleObject(value = AiStorySwaggerExamples.START_REQUEST))
@@ -189,7 +198,7 @@ public class AiStoryProxyController {
                                           HttpServletRequest servletRequest) {
         return ApiResponse.ok("AI 스토리를 처음부터 시작했습니다.", aiProxyService.post(
                 "/stories/play/start",
-                aiStoryRequestFactory.fromStartRequest(request, authUser.userId()),
+                aiStoryRequestFactory.fromStartRequest(request, authUser.userId(), aiStoryQuestStateService.todayQuestState(authUser.userId())),
                 authorizationHeader(servletRequest)
         ));
     }
@@ -202,7 +211,7 @@ public class AiStoryProxyController {
                                              HttpServletRequest servletRequest) {
         return ApiResponse.ok("AI 스토리 현재 흐름을 이어갔습니다.", aiProxyService.post(
                 "/stories/play/continue",
-                aiStoryRequestFactory.withAuthenticatedUserId(request, authUser.userId()),
+                aiStoryRequestFactory.withAuthenticatedUserContext(request, authUser.userId(), aiStoryQuestStateService.todayQuestState(authUser.userId())),
                 authorizationHeader(servletRequest)
         ));
     }
@@ -215,7 +224,7 @@ public class AiStoryProxyController {
                                            HttpServletRequest servletRequest) {
         return ApiResponse.ok("AI 스토리 선택지를 반영했습니다.", aiProxyService.post(
                 "/stories/play/choose",
-                aiStoryRequestFactory.withAuthenticatedUserId(request, authUser.userId()),
+                aiStoryRequestFactory.withAuthenticatedUserContext(request, authUser.userId(), aiStoryQuestStateService.todayQuestState(authUser.userId())),
                 authorizationHeader(servletRequest)
         ));
     }
@@ -228,7 +237,7 @@ public class AiStoryProxyController {
                                            HttpServletRequest servletRequest) {
         return ApiResponse.ok("AI 스토리 다음 챕터로 이동했습니다.", aiProxyService.post(
                 "/stories/play/next-chapter",
-                aiStoryRequestFactory.withAuthenticatedUserId(request, authUser.userId()),
+                aiStoryRequestFactory.withAuthenticatedUserContext(request, authUser.userId(), aiStoryQuestStateService.todayQuestState(authUser.userId())),
                 authorizationHeader(servletRequest)
         ));
     }

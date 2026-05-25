@@ -3,6 +3,9 @@ package com.capstone.backend.ai.controller;
 import com.capstone.backend.ai.service.AiProxyService;
 import com.capstone.backend.auth.security.JwtTokenService;
 import com.capstone.backend.global.exception.ApiException;
+import com.capstone.backend.global.time.KoreanTime;
+import com.capstone.backend.quest.entity.UserQuest;
+import com.capstone.backend.quest.repository.UserQuestRepository;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,6 +46,9 @@ class AiStoryProxyControllerTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private UserQuestRepository userQuestRepository;
 
     @Autowired
     private JwtTokenService jwtTokenService;
@@ -134,6 +140,73 @@ class AiStoryProxyControllerTest {
         assertThat(forwardedBody.get("user_id")).isEqualTo(user.getId().intValue());
         assertThat(forwardedBody.get("scenario_id")).isEqualTo(4);
         assertThat(forwardedBody.get("restart")).isEqualTo(true);
+        assertThat(forwardedBody.get("today_quest_completed")).isEqualTo(false);
+        assertThat(forwardedBody.get("today_quest_issued")).isEqualTo(false);
+        assertThat(forwardedBody.get("can_issue_today_quest")).isEqualTo(true);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> questState = (Map<String, Object>) forwardedBody.get("quest_state");
+        assertThat(questState)
+                .containsEntry("daily_quest_limit", 1)
+                .containsEntry("today_quest_completed", false)
+                .containsEntry("can_issue_today_quest", true);
+    }
+
+    @Test
+    void playStoryInjectsCompletedQuestStateWhenTodayQuestWasSkipped() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User user = userRepository.save(User.createLocalUser("aiQuestStateUser", "encoded-password", "aiQuestStateUser"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+        UserQuest quest = UserQuest.create(
+                user,
+                null,
+                null,
+                null,
+                KoreanTime.today(),
+                UserQuest.TYPE_ROUTINE,
+                UserQuest.METRIC_ROUTINE,
+                "오늘 루틴 완료",
+                "테스트용 완료 퀘스트입니다.",
+                1,
+                false,
+                15,
+                30,
+                Map.of()
+        );
+        quest.complete(1, Map.of(
+                "source", "manual",
+                "completionType", "MANUAL",
+                "submittedProof", Map.of("source", "shop_pass")
+        ));
+        Long questId = userQuestRepository.saveAndFlush(quest).getId();
+        when(aiProxyService.post(eq("/stories/play"), any(), eq("Bearer " + accessToken))).thenReturn(Map.of("scenario_id", 4));
+
+        mockMvc.perform(post("/api/stories/play")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "scenario_id": 4,
+                                  "user_message": "계속 진행"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<String> bodyCaptor = forClass(String.class);
+        verify(aiProxyService).post(eq("/stories/play"), bodyCaptor.capture(), eq("Bearer " + accessToken));
+        Map<?, ?> forwardedBody = objectMapper.readValue(bodyCaptor.getValue(), Map.class);
+        assertThat(forwardedBody.get("today_quest_completed")).isEqualTo(true);
+        assertThat(forwardedBody.get("today_quest_issued")).isEqualTo(true);
+        assertThat(forwardedBody.get("today_quest_skipped")).isEqualTo(true);
+        assertThat(forwardedBody.get("can_issue_today_quest")).isEqualTo(false);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> questState = (Map<String, Object>) forwardedBody.get("quest_state");
+        assertThat(questState)
+                .containsEntry("daily_quest_limit", 1)
+                .containsEntry("today_quest_id", questId.intValue())
+                .containsEntry("today_quest_status", "COMPLETED")
+                .containsEntry("today_quest_completion_type", "MANUAL")
+                .containsEntry("today_quest_completed", true)
+                .containsEntry("today_quest_skipped", true);
     }
 
     @Test
