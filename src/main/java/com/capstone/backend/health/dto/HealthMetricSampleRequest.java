@@ -11,6 +11,13 @@ public record HealthMetricSampleRequest(
         Instant endTime,
         String source,
         String dataOrigin,
-        String rawRecordType
+        String rawRecordType,
+        String exerciseType,
+        BigDecimal duration,
+        String durationUnit,
+        BigDecimal calories,
+        BigDecimal distanceMeters,
+        Integer count,
+        String customTitle
 ) {
 }

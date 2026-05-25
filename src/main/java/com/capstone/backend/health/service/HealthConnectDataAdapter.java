@@ -9,7 +9,8 @@ public class HealthConnectDataAdapter implements PlatformHealthDataAdapter {
 
     @Override
     public boolean supports(HealthDataSource source) {
-        return HealthDataSource.HEALTH_CONNECT.equals(source);
+        return HealthDataSource.HEALTH_CONNECT.equals(source)
+                || HealthDataSource.SAMSUNG_HEALTH_DATA.equals(source);
     }
 
     @Override

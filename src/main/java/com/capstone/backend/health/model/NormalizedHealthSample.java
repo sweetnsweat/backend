@@ -11,6 +11,11 @@ public record NormalizedHealthSample(
         Instant endTime,
         HealthDataSource source,
         String dataOrigin,
-        String rawRecordType
+        String rawRecordType,
+        String exerciseType,
+        BigDecimal caloriesKcal,
+        BigDecimal distanceMeters,
+        Integer count,
+        String customTitle
 ) {
 }

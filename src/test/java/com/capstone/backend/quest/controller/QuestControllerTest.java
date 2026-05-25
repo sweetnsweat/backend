@@ -486,6 +486,64 @@ class QuestControllerTest {
     }
 
     @Test
+    void completeQuestAcceptsSamsungExerciseSessionFields() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        TestUser testUser = onboardedUser("questSamsungExerciseSessionUser");
+        Long routineId = seedRoutineWithSession(KoreanTime.today().getDayOfWeek().name());
+        jdbcTemplate.update("update users set active_routine_id = ? where id = ?", routineId, testUser.userId());
+        seedCondition(testUser.userId(), KoreanTime.today(), BigDecimal.valueOf(72.92), BigDecimal.valueOf(1.00));
+
+        mockMvc.perform(get("/api/quests/today")
+                        .header("Authorization", "Bearer " + testUser.accessToken()))
+                .andExpect(status().isOk());
+        Long questId = jdbcTemplate.queryForObject(
+                "select id from user_quests where user_id = ? and quest_date = ?",
+                Long.class,
+                testUser.userId(),
+                KoreanTime.today()
+        );
+        Instant now = KoreanTime.nowInstant();
+        Instant questCreatedAt = now.minusSeconds(20 * 60L);
+        jdbcTemplate.update("update user_quests set created_at = ? where id = ?", questCreatedAt, questId);
+        Instant exerciseStart = now.minusSeconds(14 * 60L);
+
+        mockMvc.perform(patch("/api/quests/{questId}/complete", questId)
+                        .header("Authorization", "Bearer " + testUser.accessToken())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "healthSamples": [
+                                    {
+                                      "type": "ExerciseSession",
+                                      "duration": 12,
+                                      "durationUnit": "minutes",
+                                      "calories": 90,
+                                      "count": 80,
+                                      "exerciseType": "PUSH_UPS",
+                                      "startTime": "%s",
+                                      "endTime": "%s",
+                                      "source": "samsung_health_data",
+                                      "dataOrigin": "com.sec.android.app.shealth",
+                                      "rawRecordType": "ExerciseSession",
+                                      "customTitle": "push ups"
+                                    }
+                                  ]
+                                }
+                                """.formatted(exerciseStart, now)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.completionType").value("VERIFIED"))
+                .andExpect(jsonPath("$.data.verificationStatus").value("VERIFIED"))
+                .andExpect(jsonPath("$.data.battleEligible").value(true));
+
+        String proofJson = jdbcTemplate.queryForObject("select proof_json from user_quests where id = ?", String.class, questId);
+        org.assertj.core.api.Assertions.assertThat(proofJson).contains("\"rule\":\"strength_health_proof\"");
+        org.assertj.core.api.Assertions.assertThat(proofJson).contains("\"exercise_count\"");
+        org.assertj.core.api.Assertions.assertThat(proofJson).contains("push_ups");
+        assertQuestCompletionReward(testUser.userId(), questId, 30, 15);
+    }
+
+    @Test
     void completeQuestFallsBackToManualWhenHealthProofIsInsufficient() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = onboardedUser("questOldHealthProofUser");

@@ -30,8 +30,9 @@ public class HealthQuestProgressEvaluator {
 
     private static final Duration START_GRACE = Duration.ofMinutes(5);
     private static final Duration END_GRACE = Duration.ofMinutes(2);
-    private static final BigDecimal COMPLETION_THRESHOLD = BigDecimal.valueOf(0.80);
-    private static final BigDecimal CALORIE_THRESHOLD = BigDecimal.valueOf(0.70);
+    private static final BigDecimal COMPLETION_THRESHOLD = BigDecimal.valueOf(0.60);
+    private static final BigDecimal CALORIE_THRESHOLD = BigDecimal.valueOf(0.50);
+    private static final BigDecimal PARTIAL_SESSION_THRESHOLD = BigDecimal.valueOf(0.40);
     private static final BigDecimal MODERATE_HR_RATIO = BigDecimal.valueOf(0.50);
     private static final BigDecimal VIGOROUS_HR_RATIO = BigDecimal.valueOf(0.70);
 
@@ -131,6 +132,7 @@ public class HealthQuestProgressEvaluator {
         BigDecimal primaryRatio = primaryRatio(rule, metrics);
         BigDecimal durationRatio = ratio(metrics.exerciseMinutes(), BigDecimal.valueOf(rule.targetMinutes()));
         BigDecimal calorieRatio = ratio(metrics.activeCaloriesKcal(), BigDecimal.valueOf(rule.targetCaloriesKcal()));
+        BigDecimal countRatio = ratio(BigDecimal.valueOf(metrics.exerciseCount()), BigDecimal.valueOf(rule.targetCount()));
         HeartRateEvidence heartRateEvidence = heartRateEvidence(quest, metrics);
         boolean sessionMatched = metrics.sessionMatched(rule.keywords());
 
@@ -146,27 +148,37 @@ public class HealthQuestProgressEvaluator {
         if (sessionMatched) {
             matchedMetrics.add("exercise_session_type");
         }
+        if (countRatio.compareTo(COMPLETION_THRESHOLD) >= 0) {
+            matchedMetrics.add("exercise_count");
+        }
         if (heartRateEvidence.moderate()) {
             matchedMetrics.add("heart_rate");
         }
 
         boolean verified = switch (rule.category()) {
             case WALKING -> primaryRatio.compareTo(COMPLETION_THRESHOLD) >= 0
-                    || durationRatio.compareTo(COMPLETION_THRESHOLD) >= 0 && metrics.steps() >= 500;
+                    || durationRatio.compareTo(COMPLETION_THRESHOLD) >= 0 && metrics.steps() >= 300
+                    || sessionMatched && durationRatio.compareTo(PARTIAL_SESSION_THRESHOLD) >= 0;
             case RUNNING, CYCLING, SWIMMING, CARDIO -> primaryRatio.compareTo(COMPLETION_THRESHOLD) >= 0
                     || durationRatio.compareTo(COMPLETION_THRESHOLD) >= 0
-                    || sessionMatched && durationRatio.compareTo(BigDecimal.valueOf(0.60)) >= 0;
+                    || calorieRatio.compareTo(CALORIE_THRESHOLD) >= 0
+                    || sessionMatched && durationRatio.compareTo(PARTIAL_SESSION_THRESHOLD) >= 0
+                    || heartRateEvidence.moderate() && durationRatio.compareTo(PARTIAL_SESSION_THRESHOLD) >= 0;
             case STRENGTH -> durationRatio.compareTo(COMPLETION_THRESHOLD) >= 0
                     || calorieRatio.compareTo(CALORIE_THRESHOLD) >= 0
-                    || sessionMatched && durationRatio.compareTo(BigDecimal.valueOf(0.60)) >= 0;
+                    || countRatio.compareTo(COMPLETION_THRESHOLD) >= 0
+                    || sessionMatched && durationRatio.compareTo(PARTIAL_SESSION_THRESHOLD) >= 0
+                    || heartRateEvidence.moderate() && durationRatio.compareTo(PARTIAL_SESSION_THRESHOLD) >= 0;
             case YOGA, STRETCHING, RECOVERY -> durationRatio.compareTo(COMPLETION_THRESHOLD) >= 0
-                    || sessionMatched && durationRatio.compareTo(BigDecimal.valueOf(0.60)) >= 0;
+                    || sessionMatched && durationRatio.compareTo(PARTIAL_SESSION_THRESHOLD) >= 0
+                    || heartRateEvidence.moderate() && durationRatio.compareTo(PARTIAL_SESSION_THRESHOLD) >= 0;
             case GENERAL -> primaryRatio.compareTo(COMPLETION_THRESHOLD) >= 0
                     || durationRatio.compareTo(COMPLETION_THRESHOLD) >= 0
-                    || calorieRatio.compareTo(CALORIE_THRESHOLD) >= 0;
+                    || calorieRatio.compareTo(CALORIE_THRESHOLD) >= 0
+                    || heartRateEvidence.moderate() && durationRatio.compareTo(PARTIAL_SESSION_THRESHOLD) >= 0;
         };
 
-        BigDecimal confidence = confidence(primaryRatio, durationRatio, calorieRatio, heartRateEvidence, sessionMatched, rule);
+        BigDecimal confidence = confidence(primaryRatio, durationRatio, calorieRatio, countRatio, heartRateEvidence, sessionMatched, rule);
         String reason = reason(rule, verified, metrics, primaryRatio, durationRatio, calorieRatio, heartRateEvidence, sessionMatched);
         return new VerificationResult(verified, confidence, rule.code(), matchedMetrics, reason);
     }
@@ -184,12 +196,14 @@ public class HealthQuestProgressEvaluator {
     private BigDecimal confidence(BigDecimal primaryRatio,
                                   BigDecimal durationRatio,
                                   BigDecimal calorieRatio,
+                                  BigDecimal countRatio,
                                   HeartRateEvidence heartRateEvidence,
                                   boolean sessionMatched,
                                   QuestRule rule) {
         BigDecimal score = capped(primaryRatio).multiply(BigDecimal.valueOf(0.45))
                 .add(capped(durationRatio).multiply(BigDecimal.valueOf(0.30)))
-                .add(capped(calorieRatio).multiply(BigDecimal.valueOf(0.10)));
+                .add(capped(calorieRatio).multiply(BigDecimal.valueOf(0.10)))
+                .add(capped(countRatio).multiply(BigDecimal.valueOf(0.10)));
         if (sessionMatched) {
             score = score.add(BigDecimal.valueOf(0.10));
         }
@@ -228,6 +242,9 @@ public class HealthQuestProgressEvaluator {
         }
         if (calorieRatio.compareTo(CALORIE_THRESHOLD) >= 0) {
             parts.add("활동 칼로리 " + percent(calorieRatio));
+        }
+        if (metrics.exerciseCount() > 0) {
+            parts.add("운동 반복 수 " + metrics.exerciseCount() + "회");
         }
         if (sessionMatched) {
             parts.add("운동 세션 유형 일치");
@@ -328,6 +345,7 @@ public class HealthQuestProgressEvaluator {
                            Integer steps,
                            BigDecimal distanceMeters,
                            BigDecimal activeCaloriesKcal,
+                           Integer exerciseCount,
                            BigDecimal averageHeartRate,
                            BigDecimal maxHeartRate,
                            List<String> sessionHints) {
@@ -335,9 +353,17 @@ public class HealthQuestProgressEvaluator {
         static Metrics from(List<WindowedSample> samples) {
             BigDecimal exerciseMinutes = exerciseMinutes(samples);
             Integer steps = total(samples, HealthMetricType.STEPS).setScale(0, RoundingMode.HALF_UP).intValue();
-            BigDecimal distanceMeters = total(samples, HealthMetricType.DISTANCE);
+            BigDecimal distanceMeters = total(samples, HealthMetricType.DISTANCE).add(sessionDistanceMeters(samples));
             BigDecimal activeCalories = total(samples, HealthMetricType.ACTIVE_CALORIES_BURNED)
-                    .add(total(samples, HealthMetricType.TOTAL_CALORIES_BURNED));
+                    .add(total(samples, HealthMetricType.TOTAL_CALORIES_BURNED))
+                    .add(sessionCalories(samples));
+            int exerciseCount = samples.stream()
+                    .filter(sample -> HealthMetricType.EXERCISE_SESSION.equals(sample.sample().type()))
+                    .map(WindowedSample::sample)
+                    .map(NormalizedHealthSample::count)
+                    .filter(Objects::nonNull)
+                    .mapToInt(Integer::intValue)
+                    .sum();
             List<BigDecimal> heartRates = samples.stream()
                     .filter(sample -> HealthMetricType.HEART_RATE.equals(sample.sample().type()))
                     .map(WindowedSample::adjustedValue)
@@ -349,11 +375,19 @@ public class HealthQuestProgressEvaluator {
             BigDecimal maxHeartRate = heartRates.stream().max(BigDecimal::compareTo).orElse(null);
             List<String> sessionHints = samples.stream()
                     .filter(sample -> HealthMetricType.EXERCISE_SESSION.equals(sample.sample().type()))
-                    .map(sample -> sample.sample().rawRecordType() + " " + sample.sample().dataOrigin())
+                    .map(sample -> String.join(" ",
+                            nonBlank(sample.sample().rawRecordType()),
+                            nonBlank(sample.sample().exerciseType()),
+                            nonBlank(sample.sample().customTitle()),
+                            nonBlank(sample.sample().dataOrigin())))
                     .filter(text -> text != null && !text.isBlank())
                     .map(text -> text.toLowerCase(Locale.ROOT))
                     .toList();
-            return new Metrics(samples, exerciseMinutes, steps, distanceMeters, activeCalories, averageHeartRate, maxHeartRate, sessionHints);
+            return new Metrics(samples, exerciseMinutes, steps, distanceMeters, activeCalories, exerciseCount, averageHeartRate, maxHeartRate, sessionHints);
+        }
+
+        private static String nonBlank(String value) {
+            return value == null ? "" : value;
         }
 
         private static BigDecimal exerciseMinutes(List<WindowedSample> samples) {
@@ -395,6 +429,24 @@ public class HealthQuestProgressEvaluator {
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
 
+        private static BigDecimal sessionCalories(List<WindowedSample> samples) {
+            return samples.stream()
+                    .filter(sample -> HealthMetricType.EXERCISE_SESSION.equals(sample.sample().type()))
+                    .map(WindowedSample::sample)
+                    .map(NormalizedHealthSample::caloriesKcal)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        private static BigDecimal sessionDistanceMeters(List<WindowedSample> samples) {
+            return samples.stream()
+                    .filter(sample -> HealthMetricType.EXERCISE_SESSION.equals(sample.sample().type()))
+                    .map(WindowedSample::sample)
+                    .map(NormalizedHealthSample::distanceMeters)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
         private static BigDecimal normalizeValue(BigDecimal value, String unit, HealthMetricType type) {
             if (value == null) {
                 return BigDecimal.ZERO;
@@ -420,6 +472,7 @@ public class HealthQuestProgressEvaluator {
             map.put("steps", steps);
             map.put("distanceMeters", distanceMeters);
             map.put("activeCaloriesKcal", activeCaloriesKcal);
+            map.put("exerciseCount", exerciseCount);
             map.put("averageHeartRate", averageHeartRate);
             map.put("maxHeartRate", maxHeartRate);
             map.put("sessionHints", sessionHints);
@@ -433,6 +486,7 @@ public class HealthQuestProgressEvaluator {
                              int targetSteps,
                              int targetDistanceMeters,
                              int targetCaloriesKcal,
+                             int targetCount,
                              String code,
                              String displayName,
                              Set<String> keywords) {
@@ -459,6 +513,7 @@ public class HealthQuestProgressEvaluator {
                 case YOGA, STRETCHING, RECOVERY -> 3;
                 case GENERAL -> 4;
             });
+            int targetCount = targetCount(quest);
             HealthMetricType primaryMetric = switch (category) {
                 case WALKING -> HealthMetricType.STEPS;
                 case RUNNING, CYCLING, SWIMMING, CARDIO -> HealthMetricType.DISTANCE;
@@ -471,6 +526,7 @@ public class HealthQuestProgressEvaluator {
                     targetSteps,
                     targetDistanceMeters,
                     targetCalories,
+                    targetCount,
                     category.name().toLowerCase(Locale.ROOT) + "_health_proof",
                     category.displayName(),
                     category.keywords()
@@ -508,6 +564,36 @@ public class HealthQuestProgressEvaluator {
             return seconds <= 0 ? null : Math.max(1, (int) Math.ceil(seconds / 60.0));
         }
 
+        private static int targetCount(UserQuest quest) {
+            Object rawExercises = quest.getQuestContextJson().get("exercises");
+            if (!(rawExercises instanceof List<?> exercises)) {
+                return 1;
+            }
+            int total = 0;
+            for (Object rawExercise : exercises) {
+                if (rawExercise instanceof Map<?, ?> exercise) {
+                    Integer sets = intValue(exercise.get("targetSets"));
+                    Integer reps = intValue(exercise.get("targetReps"));
+                    if (sets != null && reps != null) {
+                        total += sets * reps;
+                    } else if (reps != null) {
+                        total += reps;
+                    }
+                }
+            }
+            return Math.max(1, total);
+        }
+
+        private static Integer intValue(Object value) {
+            if (value instanceof Number number) {
+                return number.intValue();
+            }
+            if (value instanceof String string && !string.isBlank()) {
+                return Integer.valueOf(string);
+            }
+            return null;
+        }
+
         String primaryMetricName() {
             return primaryMetric.name().toLowerCase(Locale.ROOT);
         }
@@ -531,12 +617,12 @@ public class HealthQuestProgressEvaluator {
 
     private enum ExerciseCategory {
         WALKING("걷기", Set.of("walk", "walking", "걷")),
-        RUNNING("러닝", Set.of("run", "running", "jog", "jogging", "러닝", "조깅")),
-        CYCLING("자전거", Set.of("cycle", "cycling", "bike", "biking", "자전거")),
-        SWIMMING("수영", Set.of("swim", "swimming", "수영")),
-        CARDIO("유산소", Set.of("cardio", "aerobic", "유산소")),
-        STRENGTH("근력", Set.of("strength", "weight", "resistance", "bodyweight", "upper", "lower", "full_body", "core", "근력", "상체", "하체", "전신", "홈트")),
-        YOGA("요가", Set.of("yoga", "요가")),
+        RUNNING("러닝", Set.of("run", "running", "jog", "jogging", "track_running", "treadmill", "러닝", "조깅")),
+        CYCLING("자전거", Set.of("cycle", "cycling", "bike", "biking", "stationary_biking", "indoor_bike", "자전거")),
+        SWIMMING("수영", Set.of("swim", "swimming", "pool_swimming", "open_water_swimming", "수영")),
+        CARDIO("유산소", Set.of("cardio", "aerobic", "aerobics", "elliptical", "jump_rope", "jumping_jacks", "burpees", "유산소")),
+        STRENGTH("근력", Set.of("strength", "weight", "resistance", "bodyweight", "upper", "lower", "full_body", "core", "push_ups", "pull_ups", "sit_ups", "circuit_training", "mountain_climbers", "bench_press", "squats", "lunges", "leg_presses", "leg_extensions", "leg_curls", "back_extensions", "lat_pulldowns", "deadlifts", "shoulder_presses", "front_raises", "lateral_raises", "crunch", "leg_raises", "plank", "arm_curls", "arm_extensions", "weight_machine", "근력", "상체", "하체", "전신", "홈트")),
+        YOGA("요가", Set.of("yoga", "pilates", "요가", "필라테스")),
         STRETCHING("스트레칭", Set.of("stretch", "stretching", "mobility", "스트레칭", "가동성")),
         RECOVERY("회복", Set.of("recovery", "회복")),
         GENERAL("운동", Set.of());

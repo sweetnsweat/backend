@@ -102,17 +102,43 @@ type CompleteQuestRequest = {
 
 type HealthMetricSampleRequest = {
   type?: string;
-  value: number;
+  value?: number;
   unit?: string;
   startTime: string;
   endTime?: string;
-  source: 'health_connect' | string;
+  source: 'health_connect' | 'samsung_health_data' | string;
   dataOrigin?: string;
   rawRecordType?: string;
+  exerciseType?: string;
+  duration?: number;
+  durationUnit?: 'minutes' | 'seconds' | 'milliseconds' | string;
+  calories?: number;
+  distanceMeters?: number;
+  count?: number;
+  customTitle?: string;
 };
 ```
 
-완료 버튼은 하나만 둔다. 프론트는 가능한 경우 Health Connect 데이터를 읽어서 `healthSamples`에 담아 보내고, 백엔드가 완료 유형을 결정한다.
+완료 버튼은 하나만 둔다. 프론트는 가능한 경우 Health Connect 또는 Samsung Health Data SDK 데이터를 읽어서 `healthSamples`에 담아 보내고, 백엔드가 완료 유형을 결정한다.
+
+Samsung Health Data SDK의 `ExerciseSession`은 세션 개수 카운트가 아니라 운동 1건이다. 삼성 API 기준으로 세션에는 `startTime`, `endTime`, `exerciseType`, `duration`, `calories`가 필수이고, 운동에 따라 `distance`, `count`, `customTitle` 등이 추가된다. 따라서 삼성 세션은 아래처럼 보낸다.
+
+```json
+{
+  "type": "ExerciseSession",
+  "source": "samsung_health_data",
+  "rawRecordType": "ExerciseSession",
+  "exerciseType": "PUSH_UPS",
+  "duration": 12,
+  "durationUnit": "minutes",
+  "calories": 90,
+  "count": 80,
+  "startTime": "2026-05-25T10:00:00Z",
+  "endTime": "2026-05-25T10:12:00Z",
+  "dataOrigin": "com.sec.android.app.shealth",
+  "customTitle": "push ups"
+}
+```
 
 ### 완료 응답 분기
 
@@ -263,6 +289,24 @@ Power
 | 수영 | `ExerciseSession`, `Distance`, `HeartRate` |
 | 근력/홈트 | `ExerciseSession`, `ActiveCaloriesBurned`, `HeartRate` |
 | 요가/스트레칭/회복 | `ExerciseSession` |
+
+### 퀘스트 완료 검증 기준
+
+백엔드는 검증 기준을 널널하게 잡는다. 건강 데이터가 부족해도 퀘스트 자체는 `MANUAL`로 완료되며, 아래 기준 중 하나라도 충족하면 `VERIFIED`가 된다.
+
+| 카테고리 | VERIFIED 가능 조건 |
+| --- | --- |
+| 걷기 | 걸음 수 60% 이상, 또는 운동 시간 60% 이상 + 300걸음 이상, 또는 걷기 세션 타입 일치 + 운동 시간 40% 이상 |
+| 러닝/자전거/수영/유산소 | 거리 60% 이상, 또는 운동 시간 60% 이상, 또는 활동 칼로리 50% 이상, 또는 세션 타입 일치 + 운동 시간 40% 이상, 또는 심박 상승 + 운동 시간 40% 이상 |
+| 근력/홈트 | 운동 시간 60% 이상, 또는 활동 칼로리 50% 이상, 또는 반복 수 60% 이상, 또는 근력 세션 타입 일치 + 운동 시간 40% 이상, 또는 심박 상승 + 운동 시간 40% 이상 |
+| 요가/스트레칭/회복 | 운동 시간 60% 이상, 또는 세션 타입 일치 + 운동 시간 40% 이상, 또는 심박 상승 + 운동 시간 40% 이상 |
+| 일반 운동 | 주 지표 60% 이상, 또는 운동 시간 60% 이상, 또는 활동 칼로리 50% 이상, 또는 심박 상승 + 운동 시간 40% 이상 |
+
+운동 시간은 `ExerciseSession.duration`이 있으면 그 값을 우선 사용하고, 없으면 `startTime`~`endTime` 차이로 계산한다. `ExerciseSession`이 없으면 HeartRate/Steps 같은 샘플들의 유효 시간 범위로 운동 시간을 보수적으로 추정한다.
+
+활동 칼로리는 별도 `ActiveCaloriesBurned`/`TotalCaloriesBurned` 샘플과 Samsung `ExerciseSession.calories`를 합산한다. 거리는 `Distance` 샘플과 Samsung `ExerciseSession.distanceMeters`를 합산한다. 근력 반복 수는 Samsung `ExerciseSession.count`를 사용한다.
+
+세션 타입 일치는 `exerciseType`, `customTitle`, `rawRecordType` 문자열을 기준으로 판단한다. 예: `PUSH_UPS`, `SQUATS`, `DEADLIFTS`, `WEIGHT_MACHINE`은 근력으로, `YOGA`/`PILATES`는 요가로, `RUNNING`/`TREADMILL`은 러닝으로 본다.
 
 ### 기존 수동 완료 호환
 
