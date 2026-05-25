@@ -157,18 +157,19 @@ public class BattleService {
         }
 
         User opponent = opponentQueue.get().getUser();
+        Instant matchedAt = KoreanTime.nowInstant();
         Battle battle = battleRepository.save(Battle.create(
                 mode,
                 period.startDate(),
                 period.endDate(),
-                period.startsAt(),
+                matchedAt,
                 period.endsAt()
         ));
         List<BattleParticipant> participants = battleParticipantRepository.saveAll(List.of(
                 BattleParticipant.join(battle, currentUser),
                 BattleParticipant.join(battle, opponent)
         ));
-        Instant matchedAt = KoreanTime.nowInstant();
+        participants.forEach(participant -> updateBaseline(participant, period));
         opponentQueue.get().match(battle, matchedAt);
         myQueue.match(battle, matchedAt);
         notificationService.sendBattleMatched(battle, participants);
@@ -241,8 +242,8 @@ public class BattleService {
         BattlePeriod period = BattlePeriod.fromBattle(battle);
         BattleParticipant first = participants.get(0);
         BattleParticipant second = participants.get(1);
-        BattleStats firstStats = loadStats(first.getUser().getId(), period);
-        BattleStats secondStats = loadStats(second.getUser().getId(), period);
+        BattleStats firstStats = loadBattleStats(first, period);
+        BattleStats secondStats = loadBattleStats(second, period);
 
         int firstScore = shopPassEffectService.applyRecordShield(
                 first.getUser().getId(), battle.getMode(), battle.getId(), firstStats.totalScore());
@@ -399,8 +400,10 @@ public class BattleService {
                 .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "BATTLE_PARTICIPANT_INVALID", "배틀 참여자 구성이 올바르지 않습니다."));
 
         Map<Long, BattleStats> statsByUserId = participants.stream()
-                .map(BattleParticipant::getUser)
-                .collect(Collectors.toMap(User::getId, user -> loadStats(user.getId(), period)));
+                .collect(Collectors.toMap(
+                        participant -> participant.getUser().getId(),
+                        participant -> loadBattleStats(participant, period)
+                ));
         BattleStats myStats = statsByUserId.get(me.getUser().getId());
         BattleStats opponentStats = statsByUserId.get(opponent.getUser().getId());
         List<BattleParticipantResponse> participantResponses = participants.stream()
@@ -465,6 +468,37 @@ public class BattleService {
                 + Math.round(steps * 0.01f)
                 + activeCalories * 2;
         return new BattleStats(totalScore, completedQuestCount, routineQuestCount, activeMinutes, steps, distanceMeters, activeCalories, healthVerifiedQuestCount);
+    }
+
+    private void updateBaseline(BattleParticipant participant, BattlePeriod period) {
+        BattleStats baseline = loadStats(participant.getUser().getId(), period);
+        participant.updateBaseline(
+                baseline.totalScore(),
+                baseline.completedQuestCount(),
+                baseline.routineQuestCount(),
+                baseline.activeMinutes(),
+                baseline.steps(),
+                baseline.distanceMeters(),
+                baseline.activeCalories(),
+                baseline.healthVerifiedQuestCount()
+        );
+    }
+
+    private BattleStats loadBattleStats(BattleParticipant participant, BattlePeriod period) {
+        return loadStats(participant.getUser().getId(), period).minus(baselineStats(participant));
+    }
+
+    private BattleStats baselineStats(BattleParticipant participant) {
+        return new BattleStats(
+                participant.getBaselineScore(),
+                participant.getBaselineCompletedQuestCount(),
+                participant.getBaselineRoutineQuestCount(),
+                participant.getBaselineExerciseMinutes(),
+                participant.getBaselineSteps(),
+                participant.getBaselineDistanceMeters(),
+                participant.getBaselineActiveCalories(),
+                participant.getBaselineHealthVerifiedQuestCount()
+        );
     }
 
     private boolean battleEligible(UserQuest quest) {
@@ -636,6 +670,23 @@ public class BattleService {
                                int healthVerifiedQuestCount) {
         static BattleStats empty() {
             return new BattleStats(0, 0, 0, 0, 0, 0, 0, 0);
+        }
+
+        BattleStats minus(BattleStats baseline) {
+            return new BattleStats(
+                    nonNegative(totalScore - baseline.totalScore()),
+                    nonNegative(completedQuestCount - baseline.completedQuestCount()),
+                    nonNegative(routineQuestCount - baseline.routineQuestCount()),
+                    nonNegative(activeMinutes - baseline.activeMinutes()),
+                    nonNegative(steps - baseline.steps()),
+                    nonNegative(distanceMeters - baseline.distanceMeters()),
+                    nonNegative(activeCalories - baseline.activeCalories()),
+                    nonNegative(healthVerifiedQuestCount - baseline.healthVerifiedQuestCount())
+            );
+        }
+
+        private static int nonNegative(int value) {
+            return Math.max(0, value);
         }
     }
 

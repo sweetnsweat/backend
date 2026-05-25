@@ -156,10 +156,10 @@ class BattleControllerTest {
                 .andExpect(jsonPath("$.data.matchStatus").value("MATCHED"))
                 .andExpect(jsonPath("$.data.participants.length()").value(2))
                 .andExpect(jsonPath("$.data.participants[0].userId").value(me.userId()))
-                .andExpect(jsonPath("$.data.participants[0].score").value(980))
+                .andExpect(jsonPath("$.data.participants[0].score").value(0))
                 .andExpect(jsonPath("$.data.participants[1].userId").value(opponent.userId()))
-                .andExpect(jsonPath("$.data.participants[1].score").value(779))
-                .andExpect(jsonPath("$.data.score.leadingUserId").value(me.userId()))
+                .andExpect(jsonPath("$.data.participants[1].score").value(0))
+                .andExpect(jsonPath("$.data.score.leadingUserId").doesNotExist())
                 .andExpect(jsonPath("$.data.metrics[0].metricKey").value("TOTAL_SCORE"))
                 .andExpect(jsonPath("$.data.metrics[1].metricKey").value("ACTIVE_MINUTES"));
 
@@ -240,8 +240,6 @@ class BattleControllerTest {
         TestUser me = testUser("battleManualMe", "수동완료");
         TestUser opponent = testUser("battleManualOpponent", "상대");
         LocalDate today = KoreanTime.today();
-        seedCompletedQuest(me.userId(), today, "routine", manualProofWithLargeMetrics());
-
         mockMvc.perform(post("/api/battles/match")
                         .header("Authorization", "Bearer " + opponent.accessToken())
                         .contentType("application/json")
@@ -263,8 +261,18 @@ class BattleControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.participants[0].userId").value(me.userId()))
-                .andExpect(jsonPath("$.data.participants[0].score").value(100))
+                .andExpect(jsonPath("$.data.participants[0].score").value(0))
                 .andExpect(jsonPath("$.data.participants[1].userId").value(opponent.userId()))
+                .andExpect(jsonPath("$.data.participants[1].score").value(0))
+                .andExpect(jsonPath("$.data.score.leadingUserId").doesNotExist());
+
+        Long battleId = jdbcTemplate.queryForObject("select id from battles", Long.class);
+        seedCompletedQuest(me.userId(), today, "routine", manualProofWithLargeMetrics());
+
+        mockMvc.perform(get("/api/battles/{battleId}", battleId)
+                        .header("Authorization", "Bearer " + me.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.participants[0].score").value(100))
                 .andExpect(jsonPath("$.data.participants[1].score").value(0))
                 .andExpect(jsonPath("$.data.score.leadingUserId").value(me.userId()))
                 .andExpect(jsonPath("$.data.metrics[5].metricKey").value("COMPLETED_QUESTS"))
@@ -277,7 +285,6 @@ class BattleControllerTest {
         TestUser me = testUser("battleManualHealthMe", "수동건강");
         TestUser opponent = testUser("battleManualHealthOpponent", "상대");
         LocalDate today = KoreanTime.today();
-        seedCompletedQuest(me.userId(), today, "routine", manualProofWithLargeMetrics());
         seedHealthDailySummary(me.userId(), today, 3000, 2000, 150, 20);
 
         mockMvc.perform(post("/api/battles/match")
@@ -300,12 +307,21 @@ class BattleControllerTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.participants[0].score").value(690))
-                .andExpect(jsonPath("$.data.metrics[0].myValue").value("690점"))
-                .andExpect(jsonPath("$.data.metrics[1].myValue").value("20분"))
-                .andExpect(jsonPath("$.data.metrics[2].myValue").value("2000m"))
-                .andExpect(jsonPath("$.data.metrics[3].myValue").value("3000걸음"))
-                .andExpect(jsonPath("$.data.metrics[4].myValue").value("150kcal"))
+                .andExpect(jsonPath("$.data.participants[0].score").value(0));
+
+        Long battleId = jdbcTemplate.queryForObject("select id from battles", Long.class);
+        seedCompletedQuest(me.userId(), today, "routine", manualProofWithLargeMetrics());
+        updateHealthDailySummary(me.userId(), today, 5000, 3500, 240, 35);
+
+        mockMvc.perform(get("/api/battles/{battleId}", battleId)
+                        .header("Authorization", "Bearer " + me.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.participants[0].score").value(495))
+                .andExpect(jsonPath("$.data.metrics[0].myValue").value("495점"))
+                .andExpect(jsonPath("$.data.metrics[1].myValue").value("15분"))
+                .andExpect(jsonPath("$.data.metrics[2].myValue").value("1500m"))
+                .andExpect(jsonPath("$.data.metrics[3].myValue").value("2000걸음"))
+                .andExpect(jsonPath("$.data.metrics[4].myValue").value("90kcal"))
                 .andExpect(jsonPath("$.data.metrics[5].myValue").value("1개"));
     }
 
@@ -334,9 +350,6 @@ class BattleControllerTest {
         TestUser me = testUser("battleWinner", "승자");
         TestUser opponent = testUser("battleLoser", "패자");
         LocalDate today = KoreanTime.today();
-        seedCompletedQuest(me.userId(), today, "routine", healthProof(30, 4000, 3000, 200));
-        seedCompletedQuest(opponent.userId(), today, "off_day", healthProof(10, 800, 300, 50));
-
         mockMvc.perform(post("/api/battles/match")
                         .header("Authorization", "Bearer " + opponent.accessToken())
                         .contentType("application/json")
@@ -358,6 +371,8 @@ class BattleControllerTest {
                                 """))
                 .andExpect(status().isOk());
         Long battleId = jdbcTemplate.queryForObject("select id from battles", Long.class);
+        seedCompletedQuest(me.userId(), today, "routine", healthProof(30, 4000, 3000, 200));
+        seedCompletedQuest(opponent.userId(), today, "off_day", healthProof(10, 800, 300, 50));
         jdbcTemplate.update(
                 "update battles set ends_at = ? where id = ?",
                 Timestamp.from(KoreanTime.nowInstant().minus(Duration.ofMinutes(1))),
@@ -518,6 +533,26 @@ class BattleControllerTest {
                 )
                 values (?, ?, ?, ?, ?, ?, 4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """, userId, summaryDate, steps, distanceMeters, activeCalories, exerciseMinutes);
+    }
+
+    private void updateHealthDailySummary(Long userId,
+                                          LocalDate summaryDate,
+                                          int steps,
+                                          int distanceMeters,
+                                          int activeCalories,
+                                          int exerciseMinutes) {
+        jdbcTemplate.update("""
+                update health_daily_summaries
+                set steps = ?,
+                    distance_meters = ?,
+                    active_calories_kcal = ?,
+                    exercise_minutes = ?,
+                    sample_count = 8,
+                    synced_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                where user_id = ?
+                  and summary_date = ?
+                """, steps, distanceMeters, activeCalories, exerciseMinutes, userId, summaryDate);
     }
 
     private int expRewardCount(Long userId, Long battleId) {

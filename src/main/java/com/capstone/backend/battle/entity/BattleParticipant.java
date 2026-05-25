@@ -39,6 +39,30 @@ public class BattleParticipant {
     @Column(name = "final_score")
     private Integer finalScore;
 
+    @Column(name = "baseline_score", nullable = false)
+    private Integer baselineScore;
+
+    @Column(name = "baseline_completed_quest_count", nullable = false)
+    private Integer baselineCompletedQuestCount;
+
+    @Column(name = "baseline_routine_quest_count", nullable = false)
+    private Integer baselineRoutineQuestCount;
+
+    @Column(name = "baseline_exercise_minutes", nullable = false)
+    private Integer baselineExerciseMinutes;
+
+    @Column(name = "baseline_steps", nullable = false)
+    private Integer baselineSteps;
+
+    @Column(name = "baseline_distance_meters", nullable = false)
+    private Integer baselineDistanceMeters;
+
+    @Column(name = "baseline_active_calories", nullable = false)
+    private Integer baselineActiveCalories;
+
+    @Column(name = "baseline_health_verified_quest_count", nullable = false)
+    private Integer baselineHealthVerifiedQuestCount;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "result", nullable = false, length = 20)
     private BattleResult result;
@@ -62,11 +86,53 @@ public class BattleParticipant {
         this.result = result;
     }
 
+    public void updateBaseline(int score,
+                               int completedQuestCount,
+                               int routineQuestCount,
+                               int exerciseMinutes,
+                               int steps,
+                               int distanceMeters,
+                               int activeCalories,
+                               int healthVerifiedQuestCount) {
+        this.baselineScore = Math.max(0, score);
+        this.baselineCompletedQuestCount = Math.max(0, completedQuestCount);
+        this.baselineRoutineQuestCount = Math.max(0, routineQuestCount);
+        this.baselineExerciseMinutes = Math.max(0, exerciseMinutes);
+        this.baselineSteps = Math.max(0, steps);
+        this.baselineDistanceMeters = Math.max(0, distanceMeters);
+        this.baselineActiveCalories = Math.max(0, activeCalories);
+        this.baselineHealthVerifiedQuestCount = Math.max(0, healthVerifiedQuestCount);
+    }
+
     @PrePersist
     void onCreate() {
         this.joinedAt = KoreanTime.nowInstant();
         if (this.result == null) {
             this.result = BattleResult.PENDING;
+        }
+        if (this.baselineScore == null) {
+            this.baselineScore = 0;
+        }
+        if (this.baselineCompletedQuestCount == null) {
+            this.baselineCompletedQuestCount = 0;
+        }
+        if (this.baselineRoutineQuestCount == null) {
+            this.baselineRoutineQuestCount = 0;
+        }
+        if (this.baselineExerciseMinutes == null) {
+            this.baselineExerciseMinutes = 0;
+        }
+        if (this.baselineSteps == null) {
+            this.baselineSteps = 0;
+        }
+        if (this.baselineDistanceMeters == null) {
+            this.baselineDistanceMeters = 0;
+        }
+        if (this.baselineActiveCalories == null) {
+            this.baselineActiveCalories = 0;
+        }
+        if (this.baselineHealthVerifiedQuestCount == null) {
+            this.baselineHealthVerifiedQuestCount = 0;
         }
     }
 
@@ -92,5 +158,37 @@ public class BattleParticipant {
 
     public Instant getJoinedAt() {
         return joinedAt;
+    }
+
+    public Integer getBaselineScore() {
+        return baselineScore == null ? 0 : baselineScore;
+    }
+
+    public Integer getBaselineCompletedQuestCount() {
+        return baselineCompletedQuestCount == null ? 0 : baselineCompletedQuestCount;
+    }
+
+    public Integer getBaselineRoutineQuestCount() {
+        return baselineRoutineQuestCount == null ? 0 : baselineRoutineQuestCount;
+    }
+
+    public Integer getBaselineExerciseMinutes() {
+        return baselineExerciseMinutes == null ? 0 : baselineExerciseMinutes;
+    }
+
+    public Integer getBaselineSteps() {
+        return baselineSteps == null ? 0 : baselineSteps;
+    }
+
+    public Integer getBaselineDistanceMeters() {
+        return baselineDistanceMeters == null ? 0 : baselineDistanceMeters;
+    }
+
+    public Integer getBaselineActiveCalories() {
+        return baselineActiveCalories == null ? 0 : baselineActiveCalories;
+    }
+
+    public Integer getBaselineHealthVerifiedQuestCount() {
+        return baselineHealthVerifiedQuestCount == null ? 0 : baselineHealthVerifiedQuestCount;
     }
 }
