@@ -33,10 +33,10 @@ public class RecordStatsController {
                     - period=WEEKLY: KST 기준 이번 주 월요일부터 일요일까지 조회합니다.
                     - period=MONTHLY: KST 기준 이번 달 1일부터 말일까지 조회합니다.
                     - period=YEARLY: KST 기준 올해 1월 1일부터 12월 31일까지 조회합니다.
-                    - conditionTrend는 라인 차트용 일자별 컨디션/에너지/스트레스/건강 데이터입니다.
+                    - conditionTrend는 라인 차트용 컨디션/에너지/스트레스/건강 데이터입니다. WEEKLY, MONTHLY는 일 단위이고 YEARLY는 1월-12월 월 단위입니다.
                     - summary는 상단 카드용 평균 컨디션, 운동 횟수, 개선율, 누적 건강 데이터입니다.
                     - exerciseEffects는 운동별 효과 분석 막대 차트용 데이터입니다.
-                    - dailyRecords는 표 형태의 일자별 기록입니다.
+                    - dailyRecords는 표 형태의 기록입니다. WEEKLY, MONTHLY는 일 단위이고 YEARLY는 월 단위 집계입니다.
                     - insight는 현재 데이터 기반의 룰베이스 요약 문구입니다.
                     """
     )
