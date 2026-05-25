@@ -80,9 +80,16 @@ class ShopControllerTest {
                 .andExpect(jsonPath("$.data.items[0].purchasable").value(true))
                 .andExpect(jsonPath("$.data.items[0].equipped").value(true))
                 .andExpect(jsonPath("$.data.items[0].special").value(false))
+                .andExpect(jsonPath("$.data.items[0].statusLabel").value("장착중"))
+                .andExpect(jsonPath("$.data.items[0].ownedLabel").value("소유중"))
+                .andExpect(jsonPath("$.data.items[0].equippedLabel").value("장착중"))
+                .andExpect(jsonPath("$.data.items[0].specialLabel").doesNotExist())
                 .andExpect(jsonPath("$.data.items[0].imageUrl").value("http://localhost:8000/media/assets/test_item.png"))
                 .andExpect(jsonPath("$.data.items[1].owned").value(false))
                 .andExpect(jsonPath("$.data.items[1].ownedQuantity").doesNotExist())
+                .andExpect(jsonPath("$.data.items[1].statusLabel").value("미보유"))
+                .andExpect(jsonPath("$.data.items[1].ownedLabel").value("미보유"))
+                .andExpect(jsonPath("$.data.items[1].equippedLabel").doesNotExist())
                 .andExpect(jsonPath("$.data.items[1].purchasable").value(false));
     }
 
@@ -132,7 +139,10 @@ class ShopControllerTest {
                 .andExpect(jsonPath("$.data.items[0].category").value("pass"))
                 .andExpect(jsonPath("$.data.items[0].categoryLabel").value("패스"))
                 .andExpect(jsonPath("$.data.items[0].owned").value(true))
-                .andExpect(jsonPath("$.data.items[0].ownedQuantity").value(3));
+                .andExpect(jsonPath("$.data.items[0].ownedQuantity").value(3))
+                .andExpect(jsonPath("$.data.items[0].statusLabel").value("보유 3개"))
+                .andExpect(jsonPath("$.data.items[0].ownedLabel").value("보유 3개"))
+                .andExpect(jsonPath("$.data.items[0].equippedLabel").doesNotExist());
     }
 
     @Test

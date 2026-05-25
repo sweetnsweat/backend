@@ -735,6 +735,9 @@ Authorization: Bearer {accessToken}
         "purchasable": true,
         "equipped": true,
         "special": false,
+        "statusLabel": "장착중",
+        "ownedLabel": "소유중",
+        "equippedLabel": "장착중",
         "effect": "기본 캐릭터",
         "imageUrl": "https://i.imgur.com/v0njcuh.png",
         "metadata": {
@@ -757,6 +760,10 @@ Authorization: Bearer {accessToken}
 - `purchasable`: 현재 잔액으로 구매 가능한지
 - `equipped`: 현재 장착 중인지
 - `special`: 스페셜 표시 여부
+- `statusLabel`: 프론트 표시용 한글 상태. 캐릭터는 `장착중`, `소유중`, `미보유`; 패스는 `보유 N개`, `미보유`
+- `ownedLabel`: 프론트 표시용 한글 보유 상태
+- `equippedLabel`: 캐릭터 장착 상태 한글 라벨. 장착 중이면 `장착중`, 보유 중이면 `장착 가능`, 미보유/패스는 미노출
+- `specialLabel`: 스페셜 아이템이면 `스페셜`, 아니면 미노출
 - `effect`: 효과/라벨 표시 문구
 - `balanceCurrency`: 현재 골드 잔액
 

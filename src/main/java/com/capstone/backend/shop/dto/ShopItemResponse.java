@@ -22,6 +22,12 @@ public record ShopItemResponse(
         Boolean purchasable,
         Boolean equipped,
         Boolean special,
+        String statusLabel,
+        String ownedLabel,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        String equippedLabel,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        String specialLabel,
         String effect,
         String imageUrl,
         Map<String, Object> metadata
@@ -34,6 +40,9 @@ public record ShopItemResponse(
         boolean sellable = Boolean.TRUE.equals(item.getSellable());
         Map<String, Object> metadata = item.getMetadata();
         String category = category(item);
+        boolean owned = ownedQuantity > 0;
+        boolean equipped = owned && item.getImageUrl() != null && item.getImageUrl().equals(equippedProfileImageUrl);
+        boolean special = Boolean.TRUE.equals(metadata.get("special"));
         return new ShopItemResponse(
                 item.getId(),
                 item.getItemType(),
@@ -44,11 +53,15 @@ public record ShopItemResponse(
                 item.getDescription(),
                 item.getPriceCurrency(),
                 sellable,
-                ownedQuantity > 0,
+                owned,
                 "character".equals(category) ? null : ownedQuantity,
                 sellable && balanceCurrency >= item.getPriceCurrency(),
-                ownedQuantity > 0 && item.getImageUrl() != null && item.getImageUrl().equals(equippedProfileImageUrl),
-                Boolean.TRUE.equals(metadata.get("special")),
+                equipped,
+                special,
+                statusLabel(category, ownedQuantity, owned, equipped),
+                ownedLabel(category, ownedQuantity, owned),
+                equippedLabel(category, owned, equipped),
+                special ? "스페셜" : null,
                 stringValue(metadata.get("effect")),
                 mediaUrlResolver.resolve(item.getImageUrl()),
                 metadata
@@ -87,6 +100,33 @@ public record ShopItemResponse(
             case "badge" -> "배지";
             default -> category;
         };
+    }
+
+    private static String statusLabel(String category, int ownedQuantity, boolean owned, boolean equipped) {
+        if ("character".equals(category)) {
+            if (equipped) {
+                return "장착중";
+            }
+            return owned ? "소유중" : "미보유";
+        }
+        return owned ? "보유 " + ownedQuantity + "개" : "미보유";
+    }
+
+    private static String ownedLabel(String category, int ownedQuantity, boolean owned) {
+        if ("character".equals(category)) {
+            return owned ? "소유중" : "미보유";
+        }
+        return owned ? "보유 " + ownedQuantity + "개" : "미보유";
+    }
+
+    private static String equippedLabel(String category, boolean owned, boolean equipped) {
+        if (!"character".equals(category)) {
+            return null;
+        }
+        if (equipped) {
+            return "장착중";
+        }
+        return owned ? "장착 가능" : null;
     }
 
     private static String stringValue(Object value) {

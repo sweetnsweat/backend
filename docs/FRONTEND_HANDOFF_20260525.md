@@ -140,6 +140,8 @@ Authorization: Bearer {accessToken}
   "owned": true,
   "ownedQuantity": 1,
   "purchasable": true,
+  "statusLabel": "보유 1개",
+  "ownedLabel": "보유 1개",
   "effect": "퀘스트 스킵 · 1회",
   "imageUrl": "http://100.89.171.113:8000/media/assets/item_quest_skip.png"
 }
