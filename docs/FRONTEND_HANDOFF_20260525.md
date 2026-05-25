@@ -72,6 +72,21 @@
 
 ## 3. 실제 호출 흐름
 
+최종 UX 흐름은 아래 순서로 고정한다.
+
+```text
+스토리 진행
+-> AI가 백엔드 퀘스트 API 조회 후 퀘스트를 래핑해서 내려줌
+-> 프론트가 퀘스트 화면 표시
+-> 퀘스트 스킵권을 보유 중이면 스킵권 사용 UI 노출
+-> 사용자가 스킵권 사용 누름
+-> 프론트가 POST /api/shop/items/{itemId}/use 호출
+-> 백엔드가 오늘 퀘스트를 완료된 것으로 처리
+-> 프론트가 이어서 POST /api/stories/play 호출
+-> 백엔드가 AI 요청에 today_quest_completed=true 주입
+-> AI는 추가 퀘스트 없이 스토리를 이어감
+```
+
 ### 3.1 스토리 진행
 
 ```http
@@ -99,9 +114,9 @@ GET /api/quests/today/by-user?userId={userId}
 
 AI 서버는 이 응답을 그대로 노출하지 않고 세계관 문장으로 래핑해서 프론트에 내려준다.
 
-### 3.2 퀘스트 스킵권 사용
+### 3.2 퀘스트 스킵권 UI 노출
 
-프론트는 AI가 내려준 퀘스트 화면에서 스킵권 사용 버튼을 제공한다. 사용자가 누르면 상점 아이템 사용 API를 호출한다.
+프론트는 AI가 내려준 퀘스트 화면에서 스킵권 사용 버튼을 제공한다. 단, 버튼은 사용자가 퀘스트 스킵권을 보유 중일 때만 노출한다.
 
 스킵권 보유 여부는 패스 목록에서 확인한다.
 
@@ -129,6 +144,10 @@ Authorization: Bearer {accessToken}
   "imageUrl": "http://100.89.171.113:8000/media/assets/item_quest_skip.png"
 }
 ```
+
+### 3.3 퀘스트 스킵권 사용
+
+사용자가 스킵권 사용을 누르면 프론트는 상점 아이템 사용 API를 호출한다.
 
 ```http
 POST /api/shop/items/{itemId}/use
@@ -179,7 +198,7 @@ Authorization: Bearer {accessToken}
 스킵권 완료는 실제 건강 데이터 검증 완료가 아니므로 `battleEligible=false`로 본다.
 이미 완료된 오늘 퀘스트에 다시 스킵권을 사용하면 `409 QUEST_ALREADY_COMPLETED`가 내려간다.
 
-### 3.3 스킵 후 스토리 재진행
+### 3.4 스킵 후 스토리 재진행
 
 스킵권 사용 성공 후 프론트는 다시 스토리 진행 API를 호출한다.
 
@@ -198,10 +217,6 @@ Content-Type: application/json
 백엔드는 다음 스토리 진행 API들을 AI 서버로 프록시할 때 오늘 퀘스트 상태를 자동으로 붙인다.
 
 - `POST /api/stories/play`
-- `POST /api/stories/play/start`
-- `POST /api/stories/play/continue`
-- `POST /api/stories/play/choose`
-- `POST /api/stories/play/next-chapter`
 
 프론트는 이 필드를 직접 보내거나 직접 조회할 필요가 없다. 백엔드가 로그인 사용자 기준으로 조회해서 AI 서버 요청 body에 주입한다.
 
