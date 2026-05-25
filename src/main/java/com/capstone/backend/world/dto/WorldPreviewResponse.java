@@ -14,7 +14,7 @@ public record WorldPreviewResponse(
         List<CharacterResponse> characters,
         EntryResponse entry
 ) {
-    private static final String METRIC_ACTIVE_CHAT_COUNT = "ACTIVE_CHAT_COUNT";
+    private static final String METRIC_PARTICIPANT_COUNT = "PARTICIPANT_COUNT";
 
     public static WorldPreviewResponse from(Scenario scenario,
                                             List<String> genres,
@@ -32,7 +32,7 @@ public record WorldPreviewResponse(
 
         return new WorldPreviewResponse(
                 ScenarioResponse.from(scenario, genres, mediaUrlResolver),
-                new RankingResponse(METRIC_ACTIVE_CHAT_COUNT, score),
+                new RankingResponse(METRIC_PARTICIPANT_COUNT, score),
                 representativeCharacter,
                 characterResponses,
                 EntryResponse.from(scenario, progress)

@@ -30,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class WorldService {
 
-    private static final String METRIC_ACTIVE_CHAT_COUNT = "ACTIVE_CHAT_COUNT";
+    private static final String METRIC_PARTICIPANT_COUNT = "PARTICIPANT_COUNT";
 
     private final StoryProgressRepository storyProgressRepository;
     private final ScenarioRepository scenarioRepository;
@@ -52,12 +52,9 @@ public class WorldService {
 
     @Transactional(readOnly = true)
     public WorldRankingListResponse getRankings(int limit) {
-        List<StoryProgressRepository.WorldRankingRow> rows = storyProgressRepository.findWorldRankingRows(
-                StoryProgress.STATUS_IN_PROGRESS,
-                PageRequest.of(0, limit)
-        );
+        List<StoryProgressRepository.WorldRankingRow> rows = storyProgressRepository.findWorldRankingRows(PageRequest.of(0, limit));
         if (rows.isEmpty()) {
-            return new WorldRankingListResponse(METRIC_ACTIVE_CHAT_COUNT, List.of());
+            return new WorldRankingListResponse(METRIC_PARTICIPANT_COUNT, List.of());
         }
 
         List<Integer> scenarioIds = rows.stream()
@@ -82,7 +79,7 @@ public class WorldService {
                     mediaUrlResolver
             ));
         }
-        return new WorldRankingListResponse(METRIC_ACTIVE_CHAT_COUNT, rankings);
+        return new WorldRankingListResponse(METRIC_PARTICIPANT_COUNT, rankings);
     }
 
     @Transactional(readOnly = true)
@@ -96,10 +93,7 @@ public class WorldService {
                 scenarioId,
                 String.valueOf(userId)
         ).orElse(null);
-        long score = storyProgressRepository.countDistinctUserKeyByScenarioIdAndStatus(
-                scenarioId,
-                StoryProgress.STATUS_IN_PROGRESS
-        );
+        long score = storyProgressRepository.countDistinctUserKeyByScenarioId(scenarioId);
 
         return WorldPreviewResponse.from(scenario, genres, characters, progress, score, mediaUrlResolver);
     }
@@ -111,14 +105,13 @@ public class WorldService {
         String normalizedGenre = normalizeFilter(genre);
         String normalizedKeyword = normalizeFilter(keyword);
         Page<StoryProgressRepository.WorldRankingRow> rowPage = storyProgressRepository.findWorldRankingFullRows(
-                StoryProgress.STATUS_IN_PROGRESS,
                 normalizedGenre,
                 normalizedKeyword,
                 PageRequest.of(normalizedPage, normalizedSize)
         );
         if (rowPage.isEmpty()) {
             return new WorldRankingPageResponse(
-                    METRIC_ACTIVE_CHAT_COUNT,
+                    METRIC_PARTICIPANT_COUNT,
                     normalizedGenre,
                     normalizedKeyword,
                     rowPage.getNumber(),
@@ -159,7 +152,7 @@ public class WorldService {
         }
 
         return new WorldRankingPageResponse(
-                METRIC_ACTIVE_CHAT_COUNT,
+                METRIC_PARTICIPANT_COUNT,
                 normalizedGenre,
                 normalizedKeyword,
                 rowPage.getNumber(),
