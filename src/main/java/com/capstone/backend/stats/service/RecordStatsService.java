@@ -23,12 +23,14 @@ import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -51,7 +53,8 @@ public class RecordStatsService {
 
     @Transactional(readOnly = true)
     public RecordStatsResponse getStats(Long userId, RecordStatsPeriod period) {
-        DateRange range = dateRange(period == null ? RecordStatsPeriod.WEEKLY : period);
+        RecordStatsPeriod effectivePeriod = period == null ? RecordStatsPeriod.WEEKLY : period;
+        DateRange range = dateRange(effectivePeriod);
         Map<LocalDate, ConditionLog> conditionsByDate = conditionLogRepository
                 .findByUser_IdAndLogDateBetweenOrderByLogDateAsc(userId, range.startDate(), range.endDate())
                 .stream()
@@ -65,18 +68,14 @@ public class RecordStatsService {
                 .collect(Collectors.groupingBy(UserQuest::getQuestDate, LinkedHashMap::new, Collectors.toList()));
 
         List<LocalDate> dates = range.dates();
-        List<ConditionTrendPoint> conditionTrend = dates.stream()
-                .map(date -> trendPoint(date, conditionsByDate.get(date), healthByDate.get(date), questsByDate.getOrDefault(date, List.of()).size()))
-                .toList();
-        List<DailyRecord> dailyRecords = dates.stream()
-                .map(date -> dailyRecord(date, conditionsByDate.get(date), healthByDate.get(date), questsByDate.getOrDefault(date, List.of())))
-                .toList();
+        List<ConditionTrendPoint> conditionTrend = conditionTrend(effectivePeriod, range, dates, conditionsByDate, healthByDate, questsByDate);
+        List<DailyRecord> dailyRecords = dailyRecords(effectivePeriod, range, dates, conditionsByDate, healthByDate, questsByDate);
         List<ExerciseEffect> exerciseEffects = exerciseEffects(completedQuests, conditionsByDate, healthByDate, dates);
         RecordStatsSummary summary = summary(conditionsByDate, healthByDate, completedQuests, questsByDate);
         Insight insight = insight(summary, exerciseEffects);
 
         return new RecordStatsResponse(
-                period == null ? RecordStatsPeriod.WEEKLY : period,
+                effectivePeriod,
                 range.startDate(),
                 range.endDate(),
                 summary,
@@ -103,6 +102,38 @@ public class RecordStatsService {
                     today.withDayOfYear(today.lengthOfYear())
             );
         };
+    }
+
+    private List<ConditionTrendPoint> conditionTrend(RecordStatsPeriod period,
+                                                     DateRange range,
+                                                     List<LocalDate> dates,
+                                                     Map<LocalDate, ConditionLog> conditionsByDate,
+                                                     Map<LocalDate, HealthDailySummary> healthByDate,
+                                                     Map<LocalDate, List<UserQuest>> questsByDate) {
+        if (period != RecordStatsPeriod.YEARLY) {
+            return dates.stream()
+                    .map(date -> trendPoint(date, conditionsByDate.get(date), healthByDate.get(date), questsByDate.getOrDefault(date, List.of()).size()))
+                    .toList();
+        }
+        return monthRanges(range).stream()
+                .map(monthRange -> monthlyTrendPoint(monthRange, conditionsByDate, healthByDate, questsByDate))
+                .toList();
+    }
+
+    private List<DailyRecord> dailyRecords(RecordStatsPeriod period,
+                                           DateRange range,
+                                           List<LocalDate> dates,
+                                           Map<LocalDate, ConditionLog> conditionsByDate,
+                                           Map<LocalDate, HealthDailySummary> healthByDate,
+                                           Map<LocalDate, List<UserQuest>> questsByDate) {
+        if (period != RecordStatsPeriod.YEARLY) {
+            return dates.stream()
+                    .map(date -> dailyRecord(date, conditionsByDate.get(date), healthByDate.get(date), questsByDate.getOrDefault(date, List.of())))
+                    .toList();
+        }
+        return monthRanges(range).stream()
+                .map(monthRange -> monthlyRecord(monthRange, conditionsByDate, healthByDate, questsByDate))
+                .toList();
     }
 
     private ConditionTrendPoint trendPoint(LocalDate date,
@@ -141,6 +172,81 @@ public class RecordStatsService {
                 value(health == null ? null : health.getActiveCaloriesKcal()),
                 quests.size()
         );
+    }
+
+    private ConditionTrendPoint monthlyTrendPoint(DateRange monthRange,
+                                                  Map<LocalDate, ConditionLog> conditionsByDate,
+                                                  Map<LocalDate, HealthDailySummary> healthByDate,
+                                                  Map<LocalDate, List<UserQuest>> questsByDate) {
+        List<ConditionLog> conditions = conditionsInRange(monthRange, conditionsByDate);
+        List<HealthDailySummary> healthSummaries = healthInRange(monthRange, healthByDate);
+        List<UserQuest> quests = questsInRange(monthRange, questsByDate);
+        return new ConditionTrendPoint(
+                monthRange.startDate(),
+                monthLabel(monthRange.startDate()),
+                roundedAverageInteger(conditions.stream().map(this::conditionLevel).toList()),
+                averageBigDecimal(conditions.stream().map(ConditionLog::getConditionScore).toList()),
+                roundedAverageInteger(conditions.stream().map(this::energyLevel).toList()),
+                roundedAverageInteger(conditions.stream().map(ConditionLog::getStressScore).toList()),
+                healthSummaries.stream().mapToInt(summary -> value(summary.getExerciseMinutes())).sum(),
+                healthSummaries.stream().mapToInt(summary -> value(summary.getSteps())).sum(),
+                healthSummaries.stream().mapToInt(summary -> value(summary.getDistanceMeters())).sum(),
+                healthSummaries.stream().mapToInt(summary -> value(summary.getActiveCaloriesKcal())).sum(),
+                quests.size()
+        );
+    }
+
+    private DailyRecord monthlyRecord(DateRange monthRange,
+                                      Map<LocalDate, ConditionLog> conditionsByDate,
+                                      Map<LocalDate, HealthDailySummary> healthByDate,
+                                      Map<LocalDate, List<UserQuest>> questsByDate) {
+        List<ConditionLog> conditions = conditionsInRange(monthRange, conditionsByDate);
+        List<HealthDailySummary> healthSummaries = healthInRange(monthRange, healthByDate);
+        List<UserQuest> quests = questsInRange(monthRange, questsByDate);
+        return new DailyRecord(
+                monthRange.startDate(),
+                monthLabel(monthRange.startDate()),
+                exerciseLabel(quests),
+                roundedAverageInteger(conditions.stream().map(this::conditionLevel).toList()),
+                averageBigDecimal(conditions.stream().map(ConditionLog::getConditionScore).toList()),
+                roundedAverageInteger(conditions.stream().map(this::energyLevel).toList()),
+                roundedAverageInteger(conditions.stream().map(ConditionLog::getStressScore).toList()),
+                healthSummaries.stream().mapToInt(summary -> value(summary.getExerciseMinutes())).sum(),
+                healthSummaries.stream().mapToInt(summary -> value(summary.getSteps())).sum(),
+                healthSummaries.stream().mapToInt(summary -> value(summary.getActiveCaloriesKcal())).sum(),
+                quests.size()
+        );
+    }
+
+    private List<DateRange> monthRanges(DateRange range) {
+        List<DateRange> monthRanges = new ArrayList<>();
+        LocalDate current = range.startDate().withDayOfMonth(1);
+        while (!current.isAfter(range.endDate())) {
+            LocalDate endOfMonth = current.withDayOfMonth(current.lengthOfMonth());
+            monthRanges.add(new DateRange(current, endOfMonth));
+            current = current.plusMonths(1);
+        }
+        return monthRanges;
+    }
+
+    private List<ConditionLog> conditionsInRange(DateRange range, Map<LocalDate, ConditionLog> conditionsByDate) {
+        return range.dates().stream()
+                .map(conditionsByDate::get)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private List<HealthDailySummary> healthInRange(DateRange range, Map<LocalDate, HealthDailySummary> healthByDate) {
+        return range.dates().stream()
+                .map(healthByDate::get)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private List<UserQuest> questsInRange(DateRange range, Map<LocalDate, List<UserQuest>> questsByDate) {
+        return range.dates().stream()
+                .flatMap(date -> questsByDate.getOrDefault(date, List.of()).stream())
+                .toList();
     }
 
     private RecordStatsSummary summary(Map<LocalDate, ConditionLog> conditionsByDate,
@@ -301,9 +407,10 @@ public class RecordStatsService {
         if (quests.isEmpty()) {
             return "없음";
         }
+        Set<String> seen = new HashSet<>();
         return quests.stream()
                 .map(quest -> exerciseKey(quest).label())
-                .distinct()
+                .filter(seen::add)
                 .collect(Collectors.joining(", "));
     }
 
@@ -394,6 +501,17 @@ public class RecordStatsService {
         return BigDecimal.valueOf(sum).divide(BigDecimal.valueOf(filtered.size()), 1, RoundingMode.HALF_UP);
     }
 
+    private Integer roundedAverageInteger(List<Integer> values) {
+        List<Integer> filtered = values.stream().filter(Objects::nonNull).toList();
+        if (filtered.isEmpty()) {
+            return null;
+        }
+        int sum = filtered.stream().mapToInt(Integer::intValue).sum();
+        return BigDecimal.valueOf(sum)
+                .divide(BigDecimal.valueOf(filtered.size()), 0, RoundingMode.HALF_UP)
+                .intValue();
+    }
+
     private BigDecimal scaleOne(BigDecimal value) {
         return value == null ? null : value.setScale(1, RoundingMode.HALF_UP);
     }
@@ -453,6 +571,10 @@ public class RecordStatsService {
 
     private String dayOfWeekLabel(DayOfWeek dayOfWeek) {
         return labelFor(LocalDate.of(2024, 1, 1).with(TemporalAdjusters.nextOrSame(dayOfWeek)));
+    }
+
+    private String monthLabel(LocalDate date) {
+        return date.getMonthValue() + "월";
     }
 
     private String firstText(Object... values) {
