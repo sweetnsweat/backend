@@ -13,6 +13,7 @@ import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.auth.security.JwtTokenService;
 import com.capstone.backend.condition.repository.ConditionLogRepository;
 import com.capstone.backend.global.exception.ApiException;
+import com.capstone.backend.global.media.MediaUrlResolver;
 import com.capstone.backend.reward.repository.WalletRepository;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
@@ -63,6 +64,9 @@ class AuthServiceTest {
     @Mock
     private AuthMailService authMailService;
 
+    @Mock
+    private MediaUrlResolver mediaUrlResolver;
+
     private AuthService authService;
 
     @BeforeEach
@@ -74,7 +78,8 @@ class AuthServiceTest {
                 walletRepository,
                 passwordEncoder,
                 jwtTokenService,
-                authMailService
+                authMailService,
+                mediaUrlResolver
         );
     }
 

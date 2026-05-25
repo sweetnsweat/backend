@@ -1,5 +1,6 @@
 package com.capstone.backend.auth.dto;
 
+import com.capstone.backend.global.media.MediaUrlResolver;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.reward.policy.LevelPolicy;
 import java.math.BigDecimal;
@@ -49,13 +50,20 @@ public record UserProfileResponse(
     }
 
     public static UserProfileResponse from(User user, boolean todayConditionCompleted, int balanceCurrency) {
+        return from(user, todayConditionCompleted, balanceCurrency, null);
+    }
+
+    public static UserProfileResponse from(User user,
+                                           boolean todayConditionCompleted,
+                                           int balanceCurrency,
+                                           MediaUrlResolver mediaUrlResolver) {
         int totalExp = user.getTotalExp();
         return new UserProfileResponse(
                 user.getId(),
                 user.getEmail(),
                 user.getLoginId(),
                 user.getNickname(),
-                user.getProfileImageUrl(),
+                resolveProfileImageUrl(user.getProfileImageUrl(), mediaUrlResolver),
                 user.getLevel(),
                 totalExp,
                 LevelPolicy.currentLevelExp(totalExp),
@@ -84,5 +92,12 @@ public record UserProfileResponse(
                 user.getPushCompetitionEnabled(),
                 user.getStatus()
         );
+    }
+
+    private static String resolveProfileImageUrl(String profileImageUrl, MediaUrlResolver mediaUrlResolver) {
+        if (mediaUrlResolver == null) {
+            return profileImageUrl;
+        }
+        return mediaUrlResolver.resolve(profileImageUrl);
     }
 }

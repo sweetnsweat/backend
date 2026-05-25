@@ -228,7 +228,7 @@ class ShopControllerTest {
                 .andExpect(jsonPath("$.data.item.itemId").value(itemId))
                 .andExpect(jsonPath("$.data.item.itemType").value("profile"))
                 .andExpect(jsonPath("$.data.item.itemTypeLabel").value("프로필"))
-                .andExpect(jsonPath("$.data.profileImageUrl").value("/media/assets/test_item.png"));
+                .andExpect(jsonPath("$.data.profileImageUrl").value("http://localhost:8000/media/assets/test_item.png"));
 
         String profileImageUrl = jdbcTemplate.queryForObject(
                 "select profile_image_url from users where id = ?",

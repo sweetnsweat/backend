@@ -21,6 +21,7 @@ import com.capstone.backend.battle.repository.BattleMatchQueueRepository;
 import com.capstone.backend.battle.repository.BattleParticipantRepository;
 import com.capstone.backend.battle.repository.BattleRepository;
 import com.capstone.backend.global.exception.ApiException;
+import com.capstone.backend.global.media.MediaUrlResolver;
 import com.capstone.backend.global.time.KoreanTime;
 import com.capstone.backend.health.entity.HealthDailySummary;
 import com.capstone.backend.health.repository.HealthDailySummaryRepository;
@@ -68,6 +69,7 @@ public class BattleService {
     private final RewardService rewardService;
     private final ShopPassEffectService shopPassEffectService;
     private final AchievementBadgeService achievementBadgeService;
+    private final MediaUrlResolver mediaUrlResolver;
 
     public BattleService(BattleRepository battleRepository,
                          BattleMatchQueueRepository battleMatchQueueRepository,
@@ -78,7 +80,8 @@ public class BattleService {
                          NotificationService notificationService,
                          RewardService rewardService,
                          ShopPassEffectService shopPassEffectService,
-                         AchievementBadgeService achievementBadgeService) {
+                         AchievementBadgeService achievementBadgeService,
+                         MediaUrlResolver mediaUrlResolver) {
         this.battleRepository = battleRepository;
         this.battleMatchQueueRepository = battleMatchQueueRepository;
         this.battleParticipantRepository = battleParticipantRepository;
@@ -89,6 +92,7 @@ public class BattleService {
         this.rewardService = rewardService;
         this.shopPassEffectService = shopPassEffectService;
         this.achievementBadgeService = achievementBadgeService;
+        this.mediaUrlResolver = mediaUrlResolver;
     }
 
     @Transactional(readOnly = true)
@@ -306,7 +310,7 @@ public class BattleService {
                 List.of(new BattleParticipantResponse(
                         currentUser.getId(),
                         currentUser.getNickname(),
-                        currentUser.getProfileImageUrl(),
+                        mediaUrlResolver.resolve(currentUser.getProfileImageUrl()),
                         true,
                         myStats.totalScore(),
                         BattleResult.PENDING
@@ -361,7 +365,7 @@ public class BattleService {
                 : new BattleParticipantResponse(
                 opponent.getUser().getId(),
                 opponent.getUser().getNickname(),
-                opponent.getUser().getProfileImageUrl(),
+                mediaUrlResolver.resolve(opponent.getUser().getProfileImageUrl()),
                 false,
                 opponent.getFinalScore(),
                 opponent.getResult()
@@ -406,7 +410,7 @@ public class BattleService {
                     return new BattleParticipantResponse(
                             participant.getUser().getId(),
                             participant.getUser().getNickname(),
-                            participant.getUser().getProfileImageUrl(),
+                            mediaUrlResolver.resolve(participant.getUser().getProfileImageUrl()),
                             participant.getUser().getId().equals(currentUserId),
                             battle.isFinalized() && participant.getFinalScore() != null ? participant.getFinalScore() : stats.totalScore(),
                             battle.isFinalized() ? participant.getResult() : BattleResult.PENDING

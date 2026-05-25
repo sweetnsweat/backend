@@ -163,7 +163,7 @@ public class ShopService {
         }
 
         user.updateProfileSettings(null, item.getImageUrl());
-        return new ShopEquipResponse(PurchasedItemResponse.from(userItem), user.getProfileImageUrl());
+        return new ShopEquipResponse(PurchasedItemResponse.from(userItem), mediaUrlResolver.resolve(user.getProfileImageUrl()));
     }
 
     @Transactional

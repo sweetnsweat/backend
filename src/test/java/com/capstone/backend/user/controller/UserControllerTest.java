@@ -267,7 +267,7 @@ class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("프로필 설정이 저장되었습니다."))
                 .andExpect(jsonPath("$.data.nickname").value("Profile Nick"))
-                .andExpect(jsonPath("$.data.profileImageUrl").value("/media/assets/profile-demo.png"));
+                .andExpect(jsonPath("$.data.profileImageUrl").value("http://localhost:8000/media/assets/profile-demo.png"));
     }
 
     @Test

@@ -14,6 +14,7 @@ import com.capstone.backend.auth.security.AuthUser;
 import com.capstone.backend.auth.security.JwtTokenService;
 import com.capstone.backend.condition.repository.ConditionLogRepository;
 import com.capstone.backend.global.exception.ApiException;
+import com.capstone.backend.global.media.MediaUrlResolver;
 import com.capstone.backend.global.time.KoreanTime;
 import com.capstone.backend.reward.repository.WalletRepository;
 import com.capstone.backend.user.entity.User;
@@ -36,6 +37,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
     private final AuthMailService authMailService;
+    private final MediaUrlResolver mediaUrlResolver;
     private final SecureRandom secureRandom = new SecureRandom();
     private static final char[] TEMP_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789".toCharArray();
     private static final int TEMP_PASSWORD_LENGTH = 10;
@@ -46,7 +48,8 @@ public class AuthService {
                        WalletRepository walletRepository,
                        PasswordEncoder passwordEncoder,
                        JwtTokenService jwtTokenService,
-                       AuthMailService authMailService) {
+                       AuthMailService authMailService,
+                       MediaUrlResolver mediaUrlResolver) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.conditionLogRepository = conditionLogRepository;
@@ -54,6 +57,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
         this.authMailService = authMailService;
+        this.mediaUrlResolver = mediaUrlResolver;
     }
 
     @Transactional
@@ -78,7 +82,7 @@ public class AuthService {
         );
 
         User savedUser = userRepository.save(user);
-        return UserProfileResponse.from(savedUser, false, 0);
+        return UserProfileResponse.from(savedUser, false, 0, mediaUrlResolver);
     }
 
     @Transactional(readOnly = true)
@@ -168,7 +172,7 @@ public class AuthService {
                 tokenPair.accessToken(),
                 tokenPair.refreshToken(),
                 "Bearer",
-                UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()))
+                UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()), mediaUrlResolver)
         );
     }
 

@@ -4,6 +4,7 @@ import com.capstone.backend.auth.dto.UserProfileResponse;
 import com.capstone.backend.condition.entity.ConditionLog;
 import com.capstone.backend.condition.repository.ConditionLogRepository;
 import com.capstone.backend.global.exception.ApiException;
+import com.capstone.backend.global.media.MediaUrlResolver;
 import com.capstone.backend.global.time.KoreanTime;
 import com.capstone.backend.quest.entity.UserQuest;
 import com.capstone.backend.quest.repository.UserQuestRepository;
@@ -66,6 +67,7 @@ public class UserService {
     private final ConditionLogRepository conditionLogRepository;
     private final UserQuestRepository userQuestRepository;
     private final WalletRepository walletRepository;
+    private final MediaUrlResolver mediaUrlResolver;
 
     public UserService(UserRepository userRepository,
                        RoutineRepository routineRepository,
@@ -73,7 +75,8 @@ public class UserService {
                        RoutineItemRepository routineItemRepository,
                        ConditionLogRepository conditionLogRepository,
                        UserQuestRepository userQuestRepository,
-                       WalletRepository walletRepository) {
+                       WalletRepository walletRepository,
+                       MediaUrlResolver mediaUrlResolver) {
         this.userRepository = userRepository;
         this.routineRepository = routineRepository;
         this.routineSessionRepository = routineSessionRepository;
@@ -81,6 +84,7 @@ public class UserService {
         this.conditionLogRepository = conditionLogRepository;
         this.userQuestRepository = userQuestRepository;
         this.walletRepository = walletRepository;
+        this.mediaUrlResolver = mediaUrlResolver;
     }
 
     @Transactional(readOnly = true)
@@ -88,7 +92,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "User not found"));
 
-        return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
+        return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()), mediaUrlResolver);
     }
 
     @Transactional(readOnly = true)
@@ -101,7 +105,7 @@ public class UserService {
                 user.getId(),
                 user.getLoginId(),
                 user.getNickname(),
-                user.getProfileImageUrl(),
+                mediaUrlResolver.resolve(user.getProfileImageUrl()),
                 user.getLevel(),
                 totalExp,
                 LevelPolicy.currentLevelExp(totalExp),
@@ -141,7 +145,7 @@ public class UserService {
             createDefaultTodayConditionIfAbsent(user);
         }
 
-        return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
+        return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()), mediaUrlResolver);
     }
 
     @Transactional
@@ -155,7 +159,7 @@ public class UserService {
 
         user.updateAccountInfo(nickname, email, null);
         user.updateBodyProfile(gender, request.birthDate(), request.heightCm(), request.weightKg());
-        return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
+        return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()), mediaUrlResolver);
     }
 
     @Transactional
@@ -166,7 +170,7 @@ public class UserService {
         validateUniqueAccountInfo(user, nickname, null);
 
         user.updateAccountInfo(nickname, null, null);
-        return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
+        return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()), mediaUrlResolver);
     }
 
     @Transactional
@@ -182,7 +186,7 @@ public class UserService {
         }
 
         user.updateProfileSettings(nickname, profileImageUrl);
-        return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()));
+        return UserProfileResponse.from(user, hasTodayCondition(user.getId()), balanceCurrency(user.getId()), mediaUrlResolver);
     }
 
     @Transactional(readOnly = true)
