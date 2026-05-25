@@ -33,7 +33,6 @@ public class AchievementBadgeService {
     public static final String KIND_ACHIEVEMENT_BADGE = "achievement_badge";
 
     private static final String FIRST_QUEST_COMPLETE = "FIRST_QUEST_COMPLETE";
-    private static final String VERIFIED_QUEST_COMPLETE = "VERIFIED_QUEST_COMPLETE";
     private static final String QUEST_STREAK_3 = "QUEST_STREAK_3";
     private static final String QUEST_10_COMPLETE = "QUEST_10_COMPLETE";
     private static final String FIRST_BATTLE_JOIN = "FIRST_BATTLE_JOIN";
@@ -102,9 +101,6 @@ public class AchievementBadgeService {
         if (completedCount >= 1) {
             awardBadge(userId, FIRST_QUEST_COMPLETE);
         }
-        if (completedQuests.stream().anyMatch(this::isVerifiedQuest)) {
-            awardBadge(userId, VERIFIED_QUEST_COMPLETE);
-        }
         if (completedCount >= QUEST_TOTAL_TARGET) {
             awardBadge(userId, QUEST_10_COMPLETE);
         }
@@ -161,13 +157,6 @@ public class AchievementBadgeService {
 
     private boolean isAchievementBadge(Item item) {
         return item != null && KIND_ACHIEVEMENT_BADGE.equals(stringValue(item.getMetadata().get("kind")));
-    }
-
-    private boolean isVerifiedQuest(UserQuest quest) {
-        Map<String, Object> proof = quest.getProofJson();
-        return Boolean.TRUE.equals(proof.get("battleEligible"))
-                || "VERIFIED".equals(stringValue(proof.get("completionType")))
-                || "VERIFIED".equals(stringValue(proof.get("verificationStatus")));
     }
 
     private int maxConsecutiveDays(List<UserQuest> completedQuests) {

@@ -74,7 +74,6 @@ class AchievementBadgeControllerTest {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = testUser("badgeQuestUser");
         seedBadge("FIRST_QUEST_COMPLETE", "첫 퀘스트 완료", "퀘스트 1회 완료");
-        seedBadge("VERIFIED_QUEST_COMPLETE", "검증 완료", "건강 데이터 검증 퀘스트 1회 완료");
         seedBadge("QUEST_STREAK_3", "3일 연속 달성", "퀘스트 3일 연속 완료");
         seedCompletedQuest(testUser.user(), LocalDate.of(2026, 5, 20), Map.of("battleEligible", true));
         seedCompletedQuest(testUser.user(), LocalDate.of(2026, 5, 21), Map.of());
@@ -84,14 +83,13 @@ class AchievementBadgeControllerTest {
                         .header("Authorization", "Bearer " + testUser.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("배지 지급 상태를 동기화했습니다."))
-                .andExpect(jsonPath("$.data.earnedCount").value(3))
-                .andExpect(jsonPath("$.data.totalCount").value(3))
+                .andExpect(jsonPath("$.data.earnedCount").value(2))
+                .andExpect(jsonPath("$.data.totalCount").value(2))
                 .andExpect(jsonPath("$.data.badges[0].badgeCode").value("FIRST_QUEST_COMPLETE"))
                 .andExpect(jsonPath("$.data.badges[0].earned").value(true))
-                .andExpect(jsonPath("$.data.badges[1].badgeCode").value("VERIFIED_QUEST_COMPLETE"))
+                .andExpect(jsonPath("$.data.badges[1].badgeCode").value("QUEST_STREAK_3"))
                 .andExpect(jsonPath("$.data.badges[1].earned").value(true))
-                .andExpect(jsonPath("$.data.badges[2].badgeCode").value("QUEST_STREAK_3"))
-                .andExpect(jsonPath("$.data.badges[2].earned").value(true));
+                .andExpect(jsonPath("$.data.badges.length()").value(2));
 
         Integer ownedBadgeCount = jdbcTemplate.queryForObject(
                 """
@@ -103,7 +101,7 @@ class AchievementBadgeControllerTest {
                 Integer.class,
                 testUser.userId()
         );
-        assertThat(ownedBadgeCount).isEqualTo(3);
+        assertThat(ownedBadgeCount).isEqualTo(2);
     }
 
     @Test

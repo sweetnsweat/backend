@@ -433,7 +433,6 @@ Authorization: Bearer {accessToken}
 | badgeCode | 이름 | 지급 기준 |
 | --- | --- | --- |
 | `FIRST_QUEST_COMPLETE` | 첫 퀘스트 완료 | 퀘스트 1회 완료 |
-| `VERIFIED_QUEST_COMPLETE` | 검증 완료 | 건강 데이터로 검증된 퀘스트 1회 완료 |
 | `QUEST_STREAK_3` | 3일 연속 달성 | 퀘스트 3일 연속 완료 |
 | `QUEST_10_COMPLETE` | 퀘스트 루키 | 퀘스트 누적 10회 완료 |
 | `FIRST_BATTLE_JOIN` | 첫 배틀 참가 | 배틀 1회 참가 후 결과 확정 |
