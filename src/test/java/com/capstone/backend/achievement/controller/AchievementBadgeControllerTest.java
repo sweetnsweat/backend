@@ -5,9 +5,12 @@ import com.capstone.backend.quest.entity.UserQuest;
 import com.capstone.backend.quest.repository.UserQuestRepository;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +25,7 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -52,6 +56,8 @@ class AchievementBadgeControllerTest {
 
     @MockitoBean
     private StringRedisTemplate redisTemplate;
+
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     @BeforeEach
     void cleanupBefore() {
@@ -123,6 +129,24 @@ class AchievementBadgeControllerTest {
                 .andExpect(jsonPath("$.data.items[0].name").value("첫 배틀 참가"))
                 .andExpect(jsonPath("$.data.items[0].category").value("badge"))
                 .andExpect(jsonPath("$.data.items[0].sellable").value(false));
+    }
+
+    @Test
+    void swaggerIncludesBadgeApis() throws Exception {
+        MvcResult result = mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Map<?, ?> apiDocs = objectMapper.readValue(result.getResponse().getContentAsString(), Map.class);
+        Map<?, ?> paths = (Map<?, ?>) apiDocs.get("paths");
+        java.util.List<?> tags = (java.util.List<?>) apiDocs.get("tags");
+        List<String> tagNames = tags.stream()
+                .map(tag -> String.valueOf(((Map<?, ?>) tag).get("name")))
+                .toList();
+
+        assertThat(paths.containsKey("/api/users/me/badges")).isTrue();
+        assertThat(paths.containsKey("/api/users/me/badges/sync")).isTrue();
+        assertThat(tagNames).contains("배지");
     }
 
     private void seedCompletedQuest(User user, LocalDate questDate, Map<String, Object> proof) {
