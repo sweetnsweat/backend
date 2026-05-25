@@ -110,7 +110,7 @@ class AchievementBadgeControllerTest {
     void shopItemsBadgeFilterSeparatesAchievementBadgesFromPasses() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = testUser("badgeFilterUser");
-        seedItem("pvp_badge", "기록 방어권", 300, true, "{\"effect\":\"최고 기록 보호 · 1회\"}");
+        seedItem("ticket", "경험치 2배권", 200, true, "{\"effect\":\"경험치 2배 · 24시간\"}");
         seedBadge("FIRST_BATTLE_JOIN", "첫 배틀 참가", "배틀 1회 참가 및 결과 확정");
 
         mockMvc.perform(get("/api/shop/items")
@@ -118,7 +118,7 @@ class AchievementBadgeControllerTest {
                         .header("Authorization", "Bearer " + testUser.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(1))
-                .andExpect(jsonPath("$.data.items[0].name").value("기록 방어권"))
+                .andExpect(jsonPath("$.data.items[0].name").value("경험치 2배권"))
                 .andExpect(jsonPath("$.data.items[0].category").value("pass"));
 
         mockMvc.perform(get("/api/shop/items")

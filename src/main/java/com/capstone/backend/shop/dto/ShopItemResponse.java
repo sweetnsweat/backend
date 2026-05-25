@@ -2,6 +2,7 @@ package com.capstone.backend.shop.dto;
 
 import com.capstone.backend.achievement.service.AchievementBadgeService;
 import com.capstone.backend.shop.entity.Item;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.Map;
 
 public record ShopItemResponse(
@@ -15,6 +16,7 @@ public record ShopItemResponse(
         Integer priceCurrency,
         Boolean sellable,
         Boolean owned,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
         Integer ownedQuantity,
         Boolean purchasable,
         Boolean equipped,
@@ -26,18 +28,19 @@ public record ShopItemResponse(
     public static ShopItemResponse from(Item item, int ownedQuantity, int balanceCurrency, String equippedProfileImageUrl) {
         boolean sellable = Boolean.TRUE.equals(item.getSellable());
         Map<String, Object> metadata = item.getMetadata();
+        String category = category(item);
         return new ShopItemResponse(
                 item.getId(),
                 item.getItemType(),
                 itemTypeLabel(item.getItemType()),
-                category(item),
-                categoryLabel(category(item)),
+                category,
+                categoryLabel(category),
                 item.getName(),
                 item.getDescription(),
                 item.getPriceCurrency(),
                 sellable,
                 ownedQuantity > 0,
-                ownedQuantity,
+                "character".equals(category) ? null : ownedQuantity,
                 sellable && balanceCurrency >= item.getPriceCurrency(),
                 ownedQuantity > 0 && item.getImageUrl() != null && item.getImageUrl().equals(equippedProfileImageUrl),
                 Boolean.TRUE.equals(metadata.get("special")),

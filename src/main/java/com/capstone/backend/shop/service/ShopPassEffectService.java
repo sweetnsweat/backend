@@ -28,7 +28,7 @@ public class ShopPassEffectService {
 
     public String effectType(Item item) {
         return switch (item.getName()) {
-            case "EXP 2배권" -> UserItemEffect.EFFECT_EXP_BOOST;
+            case "EXP 2배권", "경험치 2배권" -> UserItemEffect.EFFECT_EXP_BOOST;
             case "기록 방어권" -> UserItemEffect.EFFECT_RECORD_SHIELD;
             case "승률하락 방어권" -> UserItemEffect.EFFECT_WIN_RATE_SHIELD;
             case "배틀 부활권" -> UserItemEffect.EFFECT_BATTLE_RETRY;

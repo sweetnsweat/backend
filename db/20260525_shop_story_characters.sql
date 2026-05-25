@@ -23,6 +23,17 @@ where name in (
     '네오'
 );
 
+update items item
+set is_active = false,
+    is_sellable = false
+where item.item_type in ('skin', 'profile')
+  and not exists (
+      select 1
+      from character_profiles character_profile
+      where btrim(character_profile.name) = item.name
+        and nullif(btrim(character_profile.image_url), '') is not null
+  );
+
 with story_characters as (
     select distinct on (btrim(character_profile.name))
         character_profile.id as character_profile_id,
@@ -101,10 +112,16 @@ from (values
 ) as seed(item_type, name, description, price_currency, is_sellable, image_url, metadata)
 where not exists (select 1 from items where items.name = seed.name);
 
-insert into wallets (user_id, balance_currency, updated_at)
-select id, 1200, now()
-from users
-where status = 'active'
-on conflict (user_id) do update
-set balance_currency = greatest(wallets.balance_currency, excluded.balance_currency),
-    updated_at = now();
+update items item
+set item_type = seed.item_type,
+    description = seed.description,
+    price_currency = seed.price_currency,
+    is_sellable = seed.is_sellable,
+    image_url = seed.image_url,
+    metadata = seed.metadata::jsonb,
+    is_active = true
+from (values
+    ('ticket', '경험치 2배권', '24시간 동안 경험치가 2배로 쌓여요', 200, true, '/media/assets/item_exp_boost.png', '{"special":false,"effect":"경험치 2배 · 24시간","bg":["#fefce8","#fef9c3"]}'),
+    ('ticket', '퀘스트 스킵권', '오늘의 퀘스트를 건너뛸 수 있어요', 150, true, '/media/assets/item_quest_skip.png', '{"special":false,"effect":"퀘스트 스킵 · 1회","bg":["#ede9fe","#f3e8ff"]}')
+) as seed(item_type, name, description, price_currency, is_sellable, image_url, metadata)
+where item.name = seed.name;

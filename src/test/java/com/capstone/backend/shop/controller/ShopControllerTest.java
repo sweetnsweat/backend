@@ -56,11 +56,11 @@ class ShopControllerTest {
     }
 
     @Test
-    void shopItemsReturnBalanceAndOwnedQuantity() throws Exception {
+    void shopItemsReturnBalanceOwnershipAndCharacterEquipState() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = testUser("shopListUser");
-        Long ownedItemId = seedItem("skin", "블루 트레이닝 스킨", 100, true);
-        seedItem("profile", "골드 프로필 프레임", 200, true);
+        Long ownedItemId = seedItem("skin", "카이렌", 100, true);
+        seedItem("skin", "엘리오라", 200, true);
         seedWallet(testUser.userId(), 150);
         seedUserItem(testUser.userId(), ownedItemId, 2);
         jdbcTemplate.update("update users set profile_image_url = '/media/assets/test_item.png' where id = ?", testUser.userId());
@@ -76,12 +76,12 @@ class ShopControllerTest {
                 .andExpect(jsonPath("$.data.items[0].category").value("character"))
                 .andExpect(jsonPath("$.data.items[0].categoryLabel").value("캐릭터"))
                 .andExpect(jsonPath("$.data.items[0].owned").value(true))
-                .andExpect(jsonPath("$.data.items[0].ownedQuantity").value(2))
+                .andExpect(jsonPath("$.data.items[0].ownedQuantity").doesNotExist())
                 .andExpect(jsonPath("$.data.items[0].purchasable").value(true))
                 .andExpect(jsonPath("$.data.items[0].equipped").value(true))
                 .andExpect(jsonPath("$.data.items[0].special").value(false))
                 .andExpect(jsonPath("$.data.items[1].owned").value(false))
-                .andExpect(jsonPath("$.data.items[1].ownedQuantity").value(0))
+                .andExpect(jsonPath("$.data.items[1].ownedQuantity").doesNotExist())
                 .andExpect(jsonPath("$.data.items[1].purchasable").value(false));
     }
 
@@ -89,8 +89,8 @@ class ShopControllerTest {
     void shopItemsSupportTypeFilter() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = testUser("shopFilterUser");
-        seedItem("skin", "블루 트레이닝 스킨", 100, true);
-        seedItem("profile", "골드 프로필 프레임", 80, true);
+        seedItem("skin", "카이렌", 100, true);
+        seedItem("profile", "엘리오라", 80, true);
         seedWallet(testUser.userId(), 200);
 
         mockMvc.perform(get("/api/shop/items")
@@ -102,17 +102,18 @@ class ShopControllerTest {
                 .andExpect(jsonPath("$.data.items[0].itemTypeLabel").value("프로필"))
                 .andExpect(jsonPath("$.data.items[0].category").value("character"))
                 .andExpect(jsonPath("$.data.items[0].categoryLabel").value("캐릭터"))
-                .andExpect(jsonPath("$.data.items[0].name").value("골드 프로필 프레임"));
+                .andExpect(jsonPath("$.data.items[0].name").value("엘리오라"));
     }
 
     @Test
     void shopItemsSupportMobileCategoryFilter() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = testUser("shopMobileCategoryUser");
-        seedItem("skin", "이수연", 0, true);
-        seedItem("profile", "골드 프로필 프레임", 80, true);
-        seedItem("ticket", "퀘스트 스킵권", 150, true);
+        seedItem("skin", "카이렌", 0, true);
+        seedItem("skin", "엘리오라", 80, true);
+        Long passItemId = seedItem("ticket", "퀘스트 스킵권", 150, true);
         seedWallet(testUser.userId(), 200);
+        seedUserItem(testUser.userId(), passItemId, 3);
 
         mockMvc.perform(get("/api/shop/items")
                         .queryParam("type", "character")
@@ -128,14 +129,16 @@ class ShopControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(1))
                 .andExpect(jsonPath("$.data.items[0].category").value("pass"))
-                .andExpect(jsonPath("$.data.items[0].categoryLabel").value("패스"));
+                .andExpect(jsonPath("$.data.items[0].categoryLabel").value("패스"))
+                .andExpect(jsonPath("$.data.items[0].owned").value(true))
+                .andExpect(jsonPath("$.data.items[0].ownedQuantity").value(3));
     }
 
     @Test
     void purchaseItemDebitsWalletAddsInventoryAndLedger() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = testUser("shopPurchaseUser");
-        Long itemId = seedItem("ticket", "스토리 재도전 티켓", 40, true);
+        Long itemId = seedItem("ticket", "경험치 2배권", 40, true);
         seedWallet(testUser.userId(), 150);
         seedUserItem(testUser.userId(), itemId, 1);
 
@@ -182,7 +185,7 @@ class ShopControllerTest {
     void purchaseItemRejectsInsufficientBalance() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = testUser("shopInsufficientUser");
-        Long itemId = seedItem("skin", "블루 트레이닝 스킨", 100, true);
+        Long itemId = seedItem("skin", "카이렌", 100, true);
         seedWallet(testUser.userId(), 50);
 
         mockMvc.perform(post("/api/shop/items/{itemId}/purchase", itemId)
@@ -214,7 +217,7 @@ class ShopControllerTest {
     void equipOwnedImageItemUpdatesProfileImageUrl() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = testUser("shopEquipUser");
-        Long itemId = seedItem("profile", "골드 프로필 프레임", 80, true);
+        Long itemId = seedItem("profile", "카이렌", 80, true);
         seedUserItem(testUser.userId(), itemId, 1);
 
         mockMvc.perform(post("/api/shop/items/{itemId}/equip", itemId)
@@ -238,7 +241,7 @@ class ShopControllerTest {
     void equipItemRequiresOwnership() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = testUser("shopEquipOwnershipUser");
-        Long itemId = seedItem("profile", "골드 프로필 프레임", 80, true);
+        Long itemId = seedItem("profile", "카이렌", 80, true);
 
         mockMvc.perform(post("/api/shop/items/{itemId}/equip", itemId)
                         .header("Authorization", "Bearer " + testUser.accessToken()))
@@ -250,7 +253,7 @@ class ShopControllerTest {
     void equipItemRejectsNonImageEquippableItem() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = testUser("shopEquipConsumableUser");
-        Long itemId = seedItem("consumable", "회복 응원 배지", 30, true);
+        Long itemId = seedItem("ticket", "경험치 2배권", 30, true);
         seedUserItem(testUser.userId(), itemId, 1);
 
         mockMvc.perform(post("/api/shop/items/{itemId}/equip", itemId)
@@ -263,7 +266,7 @@ class ShopControllerTest {
     void useExpBoostPassConsumesInventoryAndActivatesEffect() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = testUser("shopUseExpBoostUser");
-        Long itemId = seedItem("ticket", "EXP 2배권", 200, true);
+        Long itemId = seedItem("ticket", "경험치 2배권", 200, true);
         seedUserItem(testUser.userId(), itemId, 2);
 
         mockMvc.perform(post("/api/shop/items/{itemId}/use", itemId)
@@ -296,7 +299,7 @@ class ShopControllerTest {
     void usePassRequiresOwnership() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         TestUser testUser = testUser("shopUseOwnershipUser");
-        Long itemId = seedItem("ticket", "EXP 2배권", 200, true);
+        Long itemId = seedItem("ticket", "경험치 2배권", 200, true);
 
         mockMvc.perform(post("/api/shop/items/{itemId}/use", itemId)
                         .header("Authorization", "Bearer " + testUser.accessToken()))
