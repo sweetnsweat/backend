@@ -40,6 +40,7 @@ class StoryChatControllerTest {
 
     @BeforeEach
     void cleanup() {
+        jdbcTemplate.update("delete from story_quests");
         jdbcTemplate.update("delete from story_play_logs");
         jdbcTemplate.update("delete from story_progress");
         jdbcTemplate.update("delete from character_profiles");
@@ -130,6 +131,34 @@ class StoryChatControllerTest {
                 .andExpect(jsonPath("$.data.recentMessages[0].outputText").value("두 번째 응답"))
                 .andExpect(jsonPath("$.data.recentMessages[1].userMessage").value("세 번째 입력"))
                 .andExpect(jsonPath("$.data.recentMessages[1].dialogueText").value("세 번째 대사"));
+    }
+
+    @Test
+    void chatIncludesWorkoutQuestMessagesInRecentMessages() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User user = userRepository.save(User.createLocalUser("chatQuestUser", "encoded-password", "Chat Quest User"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+        seedScenarios();
+        seedCharacterProfiles();
+        seedStoryProgress(user.getId());
+        seedStoryPlayLogs(user.getId());
+        seedStoryQuest(user.getId());
+
+        mockMvc.perform(get("/api/stories/chats/1")
+                        .queryParam("messageLimit", "10")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.messageTotalCount").value(4))
+                .andExpect(jsonPath("$.data.hasMoreMessages").value(false))
+                .andExpect(jsonPath("$.data.recentMessages.length()").value(4))
+                .andExpect(jsonPath("$.data.recentMessages[2].role").value("workout_quest"))
+                .andExpect(jsonPath("$.data.recentMessages[2].quest_id").value(11))
+                .andExpect(jsonPath("$.data.recentMessages[2].content").value("스토리용 운동 퀘스트 설명"))
+                .andExpect(jsonPath("$.data.recentMessages[2].workout_quest.title").value("스토리 퀘스트"))
+                .andExpect(jsonPath("$.data.recentMessages[2].workout_quest.source").value("external_quest_today"))
+                .andExpect(jsonPath("$.data.recentMessages[2].workout_quest.quests[0].external_quest_id").value(1321))
+                .andExpect(jsonPath("$.data.recentMessages[3].role").value("story_log"))
+                .andExpect(jsonPath("$.data.recentMessages[3].userMessage").value("세 번째 입력"));
     }
 
     @Test
@@ -230,5 +259,38 @@ class StoryChatControllerTest {
                     (4, ?, 2, 2, null, null, 1, '하륜 입력', '하륜 서술', '하륜 대사', '하륜 응답', timestamp '2026-05-05 11:01:00'),
                     (5, '9999', 1, 1, null, null, 1, '다른 사용자 입력', '다른 사용자 서술', '다른 사용자 대사', '다른 사용자 응답', timestamp '2026-05-05 12:01:00')
                 """, String.valueOf(userId), String.valueOf(userId), String.valueOf(userId), String.valueOf(userId));
+    }
+
+    private void seedStoryQuest(Long userId) {
+        jdbcTemplate.update("""
+                insert into story_quests (
+                    id,
+                    user_key,
+                    scenario_id,
+                    chapter_num,
+                    unit_index,
+                    quest_date,
+                    source,
+                    title,
+                    description,
+                    quest_json,
+                    created_at,
+                    updated_at
+                )
+                values (
+                    11,
+                    ?,
+                    1,
+                    1,
+                    2,
+                    '2026-05-05',
+                    'external_quest_today',
+                    '스토리 퀘스트',
+                    '스토리용 운동 퀘스트 설명',
+                    '[{"quest_name":"깨진 독 훈련","external_quest_id":1321,"target":"1세트 / 1분"}]',
+                    timestamp '2026-05-05 10:02:30',
+                    timestamp '2026-05-05 10:02:30'
+                )
+                """, String.valueOf(userId));
     }
 }
