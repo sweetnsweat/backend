@@ -10,6 +10,7 @@ import com.capstone.backend.user.repository.UserRepository;
 import java.util.List;
 import java.sql.Timestamp;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -118,7 +119,7 @@ class BattleControllerTest {
                 .andExpect(jsonPath("$.data.queuedAt").exists())
                 .andExpect(jsonPath("$.data.participants.length()").value(1))
                 .andExpect(jsonPath("$.data.participants[0].userId").value(opponent.userId()))
-                .andExpect(jsonPath("$.data.participants[0].score").value(779));
+                .andExpect(jsonPath("$.data.participants[0].score").value(0));
 
         mockMvc.perform(post("/api/battles/match")
                         .header("Authorization", "Bearer " + opponent.accessToken())
@@ -164,6 +165,10 @@ class BattleControllerTest {
                 .andExpect(jsonPath("$.data.metrics[1].metricKey").value("ACTIVE_MINUTES"));
 
         Long battleId = jdbcTemplate.queryForObject("select id from battles", Long.class);
+        Timestamp startsAt = jdbcTemplate.queryForObject("select starts_at from battles where id = ?", Timestamp.class, battleId);
+        Timestamp endsAt = jdbcTemplate.queryForObject("select ends_at from battles where id = ?", Timestamp.class, battleId);
+        org.assertj.core.api.Assertions.assertThat(Duration.between(startsAt.toInstant(), endsAt.toInstant()))
+                .isEqualTo(Duration.ofDays(1));
 
         mockMvc.perform(post("/api/battles/match")
                         .header("Authorization", "Bearer " + me.accessToken())
@@ -371,10 +376,12 @@ class BattleControllerTest {
                                 """))
                 .andExpect(status().isOk());
         Long battleId = jdbcTemplate.queryForObject("select id from battles", Long.class);
-        seedCompletedQuest(me.userId(), today, "routine", healthProof(30, 4000, 3000, 200));
-        seedCompletedQuest(opponent.userId(), today, "off_day", healthProof(10, 800, 300, 50));
+        Instant completedAt = KoreanTime.nowInstant().minus(Duration.ofMinutes(30));
+        seedCompletedQuestAt(me.userId(), today, "routine", healthProof(30, 4000, 3000, 200), completedAt);
+        seedCompletedQuestAt(opponent.userId(), today, "off_day", healthProof(10, 800, 300, 50), completedAt);
         jdbcTemplate.update(
-                "update battles set ends_at = ? where id = ?",
+                "update battles set starts_at = ?, ends_at = ? where id = ?",
+                Timestamp.from(KoreanTime.nowInstant().minus(Duration.ofHours(2))),
                 Timestamp.from(KoreanTime.nowInstant().minus(Duration.ofMinutes(1))),
                 battleId
         );
@@ -487,6 +494,10 @@ class BattleControllerTest {
     }
 
     private void seedCompletedQuest(Long userId, LocalDate questDate, String questType, String proofJson) {
+        seedCompletedQuestAt(userId, questDate, questType, proofJson, KoreanTime.nowInstant());
+    }
+
+    private void seedCompletedQuestAt(Long userId, LocalDate questDate, String questType, String proofJson, Instant completedAt) {
         String escapedProofJson = proofJson.replace("'", "''");
         jdbcTemplate.update("""
                 insert into user_quests (
@@ -507,9 +518,9 @@ class BattleControllerTest {
                     quest_context_json,
                     created_at
                 )
-                values (?, ?, ?, 'minutes', '배틀 테스트 퀘스트', '배틀 테스트용 완료 퀘스트입니다.', 10, 10, 'completed', false, 0, 0, CURRENT_TIMESTAMP, JSON '""" + escapedProofJson + """
+                values (?, ?, ?, 'minutes', '배틀 테스트 퀘스트', '배틀 테스트용 완료 퀘스트입니다.', 10, 10, 'completed', false, 0, 0, ?, JSON '""" + escapedProofJson + """
                 ', JSON '{}', CURRENT_TIMESTAMP)
-                """, userId, questDate, questType);
+                """, userId, questDate, questType, Timestamp.from(completedAt));
     }
 
     private void seedHealthDailySummary(Long userId,

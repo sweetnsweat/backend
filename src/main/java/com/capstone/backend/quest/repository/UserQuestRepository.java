@@ -1,6 +1,7 @@
 package com.capstone.backend.quest.repository;
 
 import com.capstone.backend.quest.entity.UserQuest;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -38,13 +39,14 @@ public interface UserQuestRepository extends JpaRepository<UserQuest, Long> {
             select quest
             from UserQuest quest
             where quest.user.id = :userId
-              and quest.questDate between :startDate and :endDate
               and quest.status = 'completed'
-            order by quest.questDate asc
+              and quest.completedAt >= :startsAt
+              and quest.completedAt < :endsAt
+            order by quest.completedAt asc, quest.id asc
             """)
-    List<UserQuest> findCompletedBattleQuests(@Param("userId") Long userId,
-                                              @Param("startDate") LocalDate startDate,
-                                              @Param("endDate") LocalDate endDate);
+    List<UserQuest> findCompletedBattleQuestsInWindow(@Param("userId") Long userId,
+                                                      @Param("startsAt") Instant startsAt,
+                                                      @Param("endsAt") Instant endsAt);
 
     @Query("""
             select quest

@@ -36,11 +36,9 @@ import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.temporal.TemporalAdjusters;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -118,58 +116,58 @@ public class BattleService {
     public BattleDetailResponse match(Long userId, BattleMode mode) {
         User currentUser = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다."));
-        BattlePeriod period = periodFor(mode);
+        Instant now = KoreanTime.nowInstant();
+        BattlePeriod queuePeriod = BattlePeriod.fromStart(mode, now);
 
-        Optional<Battle> currentBattle = findCurrentBattle(userId, mode, period);
+        Optional<Battle> currentBattle = findCurrentBattle(userId, mode, now);
         if (currentBattle.isPresent()) {
             return toDetail(currentBattle.get(), userId);
         }
 
         Optional<BattleMatchQueue> currentWaitingQueue = battleMatchQueueRepository
-                .findByUser_IdAndModeAndPeriodStartDateAndPeriodEndDateAndStatus(
+                .findByUser_IdAndModeAndStatusAndExpiresAtAfter(
                         userId,
                         mode,
-                        period.startDate(),
-                        period.endDate(),
-                        BattleMatchQueueStatus.WAITING
+                        BattleMatchQueueStatus.WAITING,
+                        now
                 );
         if (currentWaitingQueue.isPresent()) {
-            return toWaitingDetail(currentUser, period, currentWaitingQueue.get());
+            return toWaitingDetail(currentUser, BattlePeriod.fromQueue(currentWaitingQueue.get()), currentWaitingQueue.get());
         }
 
         Optional<BattleMatchQueue> opponentQueue = battleMatchQueueRepository.findWaitingOpponents(
                 userId,
                 mode,
-                period.startDate(),
-                period.endDate(),
+                now,
                 PageRequest.of(0, 1)
         ).stream().findFirst();
 
         BattleMatchQueue myQueue = battleMatchQueueRepository.save(BattleMatchQueue.waiting(
                 currentUser,
                 mode,
-                period.startDate(),
-                period.endDate(),
-                period.endsAt()
+                queuePeriod.startDate(),
+                queuePeriod.endDate(),
+                queuePeriod.endsAt()
         ));
         if (opponentQueue.isEmpty()) {
-            return toWaitingDetail(currentUser, period, myQueue);
+            return toWaitingDetail(currentUser, queuePeriod, myQueue);
         }
 
         User opponent = opponentQueue.get().getUser();
         Instant matchedAt = KoreanTime.nowInstant();
+        BattlePeriod battlePeriod = BattlePeriod.fromStart(mode, matchedAt);
         Battle battle = battleRepository.save(Battle.create(
                 mode,
-                period.startDate(),
-                period.endDate(),
+                battlePeriod.startDate(),
+                battlePeriod.endDate(),
                 matchedAt,
-                period.endsAt()
+                battlePeriod.endsAt()
         ));
         List<BattleParticipant> participants = battleParticipantRepository.saveAll(List.of(
                 BattleParticipant.join(battle, currentUser),
                 BattleParticipant.join(battle, opponent)
         ));
-        participants.forEach(participant -> updateBaseline(participant, period));
+        participants.forEach(participant -> updateBaseline(participant, battlePeriod));
         opponentQueue.get().match(battle, matchedAt);
         myQueue.match(battle, matchedAt);
         notificationService.sendBattleMatched(battle, participants);
@@ -218,17 +216,15 @@ public class BattleService {
     }
 
     private Optional<Battle> currentBattle(Long userId, BattleMode mode) {
-        BattlePeriod period = periodFor(mode);
-        return findCurrentBattle(userId, mode, period);
+        return findCurrentBattle(userId, mode, KoreanTime.nowInstant());
     }
 
-    private Optional<Battle> findCurrentBattle(Long userId, BattleMode mode, BattlePeriod period) {
+    private Optional<Battle> findCurrentBattle(Long userId, BattleMode mode, Instant now) {
         return battleRepository.findCurrentBattlesForUser(
                 userId,
                 mode,
-                period.startDate(),
-                period.endDate(),
                 List.of(BattleStatus.ACTIVE),
+                now,
                 PageRequest.of(0, 1)
         ).stream().findFirst();
     }
@@ -424,10 +420,10 @@ public class BattleService {
     }
 
     private BattleStats loadStats(Long userId, BattlePeriod period) {
-        List<UserQuest> quests = userQuestRepository.findCompletedBattleQuests(
+        List<UserQuest> quests = userQuestRepository.findCompletedBattleQuestsInWindow(
                 userId,
-                period.startDate(),
-                period.endDate()
+                period.startsAt(),
+                period.endsAt()
         );
         List<UserQuest> battleEligibleQuests = quests.stream()
                 .filter(this::battleEligible)
@@ -611,16 +607,6 @@ public class BattleService {
         return "Unranked";
     }
 
-    private BattlePeriod periodFor(BattleMode mode) {
-        LocalDate today = KoreanTime.today();
-        if (BattleMode.WEEKLY.equals(mode)) {
-            LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-            LocalDate weekEnd = weekStart.plusDays(6);
-            return BattlePeriod.fromDates(mode, weekStart, weekEnd);
-        }
-        return BattlePeriod.fromDates(mode, today, today);
-    }
-
     private BigDecimal decimal(Object value) {
         if (value instanceof BigDecimal decimal) {
             return decimal;
@@ -639,13 +625,25 @@ public class BattleService {
     }
 
     private record BattlePeriod(BattleMode mode, LocalDate startDate, LocalDate endDate, Instant startsAt, Instant endsAt) {
-        static BattlePeriod fromDates(BattleMode mode, LocalDate startDate, LocalDate endDate) {
+        static BattlePeriod fromStart(BattleMode mode, Instant startsAt) {
+            Duration duration = BattleMode.WEEKLY.equals(mode) ? Duration.ofDays(7) : Duration.ofDays(1);
+            Instant endsAt = startsAt.plus(duration);
             return new BattlePeriod(
                     mode,
-                    startDate,
-                    endDate,
-                    startDate.atStartOfDay(KoreanTime.ZONE_ID).toInstant(),
-                    endDate.plusDays(1).atStartOfDay(KoreanTime.ZONE_ID).toInstant()
+                    startsAt.atZone(KoreanTime.ZONE_ID).toLocalDate(),
+                    endsAt.minusMillis(1).atZone(KoreanTime.ZONE_ID).toLocalDate(),
+                    startsAt,
+                    endsAt
+            );
+        }
+
+        static BattlePeriod fromQueue(BattleMatchQueue queue) {
+            return new BattlePeriod(
+                    queue.getMode(),
+                    queue.getPeriodStartDate(),
+                    queue.getPeriodEndDate(),
+                    queue.getQueuedAt(),
+                    queue.getExpiresAt()
             );
         }
 
