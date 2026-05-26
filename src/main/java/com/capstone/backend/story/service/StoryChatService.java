@@ -2,6 +2,8 @@ package com.capstone.backend.story.service;
 
 import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.global.media.MediaUrlResolver;
+import com.capstone.backend.quest.entity.UserQuest;
+import com.capstone.backend.quest.repository.UserQuestRepository;
 import com.capstone.backend.story.dto.StoryChatCharacterResponse;
 import com.capstone.backend.story.dto.StoryChatDetailResponse;
 import com.capstone.backend.story.dto.StoryChatListResponse;
@@ -15,11 +17,16 @@ import com.capstone.backend.story.repository.CharacterProfileRepository;
 import com.capstone.backend.story.repository.StoryPlayLogRepository;
 import com.capstone.backend.story.repository.StoryProgressRepository;
 import com.capstone.backend.story.repository.StoryQuestRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -27,21 +34,27 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class StoryChatService {
+    private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder()
+            .findAndAddModules()
+            .build();
 
     private final StoryProgressRepository storyProgressRepository;
     private final StoryPlayLogRepository storyPlayLogRepository;
     private final StoryQuestRepository storyQuestRepository;
+    private final UserQuestRepository userQuestRepository;
     private final CharacterProfileRepository characterProfileRepository;
     private final MediaUrlResolver mediaUrlResolver;
 
     public StoryChatService(StoryProgressRepository storyProgressRepository,
                             StoryPlayLogRepository storyPlayLogRepository,
                             StoryQuestRepository storyQuestRepository,
+                            UserQuestRepository userQuestRepository,
                             CharacterProfileRepository characterProfileRepository,
                             MediaUrlResolver mediaUrlResolver) {
         this.storyProgressRepository = storyProgressRepository;
         this.storyPlayLogRepository = storyPlayLogRepository;
         this.storyQuestRepository = storyQuestRepository;
+        this.userQuestRepository = userQuestRepository;
         this.characterProfileRepository = characterProfileRepository;
         this.mediaUrlResolver = mediaUrlResolver;
     }
@@ -92,9 +105,10 @@ public class StoryChatService {
                 scenarioId,
                 PageRequest.of(0, normalizedMessageLimit)
         ));
-        List<StoryChatMessageResponse> recentMessages = mergeMessages(logs, quests, normalizedMessageLimit);
+        List<StoryQuest> visibleQuests = filterIncompleteStoryQuests(userId, quests);
+        List<StoryChatMessageResponse> recentMessages = mergeMessages(logs, visibleQuests, normalizedMessageLimit);
         long messageTotalCount = storyPlayLogRepository.countByUserKeyAndScenarioId(userKey, scenarioId)
-                + storyQuestRepository.countByUserKeyAndScenarioId(userKey, scenarioId);
+                + countVisibleStoryQuests(userId, userKey, scenarioId);
 
         return new StoryChatDetailResponse(
                 StoryChatSummaryResponse.from(progress, representativeCharacter, mediaUrlResolver),
@@ -124,6 +138,87 @@ public class StoryChatService {
             return List.copyOf(messages);
         }
         return List.copyOf(messages.subList(messages.size() - limit, messages.size()));
+    }
+
+    private long countVisibleStoryQuests(Long userId, String userKey, Integer scenarioId) {
+        List<StoryQuest> quests = storyQuestRepository.findByUserKeyAndScenarioIdOrderByCreatedAtDescIdDesc(userKey, scenarioId);
+        return filterIncompleteStoryQuests(userId, quests).size();
+    }
+
+    private List<StoryQuest> filterIncompleteStoryQuests(Long userId, List<StoryQuest> quests) {
+        if (quests.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Integer, Set<Long>> questExternalIds = new LinkedHashMap<>();
+        Set<Long> allExternalIds = new HashSet<>();
+        for (StoryQuest quest : quests) {
+            Set<Long> externalIds = extractExternalQuestIds(quest.getQuestJson());
+            questExternalIds.put(quest.getId(), externalIds);
+            allExternalIds.addAll(externalIds);
+        }
+        if (allExternalIds.isEmpty()) {
+            return List.copyOf(quests);
+        }
+
+        Set<Long> completedQuestIds = new HashSet<>();
+        userQuestRepository.findByUser_IdAndIdIn(userId, new ArrayList<>(allExternalIds)).stream()
+                .filter(quest -> UserQuest.STATUS_COMPLETED.equals(quest.getStatus()))
+                .map(UserQuest::getId)
+                .forEach(completedQuestIds::add);
+
+        return quests.stream()
+                .filter(quest -> {
+                    Set<Long> externalIds = questExternalIds.getOrDefault(quest.getId(), Set.of());
+                    return externalIds.isEmpty() || externalIds.stream().noneMatch(completedQuestIds::contains);
+                })
+                .toList();
+    }
+
+    private Set<Long> extractExternalQuestIds(String rawJson) {
+        if (rawJson == null || rawJson.isBlank()) {
+            return Set.of();
+        }
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(rawJson);
+            Set<Long> ids = new HashSet<>();
+            collectExternalQuestIds(root, ids);
+            return ids;
+        } catch (Exception ignored) {
+            return Set.of();
+        }
+    }
+
+    private void collectExternalQuestIds(JsonNode node, Set<Long> ids) {
+        if (node == null || node.isNull()) {
+            return;
+        }
+        if (node.isObject()) {
+            addExternalQuestId(node.get("external_quest_id"), ids);
+            addExternalQuestId(node.get("externalQuestId"), ids);
+            node.fields().forEachRemaining(entry -> collectExternalQuestIds(entry.getValue(), ids));
+            return;
+        }
+        if (node.isArray()) {
+            node.forEach(child -> collectExternalQuestIds(child, ids));
+        }
+    }
+
+    private void addExternalQuestId(JsonNode node, Set<Long> ids) {
+        if (node == null || node.isNull()) {
+            return;
+        }
+        if (node.isIntegralNumber()) {
+            ids.add(node.longValue());
+            return;
+        }
+        if (node.isTextual()) {
+            try {
+                ids.add(Long.parseLong(node.asText()));
+            } catch (NumberFormatException ignored) {
+                // Ignore AI wrapper values that are not actual user_quests IDs.
+            }
+        }
     }
 
     private Map<Integer, CharacterProfile> representativeCharactersByScenarioId(List<StoryProgress> progresses) {

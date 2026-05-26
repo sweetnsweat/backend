@@ -16,7 +16,10 @@ import com.capstone.backend.condition.repository.ConditionLogRepository;
 import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.global.media.MediaUrlResolver;
 import com.capstone.backend.global.time.KoreanTime;
+import com.capstone.backend.reward.entity.Wallet;
+import com.capstone.backend.reward.entity.WalletTransaction;
 import com.capstone.backend.reward.repository.WalletRepository;
+import com.capstone.backend.reward.repository.WalletTransactionRepository;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import java.security.SecureRandom;
@@ -34,6 +37,7 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final ConditionLogRepository conditionLogRepository;
     private final WalletRepository walletRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
     private final AuthMailService authMailService;
@@ -41,11 +45,13 @@ public class AuthService {
     private final SecureRandom secureRandom = new SecureRandom();
     private static final char[] TEMP_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789".toCharArray();
     private static final int TEMP_PASSWORD_LENGTH = 10;
+    private static final int SIGNUP_BONUS_CURRENCY = 1000;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
                        ConditionLogRepository conditionLogRepository,
                        WalletRepository walletRepository,
+                       WalletTransactionRepository walletTransactionRepository,
                        PasswordEncoder passwordEncoder,
                        JwtTokenService jwtTokenService,
                        AuthMailService authMailService,
@@ -54,6 +60,7 @@ public class AuthService {
         this.refreshTokenRepository = refreshTokenRepository;
         this.conditionLogRepository = conditionLogRepository;
         this.walletRepository = walletRepository;
+        this.walletTransactionRepository = walletTransactionRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
         this.authMailService = authMailService;
@@ -82,7 +89,8 @@ public class AuthService {
         );
 
         User savedUser = userRepository.save(user);
-        return UserProfileResponse.from(savedUser, false, 0, mediaUrlResolver);
+        issueSignupBonus(savedUser);
+        return UserProfileResponse.from(savedUser, false, SIGNUP_BONUS_CURRENCY, mediaUrlResolver);
     }
 
     @Transactional(readOnly = true)
@@ -210,6 +218,13 @@ public class AuthService {
         return walletRepository.findById(userId)
                 .map(wallet -> wallet.getBalanceCurrency())
                 .orElse(0);
+    }
+
+    private void issueSignupBonus(User user) {
+        Wallet wallet = walletRepository.findByUserId(user.getId())
+                .orElseGet(() -> walletRepository.save(Wallet.create(user)));
+        wallet.credit(SIGNUP_BONUS_CURRENCY);
+        walletTransactionRepository.save(WalletTransaction.signupBonus(user, SIGNUP_BONUS_CURRENCY, "회원가입 축하 골드 지급"));
     }
 
     private String issueTemporaryPassword() {

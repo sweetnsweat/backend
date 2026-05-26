@@ -15,6 +15,8 @@ public record NormalizedHealthSample(
         String exerciseType,
         BigDecimal caloriesKcal,
         BigDecimal distanceMeters,
+        BigDecimal strideLengthMeters,
+        BigDecimal speedMetersPerSecond,
         Integer count,
         String customTitle
 ) {

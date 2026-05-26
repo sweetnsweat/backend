@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -52,9 +53,46 @@ class AuthControllerTest {
         jdbcTemplate.update("delete from battle_participants");
         jdbcTemplate.update("delete from battles");
         jdbcTemplate.update("delete from refresh_tokens");
+        jdbcTemplate.update("delete from wallet_transactions");
+        jdbcTemplate.update("delete from wallets");
         jdbcTemplate.update("delete from health_daily_summaries");
 
         jdbcTemplate.update("delete from users");
+    }
+
+    @Test
+    void signupGivesInitialGold() throws Exception {
+        mockMvc.perform(post("/api/auth/signup")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "loginId": "signupGoldUser",
+                                  "password": "password123",
+                                  "nickname": "Signup Gold User",
+                                  "email": "signup-gold@example.com"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.loginId").value("signupGoldUser"))
+                .andExpect(jsonPath("$.data.balanceCurrency").value(1000));
+
+        Long userId = jdbcTemplate.queryForObject("select id from users where login_id = 'signupGoldUser'", Long.class);
+        Integer balance = jdbcTemplate.queryForObject(
+                "select balance_currency from wallets where user_id = ?",
+                Integer.class,
+                userId
+        );
+        Integer transactionAmount = jdbcTemplate.queryForObject("""
+                select amount
+                from wallet_transactions
+                where user_id = ?
+                  and tx_type = 'signup_bonus'
+                  and ref_type = 'signup'
+                  and ref_id = ?
+                """, Integer.class, userId, userId);
+
+        assertThat(balance).isEqualTo(1000);
+        assertThat(transactionAmount).isEqualTo(1000);
     }
 
     @Test

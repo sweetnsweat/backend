@@ -17,6 +17,8 @@ public record HealthMetricSampleRequest(
         String durationUnit,
         BigDecimal calories,
         BigDecimal distanceMeters,
+        BigDecimal strideLengthMeters,
+        BigDecimal speedMetersPerSecond,
         Integer count,
         String customTitle
 ) {

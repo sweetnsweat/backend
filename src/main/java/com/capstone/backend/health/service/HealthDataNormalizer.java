@@ -48,6 +48,8 @@ public class HealthDataNormalizer {
                 request.exerciseType(),
                 request.calories(),
                 request.distanceMeters(),
+                request.strideLengthMeters(),
+                request.speedMetersPerSecond(),
                 request.count(),
                 request.customTitle()
         );

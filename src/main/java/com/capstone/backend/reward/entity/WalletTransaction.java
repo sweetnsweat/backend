@@ -21,8 +21,10 @@ public class WalletTransaction {
     public static final String TX_TYPE_QUEST_REWARD = "quest_reward";
     public static final String TX_TYPE_BATTLE_REWARD = "competition_reward";
     public static final String TX_TYPE_PURCHASE = "purchase";
+    public static final String TX_TYPE_SIGNUP_BONUS = "signup_bonus";
     public static final String REF_TYPE_USER_QUEST = "user_quest";
     public static final String REF_TYPE_BATTLE_WIN = "battle_win";
+    public static final String REF_TYPE_SIGNUP = "signup";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -84,6 +86,17 @@ public class WalletTransaction {
         transaction.txType = TX_TYPE_PURCHASE;
         transaction.amount = -Math.abs(amount);
         transaction.itemId = itemId;
+        transaction.memo = memo;
+        return transaction;
+    }
+
+    public static WalletTransaction signupBonus(User user, int amount, String memo) {
+        WalletTransaction transaction = new WalletTransaction();
+        transaction.user = user;
+        transaction.txType = TX_TYPE_SIGNUP_BONUS;
+        transaction.amount = amount;
+        transaction.refType = REF_TYPE_SIGNUP;
+        transaction.refId = user.getId();
         transaction.memo = memo;
         return transaction;
     }
