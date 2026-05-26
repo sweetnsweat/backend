@@ -40,6 +40,7 @@ class HealthDataControllerTest {
 
     @BeforeEach
     void cleanup() {
+        jdbcTemplate.update("delete from battle_match_queue");
         jdbcTemplate.update("delete from refresh_tokens");
         jdbcTemplate.update("delete from wallet_transactions");
         jdbcTemplate.update("delete from wallets");
