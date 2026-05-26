@@ -1,0 +1,60 @@
+sample=01 time=2026-05-26T17:32:43+09:00
+capstone-backend 313.88% 666.6MiB / 15.36GiB
+postgres-db 49.28% 201.9MiB / 15.36GiB
+redis-cache 1.65% 3.961MiB / 15.36GiB
+sample=02 time=2026-05-26T17:32:51+09:00
+capstone-backend 327.07% 687.7MiB / 15.36GiB
+postgres-db 35.62% 205.3MiB / 15.36GiB
+redis-cache 2.49% 3.961MiB / 15.36GiB
+sample=03 time=2026-05-26T17:32:59+09:00
+capstone-backend 308.97% 694.1MiB / 15.36GiB
+postgres-db 38.55% 205.4MiB / 15.36GiB
+redis-cache 2.47% 4.199MiB / 15.36GiB
+sample=04 time=2026-05-26T17:33:06+09:00
+capstone-backend 306.71% 760.6MiB / 15.36GiB
+postgres-db 47.04% 205.2MiB / 15.36GiB
+redis-cache 2.46% 3.945MiB / 15.36GiB
+sample=05 time=2026-05-26T17:33:14+09:00
+capstone-backend 304.70% 761.2MiB / 15.36GiB
+postgres-db 39.79% 205.2MiB / 15.36GiB
+redis-cache 2.91% 3.949MiB / 15.36GiB
+sample=06 time=2026-05-26T17:33:21+09:00
+capstone-backend 311.01% 763.7MiB / 15.36GiB
+postgres-db 43.42% 204.8MiB / 15.36GiB
+redis-cache 2.66% 3.918MiB / 15.36GiB
+sample=07 time=2026-05-26T17:33:29+09:00
+capstone-backend 308.01% 782.5MiB / 15.36GiB
+postgres-db 45.46% 205.2MiB / 15.36GiB
+redis-cache 2.75% 4.07MiB / 15.36GiB
+sample=08 time=2026-05-26T17:33:36+09:00
+capstone-backend 292.37% 783.6MiB / 15.36GiB
+postgres-db 56.15% 205MiB / 15.36GiB
+redis-cache 2.82% 4.098MiB / 15.36GiB
+sample=09 time=2026-05-26T17:33:44+09:00
+capstone-backend 0.73% 783.5MiB / 15.36GiB
+postgres-db 0.00% 204.5MiB / 15.36GiB
+redis-cache 1.00% 3.711MiB / 15.36GiB
+sample=10 time=2026-05-26T17:33:51+09:00
+capstone-backend 0.70% 782.9MiB / 15.36GiB
+postgres-db 0.09% 204.8MiB / 15.36GiB
+redis-cache 0.97% 3.711MiB / 15.36GiB
+sample=11 time=2026-05-26T17:33:58+09:00
+capstone-backend 0.70% 782.9MiB / 15.36GiB
+postgres-db 0.00% 204.5MiB / 15.36GiB
+redis-cache 0.88% 3.957MiB / 15.36GiB
+sample=12 time=2026-05-26T17:34:06+09:00
+capstone-backend 0.75% 782.9MiB / 15.36GiB
+postgres-db 0.00% 204.5MiB / 15.36GiB
+redis-cache 0.99% 3.961MiB / 15.36GiB
+sample=13 time=2026-05-26T17:34:13+09:00
+capstone-backend 0.78% 793.5MiB / 15.36GiB
+postgres-db 0.02% 201.7MiB / 15.36GiB
+redis-cache 0.98% 3.711MiB / 15.36GiB
+sample=14 time=2026-05-26T17:34:20+09:00
+capstone-backend 0.83% 793.5MiB / 15.36GiB
+postgres-db 0.00% 201.9MiB / 15.36GiB
+redis-cache 0.95% 3.461MiB / 15.36GiB
+sample=15 time=2026-05-26T17:34:27+09:00
+capstone-backend 0.73% 793.2MiB / 15.36GiB
+postgres-db 0.00% 201.8MiB / 15.36GiB
+redis-cache 0.82% 3.461MiB / 15.36GiB
