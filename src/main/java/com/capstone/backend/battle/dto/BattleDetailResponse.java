@@ -19,6 +19,7 @@ public record BattleDetailResponse(
         Instant queuedAt,
         List<BattleParticipantResponse> participants,
         BattleScoreResponse score,
-        List<BattleMetricResponse> metrics
+        List<BattleMetricResponse> metrics,
+        BattleHealthSyncResponse healthSync
 ) {
 }

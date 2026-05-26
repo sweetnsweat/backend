@@ -122,4 +122,8 @@ public class HealthDailySummary {
     public Integer getSampleCount() {
         return sampleCount;
     }
+
+    public Instant getSyncedAt() {
+        return syncedAt;
+    }
 }

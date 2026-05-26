@@ -291,6 +291,7 @@ class BattleControllerTest {
         TestUser opponent = testUser("battleManualHealthOpponent", "상대");
         LocalDate today = KoreanTime.today();
         seedHealthDailySummary(me.userId(), today, 3000, 2000, 150, 20);
+        seedHealthDailySummary(opponent.userId(), today, 1000, 500, 40, 5);
 
         mockMvc.perform(post("/api/battles/match")
                         .header("Authorization", "Bearer " + opponent.accessToken())
@@ -327,7 +328,12 @@ class BattleControllerTest {
                 .andExpect(jsonPath("$.data.metrics[2].myValue").value("1500m"))
                 .andExpect(jsonPath("$.data.metrics[3].myValue").value("2000걸음"))
                 .andExpect(jsonPath("$.data.metrics[4].myValue").value("90kcal"))
-                .andExpect(jsonPath("$.data.metrics[5].myValue").value("1개"));
+                .andExpect(jsonPath("$.data.metrics[5].myValue").value("1개"))
+                .andExpect(jsonPath("$.data.healthSync.required").value(false))
+                .andExpect(jsonPath("$.data.healthSync.recommended").value(false))
+                .andExpect(jsonPath("$.data.healthSync.staleAfterSeconds").value(1800))
+                .andExpect(jsonPath("$.data.participants[0].latestHealthSyncedAt").exists())
+                .andExpect(jsonPath("$.data.participants[1].latestHealthSyncedAt").exists());
     }
 
     @Test
@@ -346,7 +352,9 @@ class BattleControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.matchStatus").value("WAITING"))
                 .andExpect(jsonPath("$.data.participants.length()").value(1))
-                .andExpect(jsonPath("$.data.participants[0].userId").value(me.userId()));
+                .andExpect(jsonPath("$.data.participants[0].userId").value(me.userId()))
+                .andExpect(jsonPath("$.data.healthSync.required").value(true))
+                .andExpect(jsonPath("$.data.healthSync.recommended").value(true));
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.capstone.backend.battle.service;
 import com.capstone.backend.achievement.service.AchievementBadgeService;
 import com.capstone.backend.battle.dto.BattleCurrentSummaryResponse;
 import com.capstone.backend.battle.dto.BattleDetailResponse;
+import com.capstone.backend.battle.dto.BattleHealthSyncResponse;
 import com.capstone.backend.battle.dto.BattleHistoryItemResponse;
 import com.capstone.backend.battle.dto.BattleHistoryPageResponse;
 import com.capstone.backend.battle.dto.BattleMetricResponse;
@@ -40,6 +41,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,6 +58,7 @@ public class BattleService {
     private static final int HISTORY_MAX_SIZE = 100;
     private static final int QUEST_COMPLETION_POINTS = 100;
     private static final int HEALTH_VERIFIED_POINTS = 50;
+    private static final Duration HEALTH_SYNC_STALE_AFTER = Duration.ofMinutes(30);
 
     private final BattleRepository battleRepository;
     private final BattleMatchQueueRepository battleMatchQueueRepository;
@@ -286,7 +289,8 @@ public class BattleService {
                 null,
                 snapshot.participants(),
                 new BattleScoreResponse(snapshot.myStats().totalScore(), snapshot.opponentStats().totalScore(), leadingUserId(snapshot)),
-                metrics(snapshot.myStats(), snapshot.opponentStats())
+                metrics(snapshot.myStats(), snapshot.opponentStats()),
+                healthSync(currentUserId, period)
         );
     }
 
@@ -310,10 +314,12 @@ public class BattleService {
                         mediaUrlResolver.resolve(currentUser.getProfileImageUrl()),
                         true,
                         myStats.totalScore(),
-                        BattleResult.PENDING
+                        BattleResult.PENDING,
+                        latestHealthSyncedAt(currentUser.getId(), period)
                 )),
                 new BattleScoreResponse(myStats.totalScore(), null, null),
-                metrics(myStats, emptyOpponentStats)
+                metrics(myStats, emptyOpponentStats),
+                healthSync(currentUser.getId(), period)
         );
     }
 
@@ -345,8 +351,34 @@ public class BattleService {
                 snapshot.myStats().totalScore(),
                 snapshot.opponentStats().totalScore(),
                 snapshot.participants(),
-                metrics(snapshot.myStats(), snapshot.opponentStats())
+                metrics(snapshot.myStats(), snapshot.opponentStats()),
+                healthSync(currentUserId, period)
         );
+    }
+
+    private BattleHealthSyncResponse healthSync(Long userId, BattlePeriod period) {
+        Instant now = KoreanTime.nowInstant();
+        Instant windowEnd = now.isBefore(period.endsAt()) ? now : period.endsAt();
+        if (windowEnd.isBefore(period.startsAt())) {
+            windowEnd = period.startsAt();
+        }
+        Instant latestSyncedAt = latestHealthSyncedAt(userId, period);
+        boolean required = latestSyncedAt == null || latestSyncedAt.isBefore(period.startsAt());
+        boolean recommended = required || latestSyncedAt.isBefore(windowEnd.minus(HEALTH_SYNC_STALE_AFTER));
+        return new BattleHealthSyncResponse(
+                required,
+                recommended,
+                latestSyncedAt,
+                period.startsAt(),
+                windowEnd,
+                HEALTH_SYNC_STALE_AFTER.toSeconds()
+        );
+    }
+
+    private Instant latestHealthSyncedAt(Long userId, BattlePeriod period) {
+        return healthDailySummaryRepository
+                .findLatestSyncedAtInDateRange(userId, period.startDate(), period.endDate())
+                .orElse(null);
     }
 
     private BattleHistoryItemResponse toHistoryItem(BattleParticipant participant, Long currentUserId) {
@@ -365,7 +397,8 @@ public class BattleService {
                 mediaUrlResolver.resolve(opponent.getUser().getProfileImageUrl()),
                 false,
                 opponent.getFinalScore(),
-                opponent.getResult()
+                opponent.getResult(),
+                latestHealthSyncedAt(opponent.getUser().getId(), BattlePeriod.fromBattle(battle))
         );
         return new BattleHistoryItemResponse(
                 battle.getId(),
@@ -400,6 +433,13 @@ public class BattleService {
                         participant -> participant.getUser().getId(),
                         participant -> loadBattleStats(participant, period)
                 ));
+        Map<Long, Instant> latestHealthSyncedAtByUserId = new HashMap<>();
+        for (BattleParticipant participant : participants) {
+            latestHealthSyncedAtByUserId.put(
+                    participant.getUser().getId(),
+                    latestHealthSyncedAt(participant.getUser().getId(), period)
+            );
+        }
         BattleStats myStats = statsByUserId.get(me.getUser().getId());
         BattleStats opponentStats = statsByUserId.get(opponent.getUser().getId());
         List<BattleParticipantResponse> participantResponses = participants.stream()
@@ -412,7 +452,8 @@ public class BattleService {
                             mediaUrlResolver.resolve(participant.getUser().getProfileImageUrl()),
                             participant.getUser().getId().equals(currentUserId),
                             battle.isFinalized() && participant.getFinalScore() != null ? participant.getFinalScore() : stats.totalScore(),
-                            battle.isFinalized() ? participant.getResult() : BattleResult.PENDING
+                            battle.isFinalized() ? participant.getResult() : BattleResult.PENDING,
+                            latestHealthSyncedAtByUserId.get(participant.getUser().getId())
                     );
                 })
                 .toList();

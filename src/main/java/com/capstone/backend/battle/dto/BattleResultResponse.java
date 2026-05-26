@@ -23,6 +23,7 @@ public record BattleResultResponse(
         Integer myScore,
         Integer opponentScore,
         List<BattleParticipantResponse> participants,
-        List<BattleMetricResponse> metrics
+        List<BattleMetricResponse> metrics,
+        BattleHealthSyncResponse healthSync
 ) {
 }

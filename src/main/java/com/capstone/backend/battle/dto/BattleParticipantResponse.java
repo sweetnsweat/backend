@@ -1,6 +1,7 @@
 package com.capstone.backend.battle.dto;
 
 import com.capstone.backend.battle.entity.BattleResult;
+import java.time.Instant;
 
 public record BattleParticipantResponse(
         Long userId,
@@ -8,6 +9,7 @@ public record BattleParticipantResponse(
         String profileImageUrl,
         boolean me,
         Integer score,
-        BattleResult result
+        BattleResult result,
+        Instant latestHealthSyncedAt
 ) {
 }
