@@ -467,3 +467,51 @@ set exercise_id = excluded.exercise_id,
     sets = excluded.sets,
     duration_sec = excluded.duration_sec,
     rest_sec = excluded.rest_sec;
+
+with beginner_recommended_routines as (
+    select id
+    from routines
+    where is_default = true
+      and is_active = true
+      and (
+          target_experience_level = 'beginner'
+          or difficulty = 'easy'
+          or name like '초급%'
+      )
+)
+update routines r
+set estimated_minutes = 1,
+    updated_at = now()
+where r.id in (select id from beginner_recommended_routines);
+
+with beginner_recommended_routines as (
+    select id
+    from routines
+    where is_default = true
+      and is_active = true
+      and (
+          target_experience_level = 'beginner'
+          or difficulty = 'easy'
+          or name like '초급%'
+      )
+)
+update routine_sessions rs
+set estimated_minutes = 1,
+    updated_at = now()
+where rs.routine_id in (select id from beginner_recommended_routines);
+
+with beginner_recommended_routines as (
+    select id
+    from routines
+    where is_default = true
+      and is_active = true
+      and (
+          target_experience_level = 'beginner'
+          or difficulty = 'easy'
+          or name like '초급%'
+      )
+)
+update routine_items ri
+set duration_sec = 60
+where ri.routine_id in (select id from beginner_recommended_routines)
+  and ri.duration_sec is not null;
