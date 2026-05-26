@@ -14,7 +14,10 @@ import com.capstone.backend.auth.security.JwtTokenService;
 import com.capstone.backend.condition.repository.ConditionLogRepository;
 import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.global.media.MediaUrlResolver;
+import com.capstone.backend.reward.entity.Wallet;
+import com.capstone.backend.reward.entity.WalletTransaction;
 import com.capstone.backend.reward.repository.WalletRepository;
+import com.capstone.backend.reward.repository.WalletTransactionRepository;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import java.time.Instant;
@@ -56,6 +59,9 @@ class AuthServiceTest {
     private WalletRepository walletRepository;
 
     @Mock
+    private WalletTransactionRepository walletTransactionRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock
@@ -76,6 +82,7 @@ class AuthServiceTest {
                 refreshTokenRepository,
                 conditionLogRepository,
                 walletRepository,
+                walletTransactionRepository,
                 passwordEncoder,
                 jwtTokenService,
                 authMailService,
@@ -96,6 +103,8 @@ class AuthServiceTest {
             ReflectionTestUtils.setField(user, "id", 1L);
             return user;
         });
+        when(walletRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(walletRepository.save(any(Wallet.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         UserProfileResponse response = authService.signup(request);
 
@@ -103,12 +112,21 @@ class AuthServiceTest {
         assertEquals("demoUser", response.loginId());
         assertEquals("Demo Nick", response.nickname());
         assertEquals("demo@example.com", response.email());
+        assertEquals(1000, response.balanceCurrency());
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(userCaptor.capture());
         assertEquals("demoUser", userCaptor.getValue().getLoginId());
         assertEquals("encoded-password", userCaptor.getValue().getPasswordHash());
         assertEquals("demo@example.com", userCaptor.getValue().getEmail());
+
+        ArgumentCaptor<Wallet> walletCaptor = ArgumentCaptor.forClass(Wallet.class);
+        verify(walletRepository).save(walletCaptor.capture());
+        assertEquals(1000, walletCaptor.getValue().getBalanceCurrency());
+
+        ArgumentCaptor<WalletTransaction> transactionCaptor = ArgumentCaptor.forClass(WalletTransaction.class);
+        verify(walletTransactionRepository).save(transactionCaptor.capture());
+        assertEquals(1000, transactionCaptor.getValue().getAmount());
     }
 
     @Test
