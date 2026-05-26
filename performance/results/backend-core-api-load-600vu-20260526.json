@@ -1,0 +1,285 @@
+{
+    "root_group": {
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {
+            "setup": {
+                "name": "setup",
+                "path": "::setup",
+                "id": "5c0f8025f7e0b6654089e5b00e950f1a",
+                "groups": {},
+                "checks": {
+                        "login succeeded": {
+                            "path": "::setup::login succeeded",
+                            "id": "a7d4e67a461e12e148d0e432e39a2c96",
+                            "passes": 1,
+                            "fails": 0,
+                            "name": "login succeeded"
+                        }
+                    }
+            }
+        },
+        "checks": {
+            "users_me returned 2xx": {
+                "path": "::users_me returned 2xx",
+                "id": "555920b9e45ffb1b24da78fc24f43531",
+                "passes": 8879,
+                "fails": 0,
+                "name": "users_me returned 2xx"
+            },
+            "shop_character_items returned 2xx": {
+                "name": "shop_character_items returned 2xx",
+                "path": "::shop_character_items returned 2xx",
+                "id": "5adb96c7e24f7035f9477539626b3a69",
+                "passes": 8879,
+                "fails": 0
+            },
+            "world_rankings returned 2xx": {
+                "name": "world_rankings returned 2xx",
+                "path": "::world_rankings returned 2xx",
+                "id": "d1e1854d7b5ad60a5d0024e9fda97a79",
+                "passes": 8879,
+                "fails": 0
+            },
+            "story_chats returned 2xx": {
+                "name": "story_chats returned 2xx",
+                "path": "::story_chats returned 2xx",
+                "id": "030676355b6aed6da03421d6585ea0c9",
+                "passes": 8879,
+                "fails": 0
+            },
+            "routine_today returned 2xx": {
+                "name": "routine_today returned 2xx",
+                "path": "::routine_today returned 2xx",
+                "id": "133cbfd4de7046104687e1b09f9fdaca",
+                "passes": 8879,
+                "fails": 0
+            },
+            "battle_summary returned 2xx": {
+                "passes": 8879,
+                "fails": 0,
+                "name": "battle_summary returned 2xx",
+                "path": "::battle_summary returned 2xx",
+                "id": "55ff806d27b7e9927ad3ef3308558a1f"
+            },
+            "record_stats_weekly returned 2xx": {
+                "fails": 0,
+                "name": "record_stats_weekly returned 2xx",
+                "path": "::record_stats_weekly returned 2xx",
+                "id": "1e005c3636a2fbdbb58470a142213619",
+                "passes": 8879
+            }
+        },
+        "name": ""
+    },
+    "metrics": {
+        "api_success_story_chats": {
+            "fails": 0,
+            "passes": 8879,
+            "value": 1
+        },
+        "api_duration_battle_summary": {
+            "max": 1913.27,
+            "p(90)": 625.0992,
+            "p(95)": 660.9142,
+            "avg": 512.8738362428204,
+            "min": 8.769,
+            "med": 521.151
+        },
+        "api_success_record_stats_weekly": {
+            "passes": 8879,
+            "fails": 0,
+            "value": 1
+        },
+        "api_success_users_me": {
+            "passes": 8879,
+            "fails": 0,
+            "value": 1
+        },
+        "data_sent": {
+            "rate": 389385.1615943254,
+            "count": 24213222
+        },
+        "http_req_waiting": {
+            "avg": 524.9904494320535,
+            "min": 8.747,
+            "med": 527.447,
+            "max": 3152.736,
+            "p(90)": 636.0686000000001,
+            "p(95)": 676.1252
+        },
+        "api_duration_shop_character_items": {
+            "avg": 866.790556932085,
+            "min": 33.806,
+            "med": 760.256,
+            "max": 6582.788,
+            "p(90)": 1206.1268,
+            "p(95)": 1591.2645999999995
+        },
+        "vus": {
+            "value": 151,
+            "min": 151,
+            "max": 600
+        },
+        "api_duration_record_stats_weekly": {
+            "max": 2938.351,
+            "p(90)": 624.6007999999999,
+            "p(95)": 657.3566,
+            "avg": 509.35722558846714,
+            "min": 9.084,
+            "med": 518.929
+        },
+        "checks": {
+            "passes": 62154,
+            "fails": 0,
+            "value": 1
+        },
+        "api_duration_world_rankings": {
+            "avg": 546.0963518414213,
+            "min": 140.896,
+            "med": 537.034,
+            "max": 3152.767,
+            "p(90)": 647.2122,
+            "p(95)": 692.7433999999998
+        },
+        "http_req_duration": {
+            "min": 8.769,
+            "med": 537.2755,
+            "max": 6582.788,
+            "p(90)": 743.0822,
+            "p(95)": 1026.9298999999999,
+            "avg": 581.2013380956975,
+            "thresholds": {
+                "p(95)<800": true
+            }
+        },
+        "data_received": {
+            "count": 466753717,
+            "rate": 7506104.372181323
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 62154,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "api_success_shop_character_items": {
+            "passes": 8879,
+            "fails": 0,
+            "value": 1
+        },
+        "api_duration_routine_today": {
+            "med": 530.286,
+            "max": 5012.485,
+            "p(90)": 637.9218,
+            "p(95)": 676.8045,
+            "avg": 539.2686095280992,
+            "min": 19.977
+        },
+        "api_success_routine_today": {
+            "passes": 8879,
+            "fails": 0,
+            "value": 1
+        },
+        "http_req_connecting": {
+            "avg": 3.0904232068732505,
+            "min": 0,
+            "med": 0,
+            "max": 1166.009,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_req_receiving": {
+            "avg": 56.20309714580151,
+            "min": 0.004,
+            "med": 0.071,
+            "max": 4839.425,
+            "p(90)": 15.063600000000026,
+            "p(95)": 459.8481499999998
+        },
+        "api_success_battle_summary": {
+            "passes": 8879,
+            "fails": 0,
+            "value": 1
+        },
+        "http_req_blocked": {
+            "avg": 3.0936578659457,
+            "min": 0,
+            "med": 0.001,
+            "max": 1166.02,
+            "p(90)": 0.002,
+            "p(95)": 0.003
+        },
+        "http_req_sending": {
+            "avg": 0.007791517842777767,
+            "min": 0.001,
+            "med": 0.002,
+            "max": 49.378,
+            "p(90)": 0.006,
+            "p(95)": 0.008
+        },
+        "iterations": {
+            "count": 8879,
+            "rate": 142.78772357499614
+        },
+        "http_req_duration{expected_response:true}": {
+            "min": 8.769,
+            "med": 537.2755,
+            "max": 6582.788,
+            "p(90)": 743.0822,
+            "p(95)": 1026.9298999999999,
+            "avg": 581.2013380956975
+        },
+        "api_duration_story_chats": {
+            "avg": 586.021880617185,
+            "min": 50.66,
+            "med": 542.216,
+            "max": 4632.354,
+            "p(90)": 732.9594000000001,
+            "p(95)": 993.0729
+        },
+        "api_success_world_rankings": {
+            "passes": 8879,
+            "fails": 0,
+            "value": 1
+        },
+        "api_duration_users_me": {
+            "avg": 508.0563843901328,
+            "min": 16.71,
+            "med": 519.045,
+            "max": 2863.084,
+            "p(90)": 625.5624,
+            "p(95)": 664.6187
+        },
+        "vus_max": {
+            "value": 600,
+            "min": 600,
+            "max": 600
+        },
+        "http_reqs": {
+            "count": 62154,
+            "rate": 999.5301465345545
+        },
+        "http_req_tls_handshaking": {
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0
+        },
+        "iteration_duration": {
+            "p(95)": 5290.523908099999,
+            "avg": 4140.968940807403,
+            "min": 1857.856542,
+            "med": 4042.59725,
+            "max": 10564.254584,
+            "p(90)": 4774.037575
+        }
+    },
+    "setup_data": {
+        "token": "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJjYXBzdG9uZS1iYWNrZW5kIiwic3ViIjoiOCIsImp0aSI6ImU4MTc1MDc4LTk4NjgtNGQyMC1iYmE2LTFjY2U3ZTQ4NjMyNSIsImlhdCI6MTc3OTc4NTE0OCwiZXhwIjoxNzc5Nzg4NzQ4LCJ0eXAiOiJhY2Nlc3MiLCJsb2dpbklkIjoiYWRtaW4xMjMifQ.UmY2L1VLfmytiVQ9YzCNZxqQx-wX2mXeZQKhXYyNy3o"
+    }
+}
