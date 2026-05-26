@@ -10,11 +10,13 @@ import com.capstone.backend.story.dto.StoryChatSummaryResponse;
 import com.capstone.backend.story.entity.CharacterProfile;
 import com.capstone.backend.story.entity.StoryPlayLog;
 import com.capstone.backend.story.entity.StoryProgress;
+import com.capstone.backend.story.entity.StoryQuest;
 import com.capstone.backend.story.repository.CharacterProfileRepository;
 import com.capstone.backend.story.repository.StoryPlayLogRepository;
 import com.capstone.backend.story.repository.StoryProgressRepository;
+import com.capstone.backend.story.repository.StoryQuestRepository;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,15 +30,18 @@ public class StoryChatService {
 
     private final StoryProgressRepository storyProgressRepository;
     private final StoryPlayLogRepository storyPlayLogRepository;
+    private final StoryQuestRepository storyQuestRepository;
     private final CharacterProfileRepository characterProfileRepository;
     private final MediaUrlResolver mediaUrlResolver;
 
     public StoryChatService(StoryProgressRepository storyProgressRepository,
                             StoryPlayLogRepository storyPlayLogRepository,
+                            StoryQuestRepository storyQuestRepository,
                             CharacterProfileRepository characterProfileRepository,
                             MediaUrlResolver mediaUrlResolver) {
         this.storyProgressRepository = storyProgressRepository;
         this.storyPlayLogRepository = storyPlayLogRepository;
+        this.storyQuestRepository = storyQuestRepository;
         this.characterProfileRepository = characterProfileRepository;
         this.mediaUrlResolver = mediaUrlResolver;
     }
@@ -82,8 +87,14 @@ public class StoryChatService {
                 scenarioId,
                 PageRequest.of(0, normalizedMessageLimit)
         ));
-        Collections.reverse(logs);
-        long messageTotalCount = storyPlayLogRepository.countByUserKeyAndScenarioId(userKey, scenarioId);
+        List<StoryQuest> quests = new ArrayList<>(storyQuestRepository.findByUserKeyAndScenarioIdOrderByCreatedAtDescIdDesc(
+                userKey,
+                scenarioId,
+                PageRequest.of(0, normalizedMessageLimit)
+        ));
+        List<StoryChatMessageResponse> recentMessages = mergeMessages(logs, quests, normalizedMessageLimit);
+        long messageTotalCount = storyPlayLogRepository.countByUserKeyAndScenarioId(userKey, scenarioId)
+                + storyQuestRepository.countByUserKeyAndScenarioId(userKey, scenarioId);
 
         return new StoryChatDetailResponse(
                 StoryChatSummaryResponse.from(progress, representativeCharacter, mediaUrlResolver),
@@ -92,11 +103,27 @@ public class StoryChatService {
                         .toList(),
                 normalizedMessageLimit,
                 messageTotalCount,
-                messageTotalCount > logs.size(),
-                logs.stream()
-                        .map(StoryChatMessageResponse::from)
-                        .toList()
+                messageTotalCount > recentMessages.size(),
+                recentMessages
         );
+    }
+
+    private List<StoryChatMessageResponse> mergeMessages(List<StoryPlayLog> logs, List<StoryQuest> quests, int limit) {
+        List<StoryChatMessageResponse> messages = new ArrayList<>(logs.size() + quests.size());
+        messages.addAll(logs.stream()
+                .map(StoryChatMessageResponse::from)
+                .toList());
+        messages.addAll(quests.stream()
+                .map(StoryChatMessageResponse::from)
+                .toList());
+
+        messages.sort(Comparator
+                .comparing(StoryChatMessageResponse::createdAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(StoryChatMessageResponse::id, Comparator.nullsLast(Comparator.naturalOrder())));
+        if (messages.size() <= limit) {
+            return List.copyOf(messages);
+        }
+        return List.copyOf(messages.subList(messages.size() - limit, messages.size()));
     }
 
     private Map<Integer, CharacterProfile> representativeCharactersByScenarioId(List<StoryProgress> progresses) {
