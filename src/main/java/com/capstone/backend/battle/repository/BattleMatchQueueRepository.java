@@ -4,7 +4,7 @@ import com.capstone.backend.battle.entity.BattleMatchQueue;
 import com.capstone.backend.battle.entity.BattleMatchQueueStatus;
 import com.capstone.backend.battle.entity.BattleMode;
 import jakarta.persistence.LockModeType;
-import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
@@ -15,12 +15,11 @@ import org.springframework.data.repository.query.Param;
 
 public interface BattleMatchQueueRepository extends JpaRepository<BattleMatchQueue, Long> {
 
-    Optional<BattleMatchQueue> findByUser_IdAndModeAndPeriodStartDateAndPeriodEndDateAndStatus(
+    Optional<BattleMatchQueue> findByUser_IdAndModeAndStatusAndExpiresAtAfter(
             Long userId,
             BattleMode mode,
-            LocalDate periodStartDate,
-            LocalDate periodEndDate,
-            BattleMatchQueueStatus status
+            BattleMatchQueueStatus status,
+            Instant now
     );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -29,9 +28,8 @@ public interface BattleMatchQueueRepository extends JpaRepository<BattleMatchQue
             from BattleMatchQueue queue
             join fetch queue.user user
             where queue.mode = :mode
-              and queue.periodStartDate = :periodStartDate
-              and queue.periodEndDate = :periodEndDate
               and queue.status = com.capstone.backend.battle.entity.BattleMatchQueueStatus.WAITING
+              and queue.expiresAt > :now
               and user.id <> :userId
               and user.status = 'active'
               and user.loginId not like 'codex_%'
@@ -46,15 +44,13 @@ public interface BattleMatchQueueRepository extends JpaRepository<BattleMatchQue
                   from BattleParticipant participant
                   where participant.user.id = user.id
                     and participant.battle.mode = :mode
-                    and participant.battle.periodStartDate = :periodStartDate
-                    and participant.battle.periodEndDate = :periodEndDate
                     and participant.battle.status = com.capstone.backend.battle.entity.BattleStatus.ACTIVE
+                    and participant.battle.endsAt > :now
               )
             order by queue.queuedAt asc, queue.id asc
             """)
     List<BattleMatchQueue> findWaitingOpponents(@Param("userId") Long userId,
                                                 @Param("mode") BattleMode mode,
-                                                @Param("periodStartDate") LocalDate periodStartDate,
-                                                @Param("periodEndDate") LocalDate periodEndDate,
+                                                @Param("now") Instant now,
                                                 Pageable pageable);
 }
