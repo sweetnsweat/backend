@@ -7,7 +7,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
-import java.time.LocalDate;
 
 @Entity
 @Table(name = "story_quests")
@@ -29,8 +28,8 @@ public class StoryQuest {
     @Column(name = "unit_index", nullable = false)
     private Integer unitIndex;
 
-    @Column(name = "quest_date", nullable = false)
-    private LocalDate questDate;
+    @Column(name = "quest_date", nullable = false, length = 10)
+    private String questDate;
 
     @Column(name = "source", nullable = false, length = 50)
     private String source;
