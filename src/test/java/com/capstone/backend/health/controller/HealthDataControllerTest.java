@@ -139,8 +139,84 @@ class HealthDataControllerTest {
         org.assertj.core.api.Assertions.assertThat(steps).isEqualTo(3200);
     }
 
+    @Test
+    void syncAddsExerciseCaloriesAndEstimatedStepCalories() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        String accessToken = accessTokenFor("stepCaloriesUser");
+
+        mockMvc.perform(post("/api/health-data/sync")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "samples": [
+                                    {
+                                      "source": "health_connect",
+                                      "rawRecordType": "Steps",
+                                      "value": 1000,
+                                      "startTime": "2026-05-15T00:00:00Z",
+                                      "endTime": "2026-05-15T23:59:59Z",
+                                      "dataOrigin": "com.sec.android.app.shealth"
+                                    },
+                                    {
+                                      "source": "health_connect",
+                                      "rawRecordType": "ExerciseSession",
+                                      "value": 30,
+                                      "unit": "minutes",
+                                      "calories": 120,
+                                      "startTime": "2026-05-15T08:00:00Z",
+                                      "endTime": "2026-05-15T08:30:00Z",
+                                      "dataOrigin": "com.sec.android.app.shealth"
+                                    },
+                                    {
+                                      "source": "health_connect",
+                                      "rawRecordType": "TotalCaloriesBurned",
+                                      "value": 45,
+                                      "startTime": "2026-05-15T08:00:00Z",
+                                      "endTime": "2026-05-15T08:30:00Z",
+                                      "dataOrigin": "com.sec.android.app.shealth"
+                                    },
+                                    {
+                                      "source": "health_connect",
+                                      "rawRecordType": "ActiveCaloriesBurned",
+                                      "value": 20,
+                                      "startTime": "2026-05-15T09:00:00Z",
+                                      "endTime": "2026-05-15T09:10:00Z",
+                                      "dataOrigin": "com.sec.android.app.shealth"
+                                    }
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.acceptedSamples").value(4))
+                .andExpect(jsonPath("$.data.countByType.STEPS").value(1))
+                .andExpect(jsonPath("$.data.countByType.EXERCISE_SESSION").value(1))
+                .andExpect(jsonPath("$.data.countByType.TOTAL_CALORIES_BURNED").value(1))
+                .andExpect(jsonPath("$.data.countByType.ACTIVE_CALORIES_BURNED").value(1));
+
+        Long userId = jdbcTemplate.queryForObject("select id from users where login_id = 'stepCaloriesUser'", Long.class);
+        MapRow row = jdbcTemplate.queryForObject("""
+                select steps, distance_meters, active_calories_kcal, exercise_minutes
+                from health_daily_summaries
+                where user_id = ?
+                  and summary_date = date '2026-05-15'
+                """, (rs, rowNum) -> new MapRow(
+                rs.getInt("steps"),
+                rs.getInt("distance_meters"),
+                rs.getInt("active_calories_kcal"),
+                rs.getInt("exercise_minutes")
+        ), userId);
+        org.assertj.core.api.Assertions.assertThat(row.steps()).isEqualTo(1000);
+        org.assertj.core.api.Assertions.assertThat(row.distanceMeters()).isEqualTo(700);
+        org.assertj.core.api.Assertions.assertThat(row.activeCaloriesKcal()).isEqualTo(216);
+        org.assertj.core.api.Assertions.assertThat(row.exerciseMinutes()).isEqualTo(30);
+    }
+
     private String accessTokenFor(String loginId) {
         User user = userRepository.save(User.createLocalUser(loginId, "encoded-password", loginId));
         return jwtTokenService.issueTokenPair(user).accessToken();
+    }
+
+    private record MapRow(int steps, int distanceMeters, int activeCaloriesKcal, int exerciseMinutes) {
     }
 }
