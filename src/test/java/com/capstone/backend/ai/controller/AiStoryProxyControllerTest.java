@@ -329,6 +329,55 @@ class AiStoryProxyControllerTest {
     }
 
     @Test
+    void playHistoryHidesCompletedWorkoutQuestItems() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User user = userRepository.save(User.createLocalUser("aiHistoryCompletedQuestUser", "encoded-password", "aiHistoryCompletedQuestUser"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+        UserQuest quest = UserQuest.create(
+                user,
+                null,
+                null,
+                null,
+                KoreanTime.today(),
+                UserQuest.TYPE_ROUTINE,
+                UserQuest.METRIC_ROUTINE,
+                "매트 필라테스 루틴 완료",
+                "테스트용 완료 퀘스트입니다.",
+                1,
+                false,
+                10,
+                20,
+                Map.of()
+        );
+        quest.complete(1, Map.of("completionType", "VERIFIED"));
+        Long questId = userQuestRepository.saveAndFlush(quest).getId();
+        Map<String, Object> response = Map.of(
+                "items", java.util.List.of(
+                        Map.of("role", "assistant", "character_name", "콩쥐", "content", "이어지는 대사"),
+                        Map.of(
+                                "role", "workout_quest",
+                                "content", "이미 완료된 퀘스트",
+                                "workout_quest", Map.of(
+                                        "quests", java.util.List.of(Map.of(
+                                                "original_routine", Map.of("external_quest_id", questId)
+                                        ))
+                                )
+                        ),
+                        Map.of("role", "choice", "content", "다음 선택지")
+                )
+        );
+        when(aiProxyService.get(any(), eq("Bearer " + accessToken))).thenReturn(response);
+
+        mockMvc.perform(get("/api/stories/play/history")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .queryParam("scenario_id", "100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.items[0].role").value("assistant"))
+                .andExpect(jsonPath("$.data.items[1].role").value("choice"));
+    }
+
+    @Test
     void scenariosProxyForwardsAiScenarioEndpoints() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         String accessToken = accessTokenFor("aiScenarioUser");

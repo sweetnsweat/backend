@@ -7,6 +7,7 @@ import com.capstone.backend.ai.dto.AiStoryPlayStartRequest;
 import com.capstone.backend.ai.dto.AiStoryQuestListRequest;
 import com.capstone.backend.ai.dto.AiStoryQuestTodayRequest;
 import com.capstone.backend.ai.service.AiProxyService;
+import com.capstone.backend.ai.service.AiStoryHistoryFilterService;
 import com.capstone.backend.ai.service.AiStoryQuestStateService;
 import com.capstone.backend.ai.service.AiStoryRequestFactory;
 import com.capstone.backend.auth.security.AuthUser;
@@ -42,13 +43,16 @@ public class AiStoryProxyController {
     private final AiProxyService aiProxyService;
     private final AiStoryRequestFactory aiStoryRequestFactory;
     private final AiStoryQuestStateService aiStoryQuestStateService;
+    private final AiStoryHistoryFilterService aiStoryHistoryFilterService;
 
     public AiStoryProxyController(AiProxyService aiProxyService,
                                   AiStoryRequestFactory aiStoryRequestFactory,
-                                  AiStoryQuestStateService aiStoryQuestStateService) {
+                                  AiStoryQuestStateService aiStoryQuestStateService,
+                                  AiStoryHistoryFilterService aiStoryHistoryFilterService) {
         this.aiProxyService = aiProxyService;
         this.aiStoryRequestFactory = aiStoryRequestFactory;
         this.aiStoryQuestStateService = aiStoryQuestStateService;
+        this.aiStoryHistoryFilterService = aiStoryHistoryFilterService;
     }
 
     @Operation(summary = "AI 서버 상태 확인", description = "백엔드에서 AI 서버 루트 상태 확인 API를 호출합니다.")
@@ -109,10 +113,14 @@ public class AiStoryProxyController {
     public ApiResponse<Object> playHistory(@AuthenticationPrincipal AuthUser authUser,
                                            @Valid @ParameterObject @ModelAttribute AiStoryPlayHistoryRequest request,
                                            HttpServletRequest servletRequest) {
-        return ApiResponse.ok("AI 스토리 대화 히스토리를 조회했습니다.", aiProxyService.get(
+        Object history = aiProxyService.get(
                 aiStoryRequestFactory.historyPath(request, authUser.userId()),
                 authorizationHeader(servletRequest)
-        ));
+        );
+        return ApiResponse.ok(
+                "AI 스토리 대화 히스토리를 조회했습니다.",
+                aiStoryHistoryFilterService.hideCompletedWorkoutQuests(authUser.userId(), history)
+        );
     }
 
     @Operation(summary = "AI 세계관 목록 조회", description = "AI 서버의 세계관 선택용 활성 시나리오 카드 목록을 조회합니다.")
