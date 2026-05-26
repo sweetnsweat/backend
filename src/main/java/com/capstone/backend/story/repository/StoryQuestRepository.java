@@ -9,5 +9,7 @@ public interface StoryQuestRepository extends JpaRepository<StoryQuest, Integer>
 
     List<StoryQuest> findByUserKeyAndScenarioIdOrderByCreatedAtDescIdDesc(String userKey, Integer scenarioId, Pageable pageable);
 
+    List<StoryQuest> findByUserKeyAndScenarioIdOrderByCreatedAtDescIdDesc(String userKey, Integer scenarioId);
+
     long countByUserKeyAndScenarioId(String userKey, Integer scenarioId);
 }

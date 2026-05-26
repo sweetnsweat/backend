@@ -19,6 +19,8 @@ public interface UserQuestRepository extends JpaRepository<UserQuest, Long> {
 
     Optional<UserQuest> findByIdAndUser_Id(Long questId, Long userId);
 
+    List<UserQuest> findByUser_IdAndIdIn(Long userId, List<Long> ids);
+
     @Query("""
             select distinct quest
             from UserQuest quest

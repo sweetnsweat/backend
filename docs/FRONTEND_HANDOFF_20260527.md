@@ -112,3 +112,33 @@ if (latestQuestMessage && !storyQuestCompleted(latestQuestMessage.questData)) {
 ```
 
 기존 `/api/stories/play/history`도 퀘스트를 내려주지만, 채팅방 상세 화면에서 `/api/stories/chats/{scenarioId}`를 사용한다면 이제 이 API 응답만으로도 퀘스트 카드 복원이 가능하다.
+
+## 완료된 스토리 퀘스트 카드 제외
+
+### 변경 API
+
+`GET /api/stories/chats/{scenarioId}?messageLimit=30`
+
+채팅방 입장 정보 조회 시 `story_quests.quest_json` 안의 실제 운동 퀘스트 ID를 확인해서, 연결된 `user_quests.status`가 `completed`인 경우 해당 `workout_quest` 메시지는 `recentMessages`에서 제외된다.
+
+즉 프론트는 완료된 퀘스트 카드를 별도로 숨기기 위해 같은 퀘스트 ID를 다시 조회하거나 필터링하지 않아도 된다.
+
+### 프론트 수정 포인트
+
+- `recentMessages`에 `role === "workout_quest"`가 없으면 현재 채팅방에서 다시 띄울 미완료 퀘스트 카드가 없는 상태로 처리한다.
+- 완료 후 채팅방에 재입장하면 기존 퀘스트 카드는 내려오지 않는 것이 정상 동작이다.
+- 기존에 `activeQuest`를 복원할 때 마지막 퀘스트 메시지를 찾는 로직이 있다면, 이제 응답에 남아있는 `workout_quest`만 대상으로 잡으면 된다.
+
+응답 예시는 일반 대화만 남는 형태다.
+
+```json
+{
+  "messageTotalCount": 3,
+  "hasMoreMessages": false,
+  "recentMessages": [
+    { "role": "story_log", "userMessage": "첫 번째 입력" },
+    { "role": "story_log", "userMessage": "두 번째 입력" },
+    { "role": "story_log", "userMessage": "세 번째 입력" }
+  ]
+}
+```

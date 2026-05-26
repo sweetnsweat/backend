@@ -162,6 +162,30 @@ class StoryChatControllerTest {
     }
 
     @Test
+    void chatDoesNotIncludeCompletedWorkoutQuestMessages() throws Exception {
+        when(redisTemplate.hasKey(anyString())).thenReturn(false);
+        User user = userRepository.save(User.createLocalUser("chatCompletedQuestUser", "encoded-password", "Chat Completed Quest User"));
+        String accessToken = jwtTokenService.issueTokenPair(user).accessToken();
+        seedScenarios();
+        seedCharacterProfiles();
+        seedStoryProgress(user.getId());
+        seedStoryPlayLogs(user.getId());
+        seedCompletedUserQuest(user.getId(), 1321L);
+        seedStoryQuest(user.getId());
+
+        mockMvc.perform(get("/api/stories/chats/1")
+                        .queryParam("messageLimit", "10")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.messageTotalCount").value(3))
+                .andExpect(jsonPath("$.data.hasMoreMessages").value(false))
+                .andExpect(jsonPath("$.data.recentMessages.length()").value(3))
+                .andExpect(jsonPath("$.data.recentMessages[0].role").value("story_log"))
+                .andExpect(jsonPath("$.data.recentMessages[1].role").value("story_log"))
+                .andExpect(jsonPath("$.data.recentMessages[2].role").value("story_log"));
+    }
+
+    @Test
     void chatReturnsNotFoundWhenUserHasNotStartedScenario() throws Exception {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         User user = userRepository.save(User.createLocalUser("chatNotFoundUser", "encoded-password", "Chat Not Found User"));
@@ -292,5 +316,48 @@ class StoryChatControllerTest {
                     timestamp '2026-05-05 10:02:30'
                 )
                 """, String.valueOf(userId));
+    }
+
+    private void seedCompletedUserQuest(Long userId, Long questId) {
+        jdbcTemplate.update("""
+                insert into user_quests (
+                    id,
+                    user_id,
+                    quest_date,
+                    quest_type,
+                    target_metric,
+                    title,
+                    description,
+                    target_value,
+                    progress_value,
+                    status,
+                    condition_adjusted,
+                    reward_currency,
+                    reward_exp,
+                    completed_at,
+                    proof_json,
+                    quest_context_json,
+                    created_at
+                )
+                values (
+                    ?,
+                    ?,
+                    '2026-05-05',
+                    'routine',
+                    'routine',
+                    '완료된 스토리 퀘스트',
+                    '이미 완료된 운동 퀘스트입니다.',
+                    1,
+                    1,
+                    'completed',
+                    false,
+                    0,
+                    0,
+                    timestamp '2026-05-05 10:02:40',
+                    JSON '{}',
+                    JSON '{}',
+                    timestamp '2026-05-05 10:02:00'
+                )
+                """, questId, userId);
     }
 }
