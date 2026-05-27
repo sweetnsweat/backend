@@ -469,9 +469,8 @@ set exercise_id = excluded.exercise_id,
     rest_sec = excluded.rest_sec;
 
 drop table if exists pg_temp.beginner_routine_ids;
-drop table if exists pg_temp.beginner_session_ids;
-drop table if exists pg_temp.beginner_item_rank;
-drop table if exists pg_temp.beginner_session_item_counts;
+drop table if exists pg_temp.beginner_primary_sessions;
+drop table if exists pg_temp.beginner_primary_items;
 
 create temp table beginner_routine_ids as
 select id
@@ -484,67 +483,63 @@ where is_default = true
       or name like '초급%'
   );
 
-create temp table beginner_session_ids as
-select id
-from routine_sessions
-where routine_id in (select id from beginner_routine_ids);
+create temp table beginner_primary_sessions as
+select distinct on (rs.routine_id)
+    rs.routine_id,
+    rs.id as session_id
+from routine_sessions rs
+join beginner_routine_ids br on br.id = rs.routine_id
+order by rs.routine_id, rs.seq, rs.id;
 
-create temp table beginner_item_rank as
-select
-    id,
-    row_number() over (partition by routine_session_id order by seq, id) as rn
-from routine_items
-where routine_session_id in (select id from beginner_session_ids);
+create temp table beginner_primary_items as
+select distinct on (ri.routine_id)
+    ri.routine_id,
+    ri.id as item_id
+from routine_items ri
+join beginner_routine_ids br on br.id = ri.routine_id
+left join beginner_primary_sessions ps on ps.routine_id = ri.routine_id
+order by
+    ri.routine_id,
+    case when ri.routine_session_id = ps.session_id then 0 else 1 end,
+    ri.seq,
+    ri.id;
 
 delete from routine_items ri
-using beginner_item_rank bir
-where ri.id = bir.id
-  and bir.rn > 2;
+using beginner_primary_items keep
+where ri.routine_id = keep.routine_id
+  and ri.id <> keep.item_id;
 
 update routine_items ri
-set seq = bir.rn + 1000
-from beginner_item_rank bir
-where ri.id = bir.id
-  and bir.rn <= 2;
-
-update routine_items ri
-set seq = ranked.rn
-from (
-    select
-        id,
-        row_number() over (partition by routine_session_id order by seq, id) as rn
-    from routine_items
-    where routine_session_id in (select id from beginner_session_ids)
-) ranked
-where ri.id = ranked.id;
-
-create temp table beginner_session_item_counts as
-select
-    routine_session_id,
-    count(*) as item_count
-from routine_items
-where routine_session_id in (select id from beginner_session_ids)
-group by routine_session_id;
-
-update routine_items ri
-set duration_sec = case
-    when counts.item_count <= 1 then 120
-    else 60
-end
-from beginner_session_item_counts counts
-where ri.routine_session_id = counts.routine_session_id;
+set routine_session_id = coalesce(ps.session_id, ri.routine_session_id),
+    seq = 1,
+    reps = null,
+    sets = 1,
+    duration_sec = 60,
+    rest_sec = 0
+from beginner_primary_items keep
+left join beginner_primary_sessions ps on ps.routine_id = keep.routine_id
+where ri.id = keep.item_id;
 
 update routine_sessions rs
-set estimated_minutes = 2,
+set seq = seq + 1000,
+    estimated_minutes = 1,
+    is_active = false,
     updated_at = now()
-where rs.id in (select id from beginner_session_ids);
+where rs.routine_id in (select id from beginner_routine_ids);
+
+update routine_sessions rs
+set seq = 1,
+    estimated_minutes = 1,
+    is_active = true,
+    updated_at = now()
+from beginner_primary_sessions ps
+where rs.id = ps.session_id;
 
 update routines r
-set estimated_minutes = 2,
+set estimated_minutes = 1,
     updated_at = now()
 where r.id in (select id from beginner_routine_ids);
 
-drop table if exists pg_temp.beginner_session_item_counts;
-drop table if exists pg_temp.beginner_item_rank;
-drop table if exists pg_temp.beginner_session_ids;
+drop table if exists pg_temp.beginner_primary_items;
+drop table if exists pg_temp.beginner_primary_sessions;
 drop table if exists pg_temp.beginner_routine_ids;
