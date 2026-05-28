@@ -92,6 +92,18 @@ public class RoutineSession {
         return session;
     }
 
+    public void configureForExhibitionDemo(String dayOfWeek, String sessionName, String sessionType, Integer estimatedMinutes) {
+        this.dayOfWeek = dayOfWeek;
+        this.sessionName = sessionName;
+        this.sessionType = sessionType;
+        this.estimatedMinutes = estimatedMinutes;
+        this.active = true;
+    }
+
+    public void deactivate() {
+        this.active = false;
+    }
+
     @PrePersist
     void onCreate() {
         Instant now = KoreanTime.nowInstant();

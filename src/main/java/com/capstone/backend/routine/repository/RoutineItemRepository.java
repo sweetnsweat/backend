@@ -22,4 +22,8 @@ public interface RoutineItemRepository extends JpaRepository<RoutineItem, Long> 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from RoutineItem item where item.routine.id = :routineId")
     int deleteByRoutineId(@Param("routineId") Long routineId);
+
+    @Modifying(flushAutomatically = true)
+    @Query("delete from RoutineItem item where item.routineSession.id = :routineSessionId")
+    int deleteByRoutineSessionId(@Param("routineSessionId") Long routineSessionId);
 }

@@ -38,9 +38,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class QuestService {
 
     private static final BigDecimal RECOVERY_THRESHOLD = BigDecimal.valueOf(0.80);
-    private static final BigDecimal REDUCE_THRESHOLD = BigDecimal.valueOf(1.00);
     private static final int MANUAL_COMPLETION_REWARD_EXP = 10;
     private static final int MANUAL_COMPLETION_REWARD_CURRENCY = 5;
+    private static final int EXHIBITION_RECOVERY_MINUTES = 1;
+    private static final int EXHIBITION_RECOVERY_SECONDS = 60;
     private static final String COMPLETION_TYPE_VERIFIED = "VERIFIED";
     private static final String COMPLETION_TYPE_MANUAL = "MANUAL";
     private static final String VERIFICATION_STATUS_VERIFIED = "VERIFIED";
@@ -293,13 +294,12 @@ public class QuestService {
     }
 
     private UserQuest offDayQuest(User user, Routine routine, ConditionLog conditionLog, LocalDate today) {
-        BigDecimal multiplier = conditionLog.getExerciseMultiplier();
-        int targetMinutes = multiplier != null && multiplier.compareTo(REDUCE_THRESHOLD) < 0 ? 10 : 15;
-        boolean conditionAdjusted = targetMinutes < 15;
+        int targetMinutes = EXHIBITION_RECOVERY_MINUTES;
+        boolean conditionAdjusted = true;
         Map<String, Object> context = baseContext(routine, null, conditionLog);
-        context.put("recommendedAction", "걷기 또는 스트레칭");
+        context.put("recommendedAction", "가벼운 걷기");
         context.put("exercises", recommendedExerciseContexts(List.of(
-                new RecommendedExercise("걷기, 런닝머신", "유산소", 1, targetMinutes * 60)
+                new RecommendedExercise("걷기, 런닝머신", "유산소", 1, EXHIBITION_RECOVERY_SECONDS)
         )));
         QuestReward reward = QuestRewardPolicy.offDay(targetMinutes);
 
@@ -311,8 +311,8 @@ public class QuestService {
                 today,
                 UserQuest.TYPE_OFF_DAY,
                 UserQuest.METRIC_MINUTES,
-                "오프데이 회복 운동 " + targetMinutes + "분",
-                "오늘은 루틴이 없는 날입니다. 가볍게 걷기 또는 스트레칭을 " + targetMinutes + "분 진행해 주세요.",
+                "오프데이 체험 운동 " + targetMinutes + "분",
+                "오늘은 루틴이 없는 날입니다. 전시 체험을 위해 가볍게 걷기 " + targetMinutes + "분을 진행해 주세요.",
                 targetMinutes,
                 conditionAdjusted,
                 reward.currency(),
@@ -329,7 +329,7 @@ public class QuestService {
         Map<String, Object> context = baseContext(routine, sourceSession, conditionLog);
         context.put("recommendedAction", "가벼운 스트레칭");
         context.put("exercises", recommendedExerciseContexts(List.of(
-                new RecommendedExercise("회복 요가", "요가", 1, 600)
+                new RecommendedExercise("회복 요가", "요가", 1, EXHIBITION_RECOVERY_SECONDS)
         )));
         QuestReward reward = QuestRewardPolicy.recovery();
 
@@ -341,9 +341,9 @@ public class QuestService {
                 today,
                 UserQuest.TYPE_RECOVERY,
                 UserQuest.METRIC_MINUTES,
-                "컨디션 회복 스트레칭 10분",
-                "오늘 컨디션이 낮아 루틴 운동 대신 가벼운 스트레칭 10분으로 조정했습니다.",
-                10,
+                "컨디션 회복 스트레칭 " + EXHIBITION_RECOVERY_MINUTES + "분",
+                "오늘 컨디션이 낮아 전시 체험용 가벼운 스트레칭 " + EXHIBITION_RECOVERY_MINUTES + "분으로 조정했습니다.",
+                EXHIBITION_RECOVERY_MINUTES,
                 true,
                 reward.currency(),
                 reward.exp(),

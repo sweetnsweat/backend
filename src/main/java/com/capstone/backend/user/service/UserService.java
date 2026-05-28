@@ -10,6 +10,8 @@ import com.capstone.backend.quest.entity.UserQuest;
 import com.capstone.backend.quest.repository.UserQuestRepository;
 import com.capstone.backend.reward.policy.LevelPolicy;
 import com.capstone.backend.reward.repository.WalletRepository;
+import com.capstone.backend.exercise.repository.ExerciseRepository;
+import com.capstone.backend.routine.entity.Exercise;
 import com.capstone.backend.routine.dto.RoutineDetailResponse;
 import com.capstone.backend.routine.dto.RoutineSummaryResponse;
 import com.capstone.backend.routine.entity.Routine;
@@ -59,11 +61,15 @@ public class UserService {
     private static final BigDecimal DEFAULT_OFF_DAY_MET = BigDecimal.valueOf(3.0);
     private static final BigDecimal DEFAULT_RECOVERY_MET = BigDecimal.valueOf(2.3);
     private static final int DEFAULT_ROUTINE_MINUTES = 20;
+    private static final int EXHIBITION_DEMO_ROUTINE_MINUTES = 1;
+    private static final int EXHIBITION_DEMO_ROUTINE_SECONDS = 60;
+    private static final String EXHIBITION_DEMO_FALLBACK_EXERCISE = "걷기, 런닝머신";
 
     private final UserRepository userRepository;
     private final RoutineRepository routineRepository;
     private final RoutineSessionRepository routineSessionRepository;
     private final RoutineItemRepository routineItemRepository;
+    private final ExerciseRepository exerciseRepository;
     private final ConditionLogRepository conditionLogRepository;
     private final UserQuestRepository userQuestRepository;
     private final WalletRepository walletRepository;
@@ -73,6 +79,7 @@ public class UserService {
                        RoutineRepository routineRepository,
                        RoutineSessionRepository routineSessionRepository,
                        RoutineItemRepository routineItemRepository,
+                       ExerciseRepository exerciseRepository,
                        ConditionLogRepository conditionLogRepository,
                        UserQuestRepository userQuestRepository,
                        WalletRepository walletRepository,
@@ -81,6 +88,7 @@ public class UserService {
         this.routineRepository = routineRepository;
         this.routineSessionRepository = routineSessionRepository;
         this.routineItemRepository = routineItemRepository;
+        this.exerciseRepository = exerciseRepository;
         this.conditionLogRepository = conditionLogRepository;
         this.userQuestRepository = userQuestRepository;
         this.walletRepository = walletRepository;
@@ -269,6 +277,7 @@ public class UserService {
                 ? copyDefaultRoutineForUser(user, selectedRoutine)
                 : selectedRoutine;
 
+        configureExhibitionTodaySession(activeRoutine);
         user.updateActiveRoutine(activeRoutine);
         return routineDetail(activeRoutine.getId());
     }
@@ -295,6 +304,66 @@ public class UserService {
             routineItemRepository.save(RoutineItem.copyForRoutine(routineCopy, copiedSession, sourceItem));
         }
         return routineCopy;
+    }
+
+    private void configureExhibitionTodaySession(Routine activeRoutine) {
+        String todayDayOfWeek = KoreanTime.today().getDayOfWeek().name();
+        List<RoutineSession> sessions = routineSessionRepository.findByRoutine_IdOrderBySeqAsc(activeRoutine.getId());
+        RoutineSession todaySession = null;
+        int maxSeq = 0;
+        for (RoutineSession session : sessions) {
+            if (session.getSeq() != null) {
+                maxSeq = Math.max(maxSeq, session.getSeq());
+            }
+            if (todayDayOfWeek.equalsIgnoreCase(session.getDayOfWeek())) {
+                if (todaySession == null) {
+                    todaySession = session;
+                } else {
+                    session.deactivate();
+                }
+            }
+        }
+
+        if (todaySession == null) {
+            todaySession = RoutineSession.create(
+                    activeRoutine,
+                    todayDayOfWeek,
+                    "전시 체험 루틴",
+                    "demo",
+                    maxSeq + 1,
+                    EXHIBITION_DEMO_ROUTINE_MINUTES
+            );
+        } else {
+            todaySession.configureForExhibitionDemo(
+                    todayDayOfWeek,
+                    todaySession.getSessionName(),
+                    todaySession.getSessionType(),
+                    EXHIBITION_DEMO_ROUTINE_MINUTES
+            );
+        }
+        RoutineSession savedTodaySession = routineSessionRepository.save(todaySession);
+
+        Exercise exercise = exhibitionExercise(activeRoutine.getId());
+        routineItemRepository.deleteByRoutineSessionId(savedTodaySession.getId());
+        routineItemRepository.save(RoutineItem.create(
+                activeRoutine,
+                savedTodaySession,
+                exercise,
+                1,
+                1,
+                null,
+                EXHIBITION_DEMO_ROUTINE_SECONDS,
+                null
+        ));
+    }
+
+    private Exercise exhibitionExercise(Long routineId) {
+        return routineItemRepository.findWithExerciseByRoutineIdOrderBySeqAsc(routineId).stream()
+                .map(RoutineItem::getExercise)
+                .findFirst()
+                .orElseGet(() -> exerciseRepository.findByNameIn(List.of(EXHIBITION_DEMO_FALLBACK_EXERCISE)).stream()
+                        .findFirst()
+                        .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "EXHIBITION_EXERCISE_NOT_FOUND", "전시용 기본 운동을 찾을 수 없습니다.")));
     }
 
     private RoutineDetailResponse routineDetail(Long routineId) {
