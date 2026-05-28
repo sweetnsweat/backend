@@ -16,10 +16,13 @@ import com.capstone.backend.condition.repository.ConditionLogRepository;
 import com.capstone.backend.global.exception.ApiException;
 import com.capstone.backend.global.media.MediaUrlResolver;
 import com.capstone.backend.global.time.KoreanTime;
+import com.capstone.backend.quest.entity.UserQuest;
+import com.capstone.backend.quest.repository.UserQuestRepository;
 import com.capstone.backend.reward.entity.Wallet;
 import com.capstone.backend.reward.entity.WalletTransaction;
 import com.capstone.backend.reward.repository.WalletRepository;
 import com.capstone.backend.reward.repository.WalletTransactionRepository;
+import com.capstone.backend.reward.service.RewardService;
 import com.capstone.backend.user.entity.User;
 import com.capstone.backend.user.repository.UserRepository;
 import java.security.SecureRandom;
@@ -36,12 +39,14 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final ConditionLogRepository conditionLogRepository;
+    private final UserQuestRepository userQuestRepository;
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
     private final AuthMailService authMailService;
     private final MediaUrlResolver mediaUrlResolver;
+    private final RewardService rewardService;
     private final SecureRandom secureRandom = new SecureRandom();
     private static final char[] TEMP_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789".toCharArray();
     private static final int TEMP_PASSWORD_LENGTH = 10;
@@ -50,21 +55,25 @@ public class AuthService {
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
                        ConditionLogRepository conditionLogRepository,
+                       UserQuestRepository userQuestRepository,
                        WalletRepository walletRepository,
                        WalletTransactionRepository walletTransactionRepository,
                        PasswordEncoder passwordEncoder,
                        JwtTokenService jwtTokenService,
                        AuthMailService authMailService,
-                       MediaUrlResolver mediaUrlResolver) {
+                       MediaUrlResolver mediaUrlResolver,
+                       RewardService rewardService) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.conditionLogRepository = conditionLogRepository;
+        this.userQuestRepository = userQuestRepository;
         this.walletRepository = walletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
         this.authMailService = authMailService;
         this.mediaUrlResolver = mediaUrlResolver;
+        this.rewardService = rewardService;
     }
 
     @Transactional
@@ -194,6 +203,20 @@ public class AuthService {
 
         jwtTokenService.blacklistAccessToken(decodedAccessToken.jti(), decodedAccessToken.expiresAt());
         revokeAllRefreshTokens(authUser.userId());
+        deleteTodayQuestsForExhibition(authUser.userId());
+    }
+
+    private void deleteTodayQuestsForExhibition(Long userId) {
+        List<UserQuest> todayQuests = userQuestRepository.findByUser_IdAndQuestDateOrderByCreatedAtAscIdAsc(userId, KoreanTime.today());
+        if (todayQuests.isEmpty()) {
+            return;
+        }
+        for (UserQuest quest : todayQuests) {
+            if (UserQuest.STATUS_COMPLETED.equals(quest.getStatus())) {
+                rewardService.revokeQuestCompletionRewards(quest);
+            }
+        }
+        userQuestRepository.deleteAll(todayQuests);
     }
 
     private void revokeAllRefreshTokens(Long userId) {
